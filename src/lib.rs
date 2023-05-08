@@ -112,8 +112,9 @@ impl<Pane> Tile<Pane> {
 
 /// The response from [`Behavior::pane_ui`] for a pane.
 #[must_use]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum UiResponse {
+    #[default]
     None,
 
     /// The viewer is being dragged via some element in the Pane

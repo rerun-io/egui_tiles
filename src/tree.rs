@@ -1,5 +1,7 @@
 use egui::{Id, NumExt as _, Rect, Ui};
 
+use crate::Layout;
+
 use super::{
     is_possible_drag, Behavior, Container, DropContext, InsertionPoint, SimplificationOptions,
     SimplifyAction, Tile, TileId, Tiles,
@@ -75,6 +77,32 @@ impl<Pane> Tree<Pane> {
             tiles,
             smoothed_preview_rect: None,
         }
+    }
+
+    pub fn new_tabs(panes: Vec<Pane>) -> Self {
+        Self::new_layout(Layout::Tabs, panes)
+    }
+
+    pub fn new_horizontal(panes: Vec<Pane>) -> Self {
+        Self::new_layout(Layout::Horizontal, panes)
+    }
+
+    pub fn new_vertical(panes: Vec<Pane>) -> Self {
+        Self::new_layout(Layout::Vertical, panes)
+    }
+
+    pub fn new_grid(panes: Vec<Pane>) -> Self {
+        Self::new_layout(Layout::Grid, panes)
+    }
+
+    pub fn new_layout(layout: Layout, panes: Vec<Pane>) -> Self {
+        let mut tiles = Tiles::default();
+        let tile_ids = panes
+            .into_iter()
+            .map(|pane| tiles.insert_pane(pane))
+            .collect();
+        let root = tiles.insert_tile(Tile::Container(Container::new(layout, tile_ids)));
+        Self::new(root, tiles)
     }
 
     pub fn root(&self) -> TileId {

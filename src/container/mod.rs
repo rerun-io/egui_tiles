@@ -37,8 +37,25 @@ pub enum Container {
 }
 
 impl Container {
+    pub fn new(layout: Layout, children: Vec<TileId>) -> Self {
+        match layout {
+            Layout::Tabs => Self::new_tabs(children),
+            Layout::Horizontal => Self::new_horizontal(children),
+            Layout::Vertical => Self::new_vertical(children),
+            Layout::Grid => Self::new_grid(children),
+        }
+    }
+
     pub fn new_linear(dir: LinearDir, children: Vec<TileId>) -> Self {
         Self::Linear(Linear::new(dir, children))
+    }
+
+    pub fn new_horizontal(children: Vec<TileId>) -> Self {
+        Self::new_linear(LinearDir::Horizontal, children)
+    }
+
+    pub fn new_vertical(children: Vec<TileId>) -> Self {
+        Self::new_linear(LinearDir::Vertical, children)
     }
 
     pub fn new_tabs(children: Vec<TileId>) -> Self {
