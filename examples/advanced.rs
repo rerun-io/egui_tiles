@@ -24,23 +24,23 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct View {
+pub struct Pane {
     nr: usize,
 }
 
-impl std::fmt::Debug for View {
+impl std::fmt::Debug for Pane {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("View").field("nr", &self.nr).finish()
     }
 }
 
-impl View {
+impl Pane {
     pub fn with_nr(nr: usize) -> Self {
         Self { nr }
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui) -> egui_tile_tree::UiResponse {
-        let color = egui::epaint::Hsva::new(0.1 * self.nr as f32, 0.5, 0.5, 1.0);
+        let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
         let dragged = ui
             .allocate_rect(ui.max_rect(), egui::Sense::drag())
@@ -107,17 +107,17 @@ impl TreeBehavior {
     }
 }
 
-impl egui_tile_tree::Behavior<View> for TreeBehavior {
+impl egui_tile_tree::Behavior<Pane> for TreeBehavior {
     fn pane_ui(
         &mut self,
         ui: &mut egui::Ui,
         _tile_id: egui_tile_tree::TileId,
-        view: &mut View,
+        view: &mut Pane,
     ) -> egui_tile_tree::UiResponse {
         view.ui(ui)
     }
 
-    fn tab_title_for_pane(&mut self, view: &View) -> egui::WidgetText {
+    fn tab_title_for_pane(&mut self, view: &Pane) -> egui::WidgetText {
         format!("View {}", view.nr).into()
     }
 
@@ -145,7 +145,7 @@ impl egui_tile_tree::Behavior<View> for TreeBehavior {
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct MyApp {
-    tree: egui_tile_tree::Tree<View>,
+    tree: egui_tile_tree::Tree<Pane>,
 
     #[serde(skip)]
     behavior: TreeBehavior,
@@ -158,7 +158,7 @@ impl Default for MyApp {
     fn default() -> Self {
         let mut next_view_nr = 0;
         let mut gen_view = || {
-            let view = View::with_nr(next_view_nr);
+            let view = Pane::with_nr(next_view_nr);
             next_view_nr += 1;
             view
         };
@@ -209,7 +209,7 @@ impl eframe::App for MyApp {
             tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, self.tree.root);
 
             if let Some(parent) = self.behavior.add_child_to.take() {
-                let new_child = self.tree.tiles.insert_pane(View::with_nr(100));
+                let new_child = self.tree.tiles.insert_pane(Pane::with_nr(100));
                 if let Some(egui_tile_tree::Tile::Container(egui_tile_tree::Container::Tabs(
                     tabs,
                 ))) = self.tree.tiles.get_mut(parent)
@@ -241,8 +241,8 @@ impl eframe::App for MyApp {
 
 fn tree_ui(
     ui: &mut egui::Ui,
-    behavior: &mut dyn egui_tile_tree::Behavior<View>,
-    tiles: &mut egui_tile_tree::Tiles<View>,
+    behavior: &mut dyn egui_tile_tree::Behavior<Pane>,
+    tiles: &mut egui_tile_tree::Tiles<Pane>,
     tile_id: egui_tile_tree::TileId,
 ) {
     // Get the name BEFORE we remove the tile below!

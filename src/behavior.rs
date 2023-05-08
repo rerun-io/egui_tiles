@@ -123,7 +123,9 @@ pub trait Behavior<Pane> {
     /// The stroke used for the lines in horizontal, vertical, and grid layouts.
     fn resize_stroke(&self, style: &egui::Style, resize_state: ResizeState) -> Stroke {
         match resize_state {
-            ResizeState::Idle => Stroke::NONE, // Let the gap speak for itself
+            ResizeState::Idle => {
+                Stroke::new(self.gap_width(style), self.tab_bar_color(&style.visuals))
+            }
             ResizeState::Hovering => style.visuals.widgets.hovered.fg_stroke,
             ResizeState::Dragging => style.visuals.widgets.active.fg_stroke,
         }
