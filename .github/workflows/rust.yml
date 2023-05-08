@@ -46,19 +46,19 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --all-features --all-targets
+          args: --all-features --all-targets
 
       - name: check default features
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --all-targets
+          args: --all-targets
 
       - name: check --no-default-features
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --no-default-features --lib --all-targets
+          args: --no-default-features --lib --all-targets
 
       - name: Test doc-tests
         uses: actions-rs/cargo@v1
