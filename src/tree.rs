@@ -1,6 +1,6 @@
 use egui::{Id, NumExt as _, Rect, Ui};
 
-use crate::Layout;
+use crate::{Layout, UiResponse};
 
 use super::{
     is_possible_drag, Behavior, Container, DropContext, InsertionPoint, SimplificationOptions,
@@ -144,10 +144,57 @@ impl<Pane> Tree<Pane> {
             self.root,
         );
 
-        self.tiles
-            .tile_ui(behavior, &mut drop_context, ui, self.root);
+        self.tile_ui(behavior, &mut drop_context, ui, self.root);
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+    }
+
+    pub(super) fn tile_ui(
+        &mut self,
+        behavior: &mut dyn Behavior<Pane>,
+        drop_context: &mut DropContext,
+        ui: &mut Ui,
+        tile_id: TileId,
+    ) {
+        // NOTE: important that we get the rect and tile in two steps,
+        // otherwise we could loose the tile when there is no rect.
+        let Some(rect) = self.tiles.try_rect(tile_id) else {
+            log::warn!("Failed to find rect for tile {tile_id:?} during ui");
+            return
+        };
+        let Some(mut tile) = self.tiles.tiles.remove(&tile_id) else {
+            log::warn!("Failed to find tile {tile_id:?} during ui");
+            return
+        };
+
+        let drop_context_was_enabled = drop_context.enabled;
+        if Some(tile_id) == drop_context.dragged_tile_id {
+            // Can't drag a tile onto self or any children
+            drop_context.enabled = false;
+        }
+        drop_context.on_tile(behavior, ui.style(), tile_id, rect, &tile);
+
+        // Each tile gets its own `Ui`, nested inside each other, with proper clip rectangles.
+        let mut ui = egui::Ui::new(
+            ui.ctx().clone(),
+            ui.layer_id(),
+            ui.id().with(tile_id),
+            rect,
+            rect,
+        );
+        match &mut tile {
+            Tile::Pane(pane) => {
+                if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
+                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
+                }
+            }
+            Tile::Container(container) => {
+                container.ui(self, behavior, drop_context, &mut ui, rect, tile_id);
+            }
+        };
+
+        self.tiles.tiles.insert(tile_id, tile);
+        drop_context.enabled = drop_context_was_enabled;
     }
 
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.

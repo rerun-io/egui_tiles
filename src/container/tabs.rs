@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use egui::{vec2, Rect};
 
 use crate::{
-    is_being_dragged, Behavior, DropContext, InsertionPoint, LayoutInsertion, TileId, Tiles,
+    is_being_dragged, Behavior, DropContext, InsertionPoint, LayoutInsertion, TileId, Tiles, Tree,
 };
 
 /// A container with tabs. Only one tab is open (active) at a time.
@@ -51,19 +51,19 @@ impl Tabs {
 
     pub(super) fn ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
         rect: Rect,
         tile_id: TileId,
     ) {
-        let next_active = self.tab_bar_ui(behavior, ui, rect, tiles, drop_context, tile_id);
+        let next_active = self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id);
 
         // When dragged, don't show it (it is "being held")
         let is_active_being_dragged = is_being_dragged(ui.ctx(), self.active);
         if !is_active_being_dragged {
-            tiles.tile_ui(behavior, drop_context, ui, self.active);
+            tree.tile_ui(behavior, drop_context, ui, self.active);
         }
 
         // We have only laid out the active tab, so we need to switch active tab _after_ the ui pass above:
@@ -73,10 +73,10 @@ impl Tabs {
     /// Returns the next active tab (e.g. the one clicked, or the current).
     fn tab_bar_ui<Pane>(
         &self,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         ui: &mut egui::Ui,
         rect: Rect,
-        tiles: &mut Tiles<Pane>,
         drop_context: &mut DropContext,
         tile_id: TileId,
     ) -> TileId {
@@ -94,12 +94,27 @@ impl Tabs {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
-            behavior.top_bar_rtl_ui(tiles, ui, tile_id, self);
+            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self);
 
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.set_clip_rect(ui.max_rect()); // Don't cover the `rtl_ui` buttons.
+
+                if tile_id != tree.root {
+                    // Make the background behind the buttons draggable (to drag the parent container tile):
+                    if ui
+                        .interact(
+                            ui.max_rect(),
+                            ui.id().with("background"),
+                            egui::Sense::drag(),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Grab)
+                        .drag_started()
+                    {
+                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
+                    }
+                }
 
                 for (i, &child_id) in self.children.iter().enumerate() {
                     let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
@@ -108,7 +123,7 @@ impl Tabs {
                     let id = child_id.id();
 
                     let response =
-                        behavior.tab_ui(tiles, ui, id, child_id, selected, is_being_dragged);
+                        behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
                     let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                     if response.clicked() {
                         next_active = child_id;

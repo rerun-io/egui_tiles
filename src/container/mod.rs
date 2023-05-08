@@ -1,5 +1,7 @@
 use egui::Rect;
 
+use crate::Tree;
+
 use super::{Behavior, DropContext, SimplifyAction, TileId, Tiles};
 
 mod grid;
@@ -202,7 +204,7 @@ impl Container {
 
     pub(super) fn ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
@@ -211,13 +213,13 @@ impl Container {
     ) {
         match self {
             Container::Tabs(tabs) => {
-                tabs.ui(tiles, behavior, drop_context, ui, rect, tile_id);
+                tabs.ui(tree, behavior, drop_context, ui, rect, tile_id);
             }
             Container::Linear(linear) => {
-                linear.ui(tiles, behavior, drop_context, ui, tile_id);
+                linear.ui(tree, behavior, drop_context, ui, tile_id);
             }
             Container::Grid(grid) => {
-                grid.ui(tiles, behavior, drop_context, ui, tile_id);
+                grid.ui(tree, behavior, drop_context, ui, tile_id);
             }
         }
     }

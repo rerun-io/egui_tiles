@@ -3,7 +3,9 @@ use std::collections::{btree_map, hash_map, BTreeMap, HashMap, HashSet};
 use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
 use itertools::Itertools as _;
 
-use crate::{Behavior, DropContext, InsertionPoint, LayoutInsertion, ResizeState, TileId, Tiles};
+use crate::{
+    Behavior, DropContext, InsertionPoint, LayoutInsertion, ResizeState, TileId, Tiles, Tree,
+};
 
 /// Where in a grid?
 #[derive(
@@ -194,14 +196,14 @@ impl Grid {
 
     pub(super) fn ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            tiles.tile_ui(behavior, drop_context, ui, child);
+            tree.tile_ui(behavior, drop_context, ui, child);
         }
 
         // Register drop-zones:
@@ -218,8 +220,8 @@ impl Grid {
             }
         }
 
-        self.resize_columns(tiles, behavior, ui, tile_id);
-        self.resize_rows(tiles, behavior, ui, tile_id);
+        self.resize_columns(&mut tree.tiles, behavior, ui, tile_id);
+        self.resize_rows(&mut tree.tiles, behavior, ui, tile_id);
     }
 
     fn resize_columns<Pane>(

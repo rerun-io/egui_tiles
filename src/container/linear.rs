@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 
 use crate::{
     is_being_dragged, Behavior, DropContext, InsertionPoint, LayoutInsertion, ResizeState, TileId,
-    Tiles,
+    Tiles, Tree,
 };
 
 // ----------------------------------------------------------------------------
@@ -164,21 +164,21 @@ impl Linear {
 
     pub(super) fn ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
         tile_id: TileId,
     ) {
         match self.dir {
-            LinearDir::Horizontal => self.horizontal_ui(tiles, behavior, drop_context, ui, tile_id),
-            LinearDir::Vertical => self.vertical_ui(tiles, behavior, drop_context, ui, tile_id),
+            LinearDir::Horizontal => self.horizontal_ui(tree, behavior, drop_context, ui, tile_id),
+            LinearDir::Vertical => self.vertical_ui(tree, behavior, drop_context, ui, tile_id),
         }
     }
 
     fn horizontal_ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
@@ -186,11 +186,11 @@ impl Linear {
     ) {
         for &child in &self.children {
             if !is_being_dragged(ui.ctx(), child) {
-                tiles.tile_ui(behavior, drop_context, ui, child);
+                tree.tile_ui(behavior, drop_context, ui, child);
             }
         }
 
-        linear_drop_zones(ui.ctx(), tiles, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, LayoutInsertion::Horizontal(i)),
                 rect,
@@ -200,12 +200,12 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tiles.rect(parent_id);
+        let parent_rect = tree.tiles.rect(parent_id);
         for (i, (left, right)) in self.children.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize", i));
 
-            let left_rect = tiles.rect(left);
-            let right_rect = tiles.rect(right);
+            let left_rect = tree.tiles.rect(left);
+            let right_rect = tree.tiles.rect(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
@@ -226,7 +226,7 @@ impl Linear {
                     [left, right],
                     ui.painter().round_to_pixel(pointer.x) - x,
                     i,
-                    |tile_id: TileId| tiles.rect(tile_id).width(),
+                    |tile_id: TileId| tree.tiles.rect(tile_id).width(),
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -241,7 +241,7 @@ impl Linear {
 
     fn vertical_ui<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
         ui: &mut egui::Ui,
@@ -249,11 +249,11 @@ impl Linear {
     ) {
         for &child in &self.children {
             if !is_being_dragged(ui.ctx(), child) {
-                tiles.tile_ui(behavior, drop_context, ui, child);
+                tree.tile_ui(behavior, drop_context, ui, child);
             }
         }
 
-        linear_drop_zones(ui.ctx(), tiles, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, LayoutInsertion::Vertical(i)),
                 rect,
@@ -263,12 +263,12 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tiles.rect(parent_id);
+        let parent_rect = tree.tiles.rect(parent_id);
         for (i, (top, bottom)) in self.children.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize", i));
 
-            let top_rect = tiles.rect(top);
-            let bottom_rect = tiles.rect(bottom);
+            let top_rect = tree.tiles.rect(top);
+            let bottom_rect = tree.tiles.rect(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
@@ -289,7 +289,7 @@ impl Linear {
                     [top, bottom],
                     ui.painter().round_to_pixel(pointer.y) - y,
                     i,
-                    |tile_id: TileId| tiles.rect(tile_id).height(),
+                    |tile_id: TileId| tree.tiles.rect(tile_id).height(),
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -385,7 +385,7 @@ fn shrink_shares<Pane>(
 
 fn linear_drop_zones<Pane>(
     egui_ctx: &egui::Context,
-    tiles: &Tiles<Pane>,
+    tree: &Tree<Pane>,
     children: &[TileId],
     dir: LinearDir,
     add_drop_drect: impl FnMut(Rect, usize),
@@ -411,7 +411,7 @@ fn linear_drop_zones<Pane>(
         children,
         dragged_index,
         dir,
-        |tile_id| tiles.rect(tile_id),
+        |tile_id| tree.tiles.rect(tile_id),
         add_drop_drect,
         after_rect,
     );
