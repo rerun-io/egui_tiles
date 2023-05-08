@@ -26,8 +26,8 @@ Supports:
 ---
 
 <div align="center">
-<img src="media/rerun_io_logo.png" width="50%">
+<img src="https://user-images.githubusercontent.com/1148717/236840584-f4795fb3-89e3-40ac-b570-ac2869e6e8fa.png" width="50%">
 
-egui development is sponsored by [Rerun](https://www.rerun.io/), a startup doing<br>
+`egui_tile_tree` development is sponsored by [Rerun](https://www.rerun.io/), a startup doing<br>
 visualizations for computer vision and robotics.
 </div>
