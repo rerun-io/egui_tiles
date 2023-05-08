@@ -141,14 +141,14 @@ pub trait Behavior<Pane> {
         if visuals.dark_mode {
             Color32::BLACK
         } else {
-            (Rgba::from(visuals.window_fill()) * Rgba::from_gray(0.8)).into()
+            (Rgba::from(visuals.panel_fill) * Rgba::from_gray(0.8)).into()
         }
     }
 
     /// The background color of a tab.
     fn tab_bg_color(&self, visuals: &Visuals, _tile_id: TileId, active: bool) -> Color32 {
         if active {
-            visuals.window_fill() // same as the tab contents
+            visuals.panel_fill // same as the tab contents
         } else {
             Color32::TRANSPARENT // fade into background
         }
