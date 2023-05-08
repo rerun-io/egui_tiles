@@ -94,7 +94,7 @@ impl Tabs {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
-            behavior.top_bar_rtl_ui(ui, tile_id);
+            behavior.top_bar_rtl_ui(tiles, ui, tile_id, self);
 
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 

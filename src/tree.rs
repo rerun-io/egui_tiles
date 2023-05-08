@@ -71,6 +71,10 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
 // ----------------------------------------------------------------------------
 
 impl<Pane> Tree<Pane> {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
     pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
         Self {
             root,
@@ -109,20 +113,6 @@ impl<Pane> Tree<Pane> {
         self.root
     }
 
-    pub fn parent_of(&self, tile_id: TileId) -> Option<TileId> {
-        self.tiles
-            .tiles
-            .iter()
-            .find(|(_, tile)| {
-                if let Tile::Container(container) = tile {
-                    container.children().contains(&tile_id)
-                } else {
-                    false
-                }
-            })
-            .map(|(id, _)| *id)
-    }
-
     /// Show the tree in the given [`Ui`].
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
@@ -158,6 +148,13 @@ impl<Pane> Tree<Pane> {
             .tile_ui(behavior, &mut drop_context, ui, self.root);
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+    }
+
+    /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
+    ///
+    /// This means making the matching tiles and its ancestors the active tab in any tab layout.
+    pub fn make_active(&mut self, should_activate: impl Fn(&Tile<Pane>) -> bool) {
+        self.tiles.make_active(self.root, &should_activate);
     }
 
     fn preview_dragged_tile(

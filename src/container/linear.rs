@@ -88,6 +88,17 @@ impl Linear {
         }
     }
 
+    pub fn new_binary(dir: LinearDir, children: [TileId; 2], fraction: f32) -> Self {
+        let mut slf = Self {
+            children: children.into(),
+            dir,
+            ..Default::default()
+        };
+        slf.shares[children[0]] = fraction;
+        slf.shares[children[0]] = 1.0 - fraction;
+        slf
+    }
+
     pub fn add_child(&mut self, child: TileId) {
         self.children.push(child);
     }

@@ -100,6 +100,13 @@ pub enum Tile<Pane> {
     Container(Container),
 }
 
+impl<T> From<Container> for Tile<T> {
+    #[inline]
+    fn from(container: Container) -> Self {
+        Self::Container(container)
+    }
+}
+
 impl<Pane> Tile<Pane> {
     /// Returns `None` if this is a [`Self::Pane`].
     fn layout(&self) -> Option<Layout> {
@@ -107,6 +114,14 @@ impl<Pane> Tile<Pane> {
             Tile::Pane(_) => None,
             Tile::Container(container) => Some(container.layout()),
         }
+    }
+
+    pub fn is_pane(&self) -> bool {
+        matches!(self, Self::Pane(_))
+    }
+
+    pub fn is_container(&self) -> bool {
+        matches!(self, Self::Container(_))
     }
 }
 

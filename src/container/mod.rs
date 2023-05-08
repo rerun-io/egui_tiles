@@ -36,6 +36,27 @@ pub enum Container {
     Grid(Grid),
 }
 
+impl From<Tabs> for Container {
+    #[inline]
+    fn from(tabs: Tabs) -> Self {
+        Self::Tabs(tabs)
+    }
+}
+
+impl From<Linear> for Container {
+    #[inline]
+    fn from(linear: Linear) -> Self {
+        Self::Linear(linear)
+    }
+}
+
+impl From<Grid> for Container {
+    #[inline]
+    fn from(grid: Grid) -> Self {
+        Self::Grid(grid)
+    }
+}
+
 impl Container {
     pub fn new(layout: Layout, children: Vec<TileId>) -> Self {
         match layout {
@@ -158,9 +179,7 @@ impl Container {
             }),
         }
     }
-}
 
-impl Container {
     pub(super) fn layout_recursive<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
@@ -180,9 +199,7 @@ impl Container {
             Container::Grid(grid) => grid.layout(tiles, style, behavior, rect),
         }
     }
-}
 
-impl Container {
     pub(super) fn ui<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,

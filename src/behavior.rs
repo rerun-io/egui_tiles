@@ -78,7 +78,18 @@ pub trait Behavior<Pane> {
             );
         }
 
+        self.on_tab_button(tiles, tile_id, &response);
+
         response
+    }
+
+    /// Called by the default implementation of [`Self::tab_ui`] for each added button
+    fn on_tab_button(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _tile_id: TileId,
+        _button_response: &Response,
+    ) {
     }
 
     /// Return `false` if this pane should be removed from its parent.
@@ -91,7 +102,13 @@ pub trait Behavior<Pane> {
     /// You can use this to, for instance, add a button for adding new tabs.
     ///
     /// The widgets will be added right-to-left.
-    fn top_bar_rtl_ui(&mut self, _ui: &mut Ui, _tile_id: TileId) {
+    fn top_bar_rtl_ui(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _ui: &mut Ui,
+        _tile_id: TileId,
+        _tabs: &crate::Tabs,
+    ) {
         // if ui.button("➕").clicked() {
         // }
     }

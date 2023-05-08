@@ -60,8 +60,8 @@ impl<Pane> Tiles<Pane> {
     }
 
     #[must_use]
-    pub fn insert_container(&mut self, contaioner: Container) -> TileId {
-        self.insert_tile(Tile::Container(contaioner))
+    pub fn insert_container(&mut self, contaioner: impl Into<Container>) -> TileId {
+        self.insert_tile(Tile::Container(contaioner.into()))
     }
 
     #[must_use]
@@ -88,6 +88,21 @@ impl<Pane> Tiles<Pane> {
     #[must_use]
     pub fn insert_grid_tile(&mut self, children: Vec<TileId>) -> TileId {
         self.insert_tile(Tile::Container(Container::new_grid(children)))
+    }
+
+    pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
+        for (tile_id, tile) in &self.tiles {
+            if let Tile::Container(container) = tile {
+                if container.children().contains(&child_id) {
+                    return Some(*tile_id);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn is_root(&self, tile_id: TileId) -> bool {
+        self.parent_of(tile_id).is_none()
     }
 
     pub(super) fn insert(&mut self, insertion_point: InsertionPoint, child_id: TileId) {
@@ -355,5 +370,38 @@ impl<Pane> Tiles<Pane> {
         }
 
         self.tiles.insert(it, tile);
+    }
+
+    pub(super) fn make_active(
+        &mut self,
+        it: TileId,
+        should_activate: &dyn Fn(&Tile<Pane>) -> bool,
+    ) -> bool {
+        let Some(mut tile) = self.tiles.remove(&it) else {
+            log::warn!("Failed to find tile {it:?} during make_active");
+            return false;
+        };
+
+        let mut activate = should_activate(&tile);
+
+        if let Tile::Container(container) = &mut tile {
+            let mut active_child = None;
+            for &child in container.children() {
+                if self.make_active(child, should_activate) {
+                    active_child = Some(child);
+                }
+            }
+
+            if let Some(active_child) = active_child {
+                if let Container::Tabs(tabs) = container {
+                    tabs.set_active(active_child);
+                }
+            }
+
+            activate |= active_child.is_some();
+        }
+
+        self.tiles.insert(it, tile);
+        activate
     }
 }
