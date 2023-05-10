@@ -25,7 +25,7 @@ impl<Pane> Default for Tree<Pane> {
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Print a hiearchical view of the tree:
+        // Print a hierarchical view of the tree:
         fn format_tile<Pane: std::fmt::Debug>(
             f: &mut std::fmt::Formatter<'_>,
             tiles: &Tiles<Pane>,
