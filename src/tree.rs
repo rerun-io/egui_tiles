@@ -1,4 +1,4 @@
-use egui::{Id, NumExt as _, Rect, Ui};
+use egui::{NumExt as _, Rect, Ui};
 
 use crate::{Layout, UiResponse};
 
@@ -12,10 +12,6 @@ use super::{
 pub struct Tree<Pane> {
     pub root: TileId,
     pub tiles: Tiles<Pane>,
-
-    /// Smoothed average of preview
-    #[serde(skip)]
-    smoothed_preview_rect: Option<Rect>, // TODO: move to `egui_ctx.data`
 }
 
 impl<Pane> Default for Tree<Pane> {
@@ -23,7 +19,6 @@ impl<Pane> Default for Tree<Pane> {
         Self {
             root: Default::default(),
             tiles: Default::default(),
-            smoothed_preview_rect: None,
         }
     }
 }
@@ -76,11 +71,7 @@ impl<Pane> Tree<Pane> {
     }
 
     pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
-        Self {
-            root,
-            tiles,
-            smoothed_preview_rect: None,
-        }
+        Self { root, tiles }
     }
 
     pub fn new_tabs(panes: Vec<Pane>) -> Self {
@@ -210,76 +201,56 @@ impl<Pane> Tree<Pane> {
         drop_context: &DropContext,
         ui: &mut Ui,
     ) {
-        if let (Some(mouse_pos), Some(dragged_tile_id)) =
-            (drop_context.mouse_pos, drop_context.dragged_tile_id)
-        {
-            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
+        let (Some(mouse_pos), Some(dragged_tile_id)) =
+            (drop_context.mouse_pos, drop_context.dragged_tile_id) else { return; };
 
-            // Preview what is being dragged:
-            egui::Area::new(Id::new((dragged_tile_id, "preview")))
-                .pivot(egui::Align2::CENTER_CENTER)
-                .current_pos(mouse_pos)
-                .interactable(false)
-                .show(ui.ctx(), |ui| {
-                    let mut frame = egui::Frame::popup(ui.style());
-                    frame.fill = frame.fill.gamma_multiply(0.5); // Make see-through
-                    frame.show(ui, |ui| {
-                        // TODO(emilk): preview contents?
-                        let text = behavior.tab_title_for_tile(&self.tiles, dragged_tile_id);
-                        ui.label(text);
-                    });
+        ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
+
+        // Preview what is being dragged:
+        egui::Area::new(egui::Id::new((dragged_tile_id, "preview")))
+            .pivot(egui::Align2::CENTER_CENTER)
+            .current_pos(mouse_pos)
+            .interactable(false)
+            .show(ui.ctx(), |ui| {
+                let mut frame = egui::Frame::popup(ui.style());
+                frame.fill = frame.fill.gamma_multiply(0.5); // Make see-through
+                frame.show(ui, |ui| {
+                    // TODO(emilk): preview contents?
+                    let text = behavior.tab_title_for_tile(&self.tiles, dragged_tile_id);
+                    ui.label(text);
                 });
+            });
 
-            if let Some(preview_rect) = drop_context.preview_rect {
-                let preview_rect = self.smooth_preview_rect(ui.ctx(), preview_rect);
+        if let Some(preview_rect) = drop_context.preview_rect {
+            let preview_rect = smooth_preview_rect(ui.ctx(), dragged_tile_id, preview_rect);
 
-                let parent_rect = drop_context
-                    .best_insertion
-                    .and_then(|insertion_point| self.tiles.try_rect(insertion_point.parent_id));
+            let parent_rect = drop_context
+                .best_insertion
+                .and_then(|insertion_point| self.tiles.try_rect(insertion_point.parent_id));
 
-                behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
+            behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
 
-                if behavior.preview_dragged_panes() {
-                    // TODO(emilk): add support for previewing containers too.
-                    if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
-                        if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
-                            let _ = behavior.pane_ui(
-                                &mut ui.child_ui(preview_rect, *ui.layout()),
-                                dragged_tile_id,
-                                pane,
-                            );
-                        }
+            if behavior.preview_dragged_panes() {
+                // TODO(emilk): add support for previewing containers too.
+                if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
+                    if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
+                        let _ = behavior.pane_ui(
+                            &mut ui.child_ui(preview_rect, *ui.layout()),
+                            dragged_tile_id,
+                            pane,
+                        );
                     }
                 }
             }
+        }
 
-            if ui.input(|i| i.pointer.any_released()) {
-                ui.memory_mut(|mem| mem.stop_dragging());
-                if let Some(insertion_point) = drop_context.best_insertion {
-                    self.move_tile(dragged_tile_id, insertion_point);
-                }
-                self.smoothed_preview_rect = None;
+        if ui.input(|i| i.pointer.any_released()) {
+            ui.memory_mut(|mem| mem.stop_dragging());
+            if let Some(insertion_point) = drop_context.best_insertion {
+                self.move_tile(dragged_tile_id, insertion_point);
             }
-        } else {
-            self.smoothed_preview_rect = None;
+            clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
         }
-    }
-
-    /// Take the preview rectangle and smooth it over time.
-    fn smooth_preview_rect(&mut self, ctx: &egui::Context, new_rect: Rect) -> Rect {
-        let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
-        let t = egui::emath::exponential_smooth_factor(0.9, 0.05, dt);
-
-        let smoothed = self.smoothed_preview_rect.get_or_insert(new_rect);
-        *smoothed = smoothed.lerp_towards(&new_rect, t);
-
-        let diff = smoothed.min.distance(new_rect.min) + smoothed.max.distance(new_rect.max);
-        if diff < 0.5 {
-            *smoothed = new_rect;
-        } else {
-            ctx.request_repaint();
-        }
-        *smoothed
     }
 
     fn simplify(&mut self, options: &SimplificationOptions) {
@@ -343,4 +314,48 @@ impl<Pane> Tree<Pane> {
             }
         }
     }
+}
+
+// ----------------------------------------------------------------------------
+
+/// We store the preview rect in egui temp storage so that it is not serialized,
+/// and so that a user could re-create the [`Tree`] each frame and still get smooth previews.
+fn smooth_preview_rect_id(dragged_tile_id: TileId) -> egui::Id {
+    egui::Id::new((dragged_tile_id, "smoothed_preview_rect"))
+}
+
+fn clear_smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId) {
+    let data_id = smooth_preview_rect_id(dragged_tile_id);
+    ctx.data_mut(|data| data.remove::<Rect>(data_id));
+}
+
+/// Take the preview rectangle and smooth it over time.
+fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: Rect) -> Rect {
+    let data_id = smooth_preview_rect_id(dragged_tile_id);
+
+    let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
+
+    let mut requires_repaint = false;
+
+    let smoothed = ctx.data_mut(|data| {
+        let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
+
+        let t = egui::emath::exponential_smooth_factor(0.9, 0.05, dt);
+
+        *smoothed = smoothed.lerp_towards(&new_rect, t);
+
+        let diff = smoothed.min.distance(new_rect.min) + smoothed.max.distance(new_rect.max);
+        if diff < 0.5 {
+            *smoothed = new_rect;
+        } else {
+            requires_repaint = true;
+        }
+        *smoothed
+    });
+
+    if requires_repaint {
+        ctx.request_repaint();
+    }
+
+    smoothed
 }
