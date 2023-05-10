@@ -19,6 +19,6 @@ cargo test --doc --all-features # checks all doc-tests
 cargo doc --no-deps --all-features
 cargo doc --document-private-items --no-deps --all-features
 
-cargo deny --all-features --log-level error
+cargo deny --all-features --log-level error check
 
 echo "All checks passed!"
