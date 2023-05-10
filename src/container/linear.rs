@@ -3,7 +3,7 @@ use itertools::Itertools as _;
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState,
-    TileId, Tiles, Tree,
+    SimplifyAction, TileId, Tiles, Tree,
 };
 
 // ----------------------------------------------------------------------------
@@ -328,6 +328,18 @@ impl Linear {
             let stroke = behavior.resize_stroke(ui.style(), resize_state);
             ui.painter().hline(parent_rect.x_range(), y, stroke);
         }
+    }
+
+    pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
+        self.children.retain_mut(|child| match simplify(*child) {
+            SimplifyAction::Remove => false,
+            SimplifyAction::Keep => true,
+            SimplifyAction::Replace(new) => {
+                self.shares.replace_with(*child, new);
+                *child = new;
+                true
+            }
+        });
     }
 }
 

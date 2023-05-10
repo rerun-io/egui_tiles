@@ -148,39 +148,11 @@ impl Container {
         }
     }
 
-    pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
+    pub(super) fn simplify_children(&mut self, simplify: impl FnMut(TileId) -> SimplifyAction) {
         match self {
-            Self::Tabs(tabs) => tabs.children.retain_mut(|child| match simplify(*child) {
-                SimplifyAction::Remove => false,
-                SimplifyAction::Keep => true,
-                SimplifyAction::Replace(new) => {
-                    if tabs.active == *child {
-                        tabs.active = new;
-                    }
-                    *child = new;
-                    true
-                }
-            }),
-            Self::Linear(linear) => linear.children.retain_mut(|child| match simplify(*child) {
-                SimplifyAction::Remove => false,
-                SimplifyAction::Keep => true,
-                SimplifyAction::Replace(new) => {
-                    linear.shares.replace_with(*child, new);
-                    *child = new;
-                    true
-                }
-            }),
-            Self::Grid(grid) => grid.children.retain_mut(|child| match simplify(*child) {
-                SimplifyAction::Remove => false,
-                SimplifyAction::Keep => true,
-                SimplifyAction::Replace(new) => {
-                    if let Some(loc) = grid.locations.remove(child) {
-                        grid.locations.insert(new, loc);
-                    }
-                    *child = new;
-                    true
-                }
-            }),
+            Self::Tabs(tabs) => tabs.simplify_children(simplify),
+            Self::Linear(linear) => linear.simplify_children(simplify),
+            Self::Grid(grid) => grid.simplify_children(simplify),
         }
     }
 

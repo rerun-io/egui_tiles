@@ -1,8 +1,8 @@
 use egui::{vec2, Rect};
 
 use crate::{
-    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, TileId, Tiles,
-    Tree,
+    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
+    TileId, Tiles, Tree,
 };
 
 /// A container with tabs. Only one tab is open (active) at a time.
@@ -177,5 +177,19 @@ impl Tabs {
         );
 
         next_active
+    }
+
+    pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
+        self.children.retain_mut(|child| match simplify(*child) {
+            SimplifyAction::Remove => false,
+            SimplifyAction::Keep => true,
+            SimplifyAction::Replace(new) => {
+                if self.active == *child {
+                    self.active = new;
+                }
+                *child = new;
+                true
+            }
+        });
     }
 }

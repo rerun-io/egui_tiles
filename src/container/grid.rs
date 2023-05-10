@@ -4,7 +4,8 @@ use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
 use itertools::Itertools as _;
 
 use crate::{
-    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
+    Tiles, Tree,
 };
 
 /// Where in a grid?
@@ -306,6 +307,20 @@ impl Grid {
             let stroke = behavior.resize_stroke(ui.style(), resize_state);
             ui.painter().hline(parent_rect.x_range(), y, stroke);
         }
+    }
+
+    pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
+        self.children.retain_mut(|child| match simplify(*child) {
+            SimplifyAction::Remove => false,
+            SimplifyAction::Keep => true,
+            SimplifyAction::Replace(new) => {
+                if let Some(loc) = self.locations.remove(child) {
+                    self.locations.insert(new, loc);
+                }
+                *child = new;
+                true
+            }
+        });
     }
 }
 
