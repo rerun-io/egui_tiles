@@ -269,6 +269,8 @@ impl<Pane> Tiles<Pane> {
                     log::debug!("Simplify: removing empty tabs tile");
                     return SimplifyAction::Remove;
                 }
+                // TODO(emilk): join in child tiles that are single-child tabs
+
                 if options.prune_single_child_tabs && container.children().len() == 1 {
                     if options.all_panes_must_have_tabs
                         && matches!(self.get(container.children()[0]), Some(Tile::Pane(_)))

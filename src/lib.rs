@@ -109,6 +109,7 @@ impl<T> From<Container> for Tile<T> {
 
 impl<Pane> Tile<Pane> {
     /// Returns `None` if this is a [`Self::Pane`].
+    #[inline]
     fn layout(&self) -> Option<Layout> {
         match self {
             Tile::Pane(_) => None,
@@ -116,10 +117,12 @@ impl<Pane> Tile<Pane> {
         }
     }
 
+    #[inline]
     pub fn is_pane(&self) -> bool {
         matches!(self, Self::Pane(_))
     }
 
+    #[inline]
     pub fn is_container(&self) -> bool {
         matches!(self, Self::Container(_))
     }

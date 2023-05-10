@@ -13,9 +13,9 @@ pub struct Tree<Pane> {
     pub root: TileId,
     pub tiles: Tiles<Pane>,
 
-    /// Smoothed avaerage of preview
+    /// Smoothed average of preview
     #[serde(skip)]
-    pub smoothed_preview_rect: Option<Rect>,
+    smoothed_preview_rect: Option<Rect>, // TODO: move to `egui_ctx.data`
 }
 
 impl<Pane> Default for Tree<Pane> {
@@ -284,10 +284,10 @@ impl<Pane> Tree<Pane> {
 
     fn simplify(&mut self, options: &SimplificationOptions) {
         match self.tiles.simplify(options, self.root) {
-            SimplifyAction::Remove => {
-                log::warn!("Tried to simplify root tile!"); // TODO: handle this
+            SimplifyAction::Keep | SimplifyAction::Remove => {
+                // Never remove the root, even if we are told to because it is
+                // a container with no children, or whatever.
             }
-            SimplifyAction::Keep => {}
             SimplifyAction::Replace(new_root) => {
                 self.root = new_root;
             }
