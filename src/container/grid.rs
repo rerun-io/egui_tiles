@@ -107,7 +107,7 @@ impl Grid {
         let child_ids: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
 
         let num_cols = match self.layout {
-            GridLayout::Auto => num_columns_heuristic(self.children.len(), rect, gap),
+            GridLayout::Auto => behavior.grid_auto_column_count(tiles, &self.children, rect, gap),
             GridLayout::Columns(num_columns) => num_columns.at_least(1),
         };
         let num_rows = (self.children.len() + num_cols - 1) / num_cols;
@@ -307,34 +307,6 @@ impl Grid {
             ui.painter().hline(parent_rect.x_range(), y, stroke);
         }
     }
-}
-
-/// How many columns should we use to fit `n` children in a grid?
-fn num_columns_heuristic(n: usize, rect: Rect, gap: f32) -> usize {
-    let desired_aspect = 4.0 / 3.0;
-
-    let mut best_loss = f32::INFINITY;
-    let mut best_num_columns = 1;
-
-    for ncols in 1..=n {
-        let nrows = (n + ncols - 1) / ncols;
-
-        let cell_width = (rect.width() - gap * (ncols as f32 - 1.0)) / (ncols as f32);
-        let cell_height = (rect.height() - gap * (nrows as f32 - 1.0)) / (nrows as f32);
-
-        let cell_aspect = cell_width / cell_height;
-        let aspect_diff = (desired_aspect - cell_aspect).abs();
-        let num_empty_cells = ncols * nrows - n;
-
-        let loss = aspect_diff + 0.1 * num_empty_cells as f32; // TODO(emilk): weight differently?
-
-        if loss < best_loss {
-            best_loss = loss;
-            best_num_columns = ncols;
-        }
-    }
-
-    best_num_columns
 }
 
 fn resize_interaction<Pane>(

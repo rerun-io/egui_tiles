@@ -228,4 +228,52 @@ pub trait Behavior<Pane> {
     fn preview_dragged_panes(&self) -> bool {
         false
     }
+
+    /// How many columns should we use for a [`Grid]` put into [`GridLayout::Auto`]?
+    ///
+    /// The default heuristic tried to find a good column count that results in a per-tile aspect-ratio
+    /// of [`Self::ideal_tile_aspect_ratio`].
+    ///
+    /// The `rect` is the available space for the grid,
+    /// and `gap` is the distance between each column and row.
+    fn grid_auto_column_count(
+        &self,
+        _tiles: &Tiles<Pane>,
+        children: &[TileId],
+        rect: Rect,
+        gap: f32,
+    ) -> usize {
+        num_columns_heuristic(children.len(), rect, gap, self.ideal_tile_aspect_ratio())
+    }
+
+    /// When using [`GridLayout::Auto`], what is the ideal aspect ratio of a tile?
+    fn ideal_tile_aspect_ratio(&self) -> f32 {
+        4.0 / 3.0
+    }
+}
+
+/// How many columns should we use to fit `n` children in a grid?
+fn num_columns_heuristic(n: usize, rect: Rect, gap: f32, desired_aspect: f32) -> usize {
+    let mut best_loss = f32::INFINITY;
+    let mut best_num_columns = 1;
+
+    for ncols in 1..=n {
+        let nrows = (n + ncols - 1) / ncols;
+
+        let cell_width = (rect.width() - gap * (ncols as f32 - 1.0)) / (ncols as f32);
+        let cell_height = (rect.height() - gap * (nrows as f32 - 1.0)) / (nrows as f32);
+
+        let cell_aspect = cell_width / cell_height;
+        let aspect_diff = (desired_aspect - cell_aspect).abs();
+        let num_empty_cells = ncols * nrows - n;
+
+        let loss = aspect_diff + 0.1 * num_empty_cells as f32; // TODO(emilk): weight differently?
+
+        if loss < best_loss {
+            best_loss = loss;
+            best_num_columns = ncols;
+        }
+    }
+
+    best_num_columns
 }
