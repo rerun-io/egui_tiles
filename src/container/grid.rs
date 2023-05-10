@@ -67,7 +67,7 @@ pub struct Grid {
 
     /// Where each child is located.
     ///
-    /// If the chils is missing from this set, it will be assigned a location during layout.
+    /// If a child is missing from this set, it will be assigned a location during layout.
     pub locations: nohash_hasher::IntMap<TileId, GridLoc>,
 
     /// Share of the available width assigned to each column.

@@ -183,11 +183,21 @@ impl<Pane> Tiles<Pane> {
         }
     }
 
+    /// Detect cycles, duplications, and other invalid state, and fix it.
+    ///
+    /// Will also call [`Behavior::retain_pane`] to check if a users wants to remove a pane.
+    ///
+    /// Finally free up any tiles that are no longer reachable from the root.
     pub(super) fn gc_root(&mut self, behavior: &mut dyn Behavior<Pane>, root_id: TileId) {
         let mut visited = Default::default();
-        self.gc_tile_id(behavior, &mut visited, root_id);
+
+        // We ignore the returned root action, because we will never remove the root.
+        let _root_action = self.gc_tile_id(behavior, &mut visited, root_id);
 
         if visited.len() < self.tiles.len() {
+            // This should only happen if the user set up the tree in a bad state,
+            // or if it was restored from a bad state via serde.
+            // …or if there is a bug somewhere 😜
             log::warn!(
                 "GC collecting tiles: {:?}",
                 self.tiles
@@ -200,6 +210,7 @@ impl<Pane> Tiles<Pane> {
         self.tiles.retain(|tile_id, _| visited.contains(tile_id));
     }
 
+    /// Detect cycles, duplications, and other invalid state, and remove them.
     fn gc_tile_id(
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
@@ -247,6 +258,13 @@ impl<Pane> Tiles<Pane> {
         self.tiles.insert(tile_id, tile);
     }
 
+    /// Simplify the tree, perhaps culling empty containers,
+    /// and/or merging single-child containers into their parent.
+    ///
+    /// Drag-dropping tiles can often leave containers empty, or with only a single child.
+    /// This is often undersired, so this function can be used to clean up the tree.
+    ///
+    /// What simplifcations are allowed is controlled by the [`SimplificationOptions`].
     pub(super) fn simplify(
         &mut self,
         options: &SimplificationOptions,

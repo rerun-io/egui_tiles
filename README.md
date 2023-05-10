@@ -16,6 +16,10 @@ Supports:
 * Tabs
 * Drag-and-drop docking
 
+
+### Trying it
+`cargo r --example simple`
+
 ### Comparison with [egui_dock](https://github.com/Adanos020/egui_dock)
 [egui_dock](https://github.com/Adanos020/egui_dock) is an excellent crate serving similar needs. `egui_tile_tree` aims to become a more flexible and feature-rich alternative to `egui_dock`.
 

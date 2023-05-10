@@ -15,6 +15,8 @@ pub use tabs::Tabs;
 // ----------------------------------------------------------------------------
 
 /// The layout of a [`Container`].
+///
+/// This is used to describe a [`Container`], and to change it to a different layout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Layout {
     #[default]

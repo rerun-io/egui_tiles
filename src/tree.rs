@@ -8,6 +8,10 @@ use super::{
 };
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
+///
+/// You'll usually construct this once and then store it, calling [`Tree::ui`] each frame.
+///
+/// See (the crate-level documentation)[crate] for how to construct and use a [`Tree`].
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Tree<Pane> {
     pub root: TileId,

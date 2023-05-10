@@ -161,7 +161,7 @@ pub trait Behavior<Pane> {
     /// The background color of the tab bar.
     fn tab_bar_color(&self, visuals: &Visuals) -> Color32 {
         if visuals.dark_mode {
-            Color32::BLACK
+            visuals.extreme_bg_color
         } else {
             (Rgba::from(visuals.panel_fill) * Rgba::from_gray(0.8)).into()
         }

@@ -142,6 +142,11 @@ pub enum UiResponse {
 }
 
 /// What are the rules for simplifying the tree?
+///
+/// Drag-dropping tiles can often leave containers empty, or with only a single child.
+/// The [`SimplificationOptions`] specifies what simplifications are allowed.
+///
+/// The [`Tree`] will run a simplification pass each frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SimplificationOptions {
     pub prune_empty_tabs: bool,
