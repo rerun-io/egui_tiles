@@ -182,7 +182,7 @@ impl Grid {
             }
         }
 
-        // Each child now has a location. Use this to order them, in case we will ater do auto-layouts:
+        // Each child now has a location. Use this to order them, in case we will later do auto-layouts:
         self.children.sort_by_key(|&child| self.locations[&child]);
 
         // Place each child:
