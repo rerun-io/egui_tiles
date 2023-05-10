@@ -17,13 +17,13 @@ pub trait Behavior<Pane> {
 
     /// The title of a general tab.
     ///
-    /// The default implementation uses the name of the layout for containers, and
-    /// calls [`Self::tab_title_for_pane`] for panes.
+    /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
+    /// uses the name of the [`ContainerKind`] for [`Container`]s.
     fn tab_title_for_tile(&mut self, tiles: &Tiles<Pane>, tile_id: TileId) -> WidgetText {
         if let Some(tile) = tiles.tiles.get(&tile_id) {
             match tile {
                 Tile::Pane(pane) => self.tab_title_for_pane(pane),
-                Tile::Container(container) => format!("{:?}", container.layout()).into(),
+                Tile::Container(container) => format!("{:?}", container.kind()).into(),
             }
         } else {
             "MISSING TILE".into()

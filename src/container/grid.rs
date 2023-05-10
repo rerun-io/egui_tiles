@@ -97,7 +97,7 @@ impl Grid {
         self.children.push(child);
     }
 
-    pub fn layout<Pane>(
+    pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,

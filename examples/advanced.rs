@@ -275,17 +275,17 @@ fn tree_ui(
         .show(ui, |ui| match &mut tile {
             egui_tile_tree::Tile::Pane(_) => {}
             egui_tile_tree::Tile::Container(container) => {
-                let mut layout = container.layout();
-                egui::ComboBox::from_label("Layout")
-                    .selected_text(format!("{layout:?}"))
+                let mut kind = container.kind();
+                egui::ComboBox::from_label("Kind")
+                    .selected_text(format!("{kind:?}"))
                     .show_ui(ui, |ui| {
-                        for typ in egui_tile_tree::Layout::ALL {
-                            ui.selectable_value(&mut layout, typ, format!("{typ:?}"))
+                        for typ in egui_tile_tree::ContainerKind::ALL {
+                            ui.selectable_value(&mut kind, typ, format!("{typ:?}"))
                                 .clicked();
                         }
                     });
-                if layout != container.layout() {
-                    container.set_layout(layout);
+                if kind != container.kind() {
+                    container.set_kind(kind);
                 }
 
                 for &child in container.children() {

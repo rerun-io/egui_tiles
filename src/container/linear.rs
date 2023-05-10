@@ -10,7 +10,7 @@ use crate::{
 
 /// How large of a share of space each child has, on a 1D axis.
 ///
-/// Used for [`Linear`] layouts (horizontal and vertical).
+/// Used for [`Linear`] containers (horizontal and vertical).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Shares {
     /// How large of a share each child has.
@@ -79,7 +79,7 @@ impl std::ops::IndexMut<TileId> for Shares {
 
 // ----------------------------------------------------------------------------
 
-/// The direction of a [`Linear`] layout. Either horizontal or vertical.
+/// The direction of a [`Linear`] container. Either horizontal or vertical.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -89,7 +89,7 @@ pub enum LinearDir {
     Vertical,
 }
 
-/// Horizontal or vertical layout.
+/// Horizontal or vertical container.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Linear {
     pub children: Vec<TileId>,
@@ -457,7 +457,7 @@ fn linear_drop_zones<Pane>(
     );
 }
 
-/// Register drop-zones for a linear layout.
+/// Register drop-zones for a linear container.
 pub(super) fn drop_zones(
     preview_thickness: f32,
     children: &[TileId],

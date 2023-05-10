@@ -14,19 +14,26 @@ pub use tabs::Tabs;
 
 // ----------------------------------------------------------------------------
 
-/// The layout of a [`Container`].
+/// The layout type of a [`Container`].
 ///
-/// This is used to describe a [`Container`], and to change it to a different layout.
+/// This is used to describe a [`Container`], and to change it to a different layout type.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Layout {
+pub enum ContainerKind {
+    /// Each child in an individual tab.
     #[default]
     Tabs,
+
+    /// Left-to-right
     Horizontal,
+
+    /// Top-down
     Vertical,
+
+    /// In a grid, laied out row-wise, left-to-right, top-down.
     Grid,
 }
 
-impl Layout {
+impl ContainerKind {
     pub const ALL: [Self; 4] = [Self::Tabs, Self::Horizontal, Self::Vertical, Self::Grid];
 }
 
@@ -62,12 +69,12 @@ impl From<Grid> for Container {
 }
 
 impl Container {
-    pub fn new(layout: Layout, children: Vec<TileId>) -> Self {
-        match layout {
-            Layout::Tabs => Self::new_tabs(children),
-            Layout::Horizontal => Self::new_horizontal(children),
-            Layout::Vertical => Self::new_vertical(children),
-            Layout::Grid => Self::new_grid(children),
+    pub fn new(typ: ContainerKind, children: Vec<TileId>) -> Self {
+        match typ {
+            ContainerKind::Tabs => Self::new_tabs(children),
+            ContainerKind::Horizontal => Self::new_horizontal(children),
+            ContainerKind::Vertical => Self::new_vertical(children),
+            ContainerKind::Grid => Self::new_grid(children),
         }
     }
 
@@ -111,31 +118,31 @@ impl Container {
         }
     }
 
-    pub fn layout(&self) -> Layout {
+    pub fn kind(&self) -> ContainerKind {
         match self {
-            Self::Tabs(_) => Layout::Tabs,
+            Self::Tabs(_) => ContainerKind::Tabs,
             Self::Linear(linear) => match linear.dir {
-                LinearDir::Horizontal => Layout::Horizontal,
-                LinearDir::Vertical => Layout::Vertical,
+                LinearDir::Horizontal => ContainerKind::Horizontal,
+                LinearDir::Vertical => ContainerKind::Vertical,
             },
-            Self::Grid(_) => Layout::Grid,
+            Self::Grid(_) => ContainerKind::Grid,
         }
     }
 
-    pub fn set_layout(&mut self, layout: Layout) {
-        if layout == self.layout() {
+    pub fn set_kind(&mut self, kind: ContainerKind) {
+        if kind == self.kind() {
             return;
         }
 
-        *self = match layout {
-            Layout::Tabs => Self::Tabs(Tabs::new(self.children().to_vec())),
-            Layout::Horizontal => {
+        *self = match kind {
+            ContainerKind::Tabs => Self::Tabs(Tabs::new(self.children().to_vec())),
+            ContainerKind::Horizontal => {
                 Self::Linear(Linear::new(LinearDir::Horizontal, self.children().to_vec()))
             }
-            Layout::Vertical => {
+            ContainerKind::Vertical => {
                 Self::Linear(Linear::new(LinearDir::Vertical, self.children().to_vec()))
             }
-            Layout::Grid => Self::Grid(Grid::new(self.children().to_vec())),
+            ContainerKind::Grid => Self::Grid(Grid::new(self.children().to_vec())),
         };
     }
 
@@ -156,7 +163,7 @@ impl Container {
         }
     }
 
-    pub(super) fn layout_recursive<Pane>(
+    pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,

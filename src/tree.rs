@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Ui};
 
-use crate::{Layout, UiResponse};
+use crate::{ContainerKind, UiResponse};
 
 use super::{
     is_possible_drag, Behavior, Container, DropContext, InsertionPoint, SimplificationOptions,
@@ -74,33 +74,40 @@ impl<Pane> Tree<Pane> {
         Self::default()
     }
 
+    /// The most flexible constructor, allowing you to set up the tiles
+    /// however you want.
     pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
         Self { root, tiles }
     }
 
+    /// Create a top-level [`Tabs`] container with the given panes.
     pub fn new_tabs(panes: Vec<Pane>) -> Self {
-        Self::new_layout(Layout::Tabs, panes)
+        Self::new_container(ContainerKind::Tabs, panes)
     }
 
+    /// Create a top-level horizontal [`Linear`] container with the given panes.
     pub fn new_horizontal(panes: Vec<Pane>) -> Self {
-        Self::new_layout(Layout::Horizontal, panes)
+        Self::new_container(ContainerKind::Horizontal, panes)
     }
 
+    /// Create a top-level vertical [`Linear`] container with the given panes.
     pub fn new_vertical(panes: Vec<Pane>) -> Self {
-        Self::new_layout(Layout::Vertical, panes)
+        Self::new_container(ContainerKind::Vertical, panes)
     }
 
+    /// Create a top-level [`Grid`] container with the given panes.
     pub fn new_grid(panes: Vec<Pane>) -> Self {
-        Self::new_layout(Layout::Grid, panes)
+        Self::new_container(ContainerKind::Grid, panes)
     }
 
-    pub fn new_layout(layout: Layout, panes: Vec<Pane>) -> Self {
+    /// Create a top-level container with the given panes.
+    pub fn new_container(kind: ContainerKind, panes: Vec<Pane>) -> Self {
         let mut tiles = Tiles::default();
         let tile_ids = panes
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
-        let root = tiles.insert_tile(Tile::Container(Container::new(layout, tile_ids)));
+        let root = tiles.insert_tile(Tile::Container(Container::new(kind, tile_ids)));
         Self::new(root, tiles)
     }
 

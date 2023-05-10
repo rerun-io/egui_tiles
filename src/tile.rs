@@ -1,4 +1,4 @@
-use crate::{Container, Layout};
+use crate::{Container, ContainerKind};
 
 /// An identifier for a [`Tile`] in the tree, be it a [`Container`] or a pane.
 #[derive(Clone, Copy, Default, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -48,10 +48,10 @@ impl<T> From<Container> for Tile<T> {
 impl<Pane> Tile<Pane> {
     /// Returns `None` if this is a [`Self::Pane`].
     #[inline]
-    pub fn layout(&self) -> Option<Layout> {
+    pub fn kind(&self) -> Option<ContainerKind> {
         match self {
             Tile::Pane(_) => None,
-            Tile::Container(container) => Some(container.layout()),
+            Tile::Container(container) => Some(container.kind()),
         }
     }
 

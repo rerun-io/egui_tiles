@@ -1,7 +1,7 @@
 use egui::{Pos2, Rect};
 
 use super::{
-    Behavior, Container, ContainerInsertion, GcAction, Grid, InsertionPoint, Layout, Linear,
+    Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
 };
 
@@ -252,7 +252,7 @@ impl<Pane> Tiles<Pane> {
         self.rects.insert(tile_id, rect);
 
         if let Tile::Container(container) = &mut tile {
-            container.layout_recursive(self, style, behavior, rect);
+            container.layout(self, style, behavior, rect);
         }
 
         self.tiles.insert(tile_id, tile);
@@ -269,7 +269,7 @@ impl<Pane> Tiles<Pane> {
         &mut self,
         options: &SimplificationOptions,
         it: TileId,
-        parent_layout: Option<Layout>,
+        parent_kind: Option<ContainerKind>,
     ) -> SimplifyAction {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::warn!("Failed to find tile {it:?} during simplify");
@@ -277,12 +277,12 @@ impl<Pane> Tiles<Pane> {
         };
 
         if let Tile::Container(container) = &mut tile {
-            let layout = container.layout();
-            container.simplify_children(|child| self.simplify(options, child, Some(layout)));
+            let kind = container.kind();
+            container.simplify_children(|child| self.simplify(options, child, Some(kind)));
 
-            if layout == Layout::Tabs {
+            if kind == ContainerKind::Tabs {
                 if options.prune_empty_tabs && container.is_empty() {
-                    log::debug!("Simplify: removing empty tabs tile");
+                    log::debug!("Simplify: removing empty tabs container");
                     return SimplifyAction::Remove;
                 }
 
@@ -292,11 +292,11 @@ impl<Pane> Tiles<Pane> {
 
                     if options.all_panes_must_have_tabs
                         && child_is_pane
-                        && parent_layout != Some(Layout::Tabs)
+                        && parent_kind != Some(ContainerKind::Tabs)
                     {
                         // Keep it, even though we only one child
                     } else {
-                        log::debug!("Simplify: collapsing single-child tabs tile");
+                        log::debug!("Simplify: collapsing single-child tabs container");
                         return SimplifyAction::Replace(container.children()[0]);
                     }
                 }
@@ -311,7 +311,7 @@ impl<Pane> Tiles<Pane> {
                                 if parent.dir == child.dir {
                                     // absorb the child
                                     log::debug!(
-                                        "Simplify: absorbing nested linear layout with {} children",
+                                        "Simplify: absorbing nested linear container with {} children",
                                         child.children.len()
                                     );
 
@@ -341,11 +341,11 @@ impl<Pane> Tiles<Pane> {
                 }
 
                 if options.prune_empty_containers && container.is_empty() {
-                    log::debug!("Simplify: removing empty layout tile");
+                    log::debug!("Simplify: removing empty container tile");
                     return SimplifyAction::Remove;
                 }
                 if options.prune_single_child_containers && container.children().len() == 1 {
-                    log::debug!("Simplify: collapsing single-child layout tile");
+                    log::debug!("Simplify: collapsing single-child container tile");
                     return SimplifyAction::Replace(container.children()[0]);
                 }
             }
@@ -374,7 +374,7 @@ impl<Pane> Tiles<Pane> {
                 }
             }
             Tile::Container(container) => {
-                let is_tabs = container.layout() == Layout::Tabs;
+                let is_tabs = container.kind() == ContainerKind::Tabs;
                 for &child in container.children() {
                     self.make_all_panes_children_of_tabs(is_tabs, child);
                 }

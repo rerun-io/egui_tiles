@@ -59,7 +59,7 @@ mod tiles;
 mod tree;
 
 pub use behavior::Behavior;
-pub use container::{Container, Grid, GridLoc, Layout, Linear, LinearDir, Tabs};
+pub use container::{Container, ContainerKind, Grid, GridLoc, Linear, LinearDir, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
 pub use tree::Tree;
@@ -215,7 +215,7 @@ impl DropContext {
             return;
         }
 
-        if tile.layout() != Some(Layout::Horizontal) {
+        if tile.kind() != Some(ContainerKind::Horizontal) {
             self.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(0)),
                 rect.split_left_right_at_fraction(0.5).0,
@@ -226,7 +226,7 @@ impl DropContext {
             );
         }
 
-        if tile.layout() != Some(Layout::Vertical) {
+        if tile.kind() != Some(ContainerKind::Vertical) {
             self.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Vertical(0)),
                 rect.split_top_bottom_at_fraction(0.5).0,
