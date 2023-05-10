@@ -2,8 +2,8 @@ use egui::{pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
 use crate::{
-    is_being_dragged, Behavior, DropContext, InsertionPoint, LayoutInsertion, ResizeState, TileId,
-    Tiles, Tree,
+    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState,
+    TileId, Tiles, Tree,
 };
 
 // ----------------------------------------------------------------------------
@@ -106,14 +106,20 @@ impl Linear {
         }
     }
 
+    /// Create a binary split with the given split ratio in the 0.0 - 1.0 range.
+    ///
+    /// The `fraction` is the fraction of the total width that the first child should get.
     pub fn new_binary(dir: LinearDir, children: [TileId; 2], fraction: f32) -> Self {
+        debug_assert!(0.0 <= fraction && fraction <= 1.0);
         let mut slf = Self {
             children: children.into(),
             dir,
             ..Default::default()
         };
-        slf.shares[children[0]] = fraction;
-        slf.shares[children[0]] = 1.0 - fraction;
+        // We multiply the shares with 2.0 because the default share size is 1.0,
+        // and so we want the total share to be the same as the number of children.
+        slf.shares[children[0]] = 2.0 * (fraction);
+        slf.shares[children[1]] = 2.0 * (1.0 - fraction);
         slf
     }
 
@@ -214,7 +220,7 @@ impl Linear {
 
         linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Horizontal(i)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(i)),
                 rect,
             );
         });
@@ -277,7 +283,7 @@ impl Linear {
 
         linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Vertical(i)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Vertical(i)),
                 rect,
             );
         });

@@ -1,7 +1,8 @@
 use egui::{vec2, Rect};
 
 use crate::{
-    is_being_dragged, Behavior, DropContext, InsertionPoint, LayoutInsertion, TileId, Tiles, Tree,
+    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, TileId, Tiles,
+    Tree,
 };
 
 /// A container with tabs. Only one tab is open (active) at a time.
@@ -167,8 +168,10 @@ impl Tabs {
             super::LinearDir::Horizontal,
             |tile_id| button_rects[&tile_id],
             |rect, i| {
-                drop_context
-                    .suggest_rect(InsertionPoint::new(tile_id, LayoutInsertion::Tabs(i)), rect);
+                drop_context.suggest_rect(
+                    InsertionPoint::new(tile_id, ContainerInsertion::Tabs(i)),
+                    rect,
+                );
             },
             after_rect,
         );

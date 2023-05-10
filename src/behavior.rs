@@ -30,9 +30,14 @@ pub trait Behavior<Pane> {
         }
     }
 
-    /// Show the title of a tab as a button.
+    /// Show the ui for the a tab of some tile.
+    ///
+    /// The default implementation shows a clickable button with the title for that tile,
+    /// gotten with [`Self::tab_title_for_tile`].
+    /// The default implementation also calls [`Self::on_tab_button`].
     ///
     /// You can override the default implementation to add e.g. a close button.
+    /// Make sure it is sensitive to clicks and drags (if you want to enable drag-and-drop of tabs).
     fn tab_ui(
         &mut self,
         tiles: &Tiles<Pane>,

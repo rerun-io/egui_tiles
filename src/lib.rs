@@ -32,7 +32,7 @@
 //! * Vertical tab bar
 
 // ## Implementation notes
-// In many places we want to recursively visit all noted, while also mutating them.
+// In many places we want to recursively visit all tiles, while also mutating them.
 // In order to not get into trouble with the borrow checker a trick is used:
 // each [`Tile`] is removed, mutated, recursed, and then re-added.
 // You'll see this pattern many times reading the following code.
@@ -181,8 +181,11 @@ pub enum ResizeState {
 
 // ----------------------------------------------------------------------------
 
+/// An insertion point in a specific containter.
+///
+/// Specifies the expected container layout type, and where to insert.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum LayoutInsertion {
+enum ContainerInsertion {
     Tabs(usize),
     Horizontal(usize),
     Vertical(usize),
@@ -195,11 +198,11 @@ struct InsertionPoint {
     pub parent_id: TileId,
 
     /// Where in the parent?
-    pub insertion: LayoutInsertion,
+    pub insertion: ContainerInsertion,
 }
 
 impl InsertionPoint {
-    pub fn new(parent_id: TileId, insertion: LayoutInsertion) -> Self {
+    pub fn new(parent_id: TileId, insertion: ContainerInsertion) -> Self {
         Self {
             parent_id,
             insertion,
@@ -230,6 +233,10 @@ fn is_being_dragged(ctx: &egui::Context, tile_id: TileId) -> bool {
 
 // ----------------------------------------------------------------------------
 
+/// Context used for drag-and-dropping of tiles.
+///
+/// This is passed down during the `ui` pass.
+/// Each tile registers itself with this context.
 struct DropContext {
     enabled: bool,
     dragged_tile_id: Option<TileId>,
@@ -255,28 +262,28 @@ impl DropContext {
 
         if tile.layout() != Some(Layout::Horizontal) {
             self.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Horizontal(0)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(0)),
                 rect.split_left_right_at_fraction(0.5).0,
             );
             self.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Horizontal(usize::MAX)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(usize::MAX)),
                 rect.split_left_right_at_fraction(0.5).1,
             );
         }
 
         if tile.layout() != Some(Layout::Vertical) {
             self.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Vertical(0)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Vertical(0)),
                 rect.split_top_bottom_at_fraction(0.5).0,
             );
             self.suggest_rect(
-                InsertionPoint::new(parent_id, LayoutInsertion::Vertical(usize::MAX)),
+                InsertionPoint::new(parent_id, ContainerInsertion::Vertical(usize::MAX)),
                 rect.split_top_bottom_at_fraction(0.5).1,
             );
         }
 
         self.suggest_rect(
-            InsertionPoint::new(parent_id, LayoutInsertion::Tabs(usize::MAX)),
+            InsertionPoint::new(parent_id, ContainerInsertion::Tabs(usize::MAX)),
             rect.split_top_bottom_at_y(rect.top() + behavior.tab_bar_height(style))
                 .1,
         );

@@ -4,7 +4,7 @@ use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
 use itertools::Itertools as _;
 
 use crate::{
-    Behavior, DropContext, InsertionPoint, LayoutInsertion, ResizeState, TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, TileId, Tiles, Tree,
 };
 
 /// Where in a grid?
@@ -213,7 +213,7 @@ impl Grid {
                 drop_context.suggest_rect(
                     InsertionPoint::new(
                         tile_id,
-                        LayoutInsertion::Grid(GridLoc::from_col_row(col, row)),
+                        ContainerInsertion::Grid(GridLoc::from_col_row(col, row)),
                     ),
                     cell_rect,
                 );

@@ -1,7 +1,7 @@
 use egui::{Pos2, Rect};
 
 use super::{
-    Behavior, Container, GcAction, Grid, InsertionPoint, Layout, LayoutInsertion, Linear,
+    Behavior, Container, ContainerInsertion, GcAction, Grid, InsertionPoint, Layout, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
 };
 
@@ -58,8 +58,8 @@ impl<Pane> Tiles<Pane> {
     }
 
     #[must_use]
-    pub fn insert_container(&mut self, contaioner: impl Into<Container>) -> TileId {
-        self.insert_tile(Tile::Container(contaioner.into()))
+    pub fn insert_container(&mut self, container: impl Into<Container>) -> TileId {
+        self.insert_tile(Tile::Container(container.into()))
     }
 
     #[must_use]
@@ -115,7 +115,7 @@ impl<Pane> Tiles<Pane> {
         };
 
         match insertion {
-            LayoutInsertion::Tabs(index) => {
+            ContainerInsertion::Tabs(index) => {
                 if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
                     let index = index.min(tabs.children.len());
                     tabs.children.insert(index, child_id);
@@ -130,7 +130,7 @@ impl<Pane> Tiles<Pane> {
                         .insert(parent_id, Tile::Container(Container::Tabs(tabs)));
                 }
             }
-            LayoutInsertion::Horizontal(index) => {
+            ContainerInsertion::Horizontal(index) => {
                 if let Tile::Container(Container::Linear(Linear {
                     dir: LinearDir::Horizontal,
                     children,
@@ -148,7 +148,7 @@ impl<Pane> Tiles<Pane> {
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
             }
-            LayoutInsertion::Vertical(index) => {
+            ContainerInsertion::Vertical(index) => {
                 if let Tile::Container(Container::Linear(Linear {
                     dir: LinearDir::Vertical,
                     children,
@@ -166,7 +166,7 @@ impl<Pane> Tiles<Pane> {
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
             }
-            LayoutInsertion::Grid(insert_location) => {
+            ContainerInsertion::Grid(insert_location) => {
                 if let Tile::Container(Container::Grid(grid)) = &mut tile {
                     grid.locations.retain(|_, pos| *pos != insert_location);
                     grid.locations.insert(child_id, insert_location);
