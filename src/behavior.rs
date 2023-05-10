@@ -6,7 +6,7 @@ use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse}
 
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
 pub trait Behavior<Pane> {
-    /// Show this pane tile in the given [`egui::Ui`].
+    /// Show a pane tile in the given [`egui::Ui`].
     ///
     /// You can make the pane draggable by returning [`UiResponse::DragStarted`]
     /// when the user drags some handle.
