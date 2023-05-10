@@ -1,4 +1,4 @@
-use std::collections::{btree_map, hash_map, BTreeMap, HashMap, HashSet};
+use std::collections::{btree_map, hash_map, BTreeMap};
 
 use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
 use itertools::Itertools as _;
@@ -68,7 +68,7 @@ pub struct Grid {
     /// Where each child is located.
     ///
     /// If the chils is missing from this set, it will be assigned a location during layout.
-    pub locations: HashMap<TileId, GridLoc>,
+    pub locations: nohash_hasher::IntMap<TileId, GridLoc>,
 
     /// Share of the available width assigned to each column.
     pub col_shares: Vec<f32>,
@@ -104,7 +104,7 @@ impl Grid {
         rect: Rect,
     ) {
         let gap = behavior.gap_width(style);
-        let child_ids: HashSet<TileId> = self.children.iter().copied().collect();
+        let child_ids: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
 
         let num_cols = match self.layout {
             GridLayout::Auto => num_columns_heuristic(self.children.len(), rect, gap),

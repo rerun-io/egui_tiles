@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use egui::{Pos2, Rect};
 
 use super::{
@@ -10,11 +8,11 @@ use super::{
 /// Contains all tile state, but no root.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
-    pub tiles: HashMap<TileId, Tile<Pane>>,
+    pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
 
     /// Filled in by the layout step at the start of each frame.
     #[serde(default, skip)]
-    pub(super) rects: HashMap<TileId, Rect>,
+    pub(super) rects: nohash_hasher::IntMap<TileId, Rect>,
 }
 
 impl<Pane> Default for Tiles<Pane> {
@@ -186,7 +184,7 @@ impl<Pane> Tiles<Pane> {
     }
 
     pub(super) fn gc_root(&mut self, behavior: &mut dyn Behavior<Pane>, root_id: TileId) {
-        let mut visited = HashSet::default();
+        let mut visited = Default::default();
         self.gc_tile_id(behavior, &mut visited, root_id);
 
         if visited.len() < self.tiles.len() {
@@ -205,7 +203,7 @@ impl<Pane> Tiles<Pane> {
     fn gc_tile_id(
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
-        visited: &mut HashSet<TileId>,
+        visited: &mut nohash_hasher::IntSet<TileId>,
         tile_id: TileId,
     ) -> GcAction {
         let Some(mut tile) = self.tiles.remove(&tile_id) else { return GcAction::Remove; };

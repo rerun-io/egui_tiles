@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use egui::{pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
@@ -19,7 +17,7 @@ pub struct Shares {
     ///
     /// For instance, the shares `[1, 2, 3]` means that the first child gets 1/6 of the space,
     /// the second gets 2/6 and the third gets 3/6.
-    shares: HashMap<TileId, f32>,
+    shares: nohash_hasher::IntMap<TileId, f32>,
 }
 
 impl Shares {
