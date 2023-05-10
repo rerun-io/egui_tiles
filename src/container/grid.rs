@@ -8,7 +8,7 @@ use crate::{
     Tiles, Tree,
 };
 
-/// Where in a grid?
+/// A location in a grid (row and column).
 #[derive(
     Clone,
     Copy,
@@ -35,6 +35,7 @@ impl GridLoc {
     }
 }
 
+/// How to lay out the children of a grid.
 #[derive(
     Clone,
     Copy,

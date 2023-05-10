@@ -20,24 +20,17 @@
 //! See [`Tree`] for how to construct a tree.
 //!
 //! ```
-//! use egui_tile_tree::{Tiles, TileId, Tree};
-//!
-//! struct Settings {
-//!     checked: bool,
-//! }
-//!
-//! impl Settings {
-//!     fn ui(&mut self, ui: &mut egui::Ui) {
-//!         ui.checkbox(&mut self.checked, "Checked");
-//!     }
-//! }
-//!
 //! // This specifies how you want to represent your panes in memory.
 //! // Implementing serde is optional, but will make the entire tree serializable.
 //! #[derive(serde::Serialize, serde::Deserialize)]
 //! enum Pane {
 //!     Settings,
 //!     Text(String),
+//! }
+//!
+//! fn tree_ui(ui: &mut egui::Ui, tree: &mut egui_tile_tree::Tree<Pane>, settings: &mut Settings) {
+//!     let mut behavior = MyBehavior { settings };
+//!     tree.ui(&mut behavior, ui);
 //! }
 //!
 //! struct MyBehavior<'a> {
@@ -67,11 +60,18 @@
 //!
 //!         Default::default()
 //!     }
+//!
+//!     // you can override more methods to customize the behavior further
 //! }
 //!
-//! fn tree_ui(ui: &mut egui::Ui, tree: &mut Tree<Pane>, settings: &mut Settings) {
-//!     let mut behavior = MyBehavior { settings };
-//!     tree.ui(&mut behavior, ui);
+//! struct Settings {
+//!     checked: bool,
+//! }
+//!
+//! impl Settings {
+//!     fn ui(&mut self, ui: &mut egui::Ui) {
+//!         ui.checkbox(&mut self.checked, "Checked");
+//!     }
 //! }
 //! ```
 //!
