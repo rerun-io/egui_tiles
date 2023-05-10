@@ -134,6 +134,17 @@ pub trait Behavior<Pane> {
         32.0
     }
 
+    /// Show we preview panes that are being dragged,
+    /// i.e. show their ui in the region where they will end up?
+    fn preview_dragged_panes(&self) -> bool {
+        false
+    }
+
+    /// Show the contents of am active tab even while the tab is being dragged?
+    fn show_dragged_tab_contents(&self) -> bool {
+        false
+    }
+
     /// What are the rules for simplifying the tree?
     fn simplification_options(&self) -> SimplificationOptions {
         SimplificationOptions::default()
@@ -218,17 +229,6 @@ pub trait Behavior<Pane> {
             preview_color.gamma_multiply(0.5),
             preview_stroke,
         );
-    }
-
-    /// Show we preview panes that are being dragged,
-    /// i.e. show their ui in the region where they will end up?
-    fn preview_dragged_panes(&self) -> bool {
-        false
-    }
-
-    /// Show the contents of am active tab even while the tab is being dragged?
-    fn show_dragged_tab_contents(&self) -> bool {
-        false
     }
 
     /// How many columns should we use for a [`Grid]` put into [`GridLayout::Auto`]?

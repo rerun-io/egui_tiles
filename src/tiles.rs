@@ -301,7 +301,7 @@ impl<Pane> Tiles<Pane> {
                     }
                 }
             } else {
-                if options.join_nested_linear_layouts {
+                if options.join_nested_linear_containerss {
                     if let Container::Linear(parent) = container {
                         let mut new_children = Vec::with_capacity(parent.children.len());
                         for child_id in parent.children.drain(..) {
@@ -340,11 +340,11 @@ impl<Pane> Tiles<Pane> {
                     }
                 }
 
-                if options.prune_empty_layouts && container.is_empty() {
+                if options.prune_empty_containers && container.is_empty() {
                     log::debug!("Simplify: removing empty layout tile");
                     return SimplifyAction::Remove;
                 }
-                if options.prune_single_child_layouts && container.children().len() == 1 {
+                if options.prune_single_child_containers && container.children().len() == 1 {
                     log::debug!("Simplify: collapsing single-child layout tile");
                     return SimplifyAction::Replace(container.children()[0]);
                 }

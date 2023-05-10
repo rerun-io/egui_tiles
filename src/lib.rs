@@ -85,14 +85,28 @@ pub enum UiResponse {
 /// The [`Tree`] will run a simplification pass each frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SimplificationOptions {
+    /// Remove empty [`Tabs`] containers?
     pub prune_empty_tabs: bool,
+
+    /// Remove empty containers (that aren't [`Tabs`])?
+    pub prune_empty_containers: bool,
+
+    /// Remove [`Tabs`] containers with only a single child?
+    ///
+    /// Even if `true`, [`Self::all_panes_must_have_tabs`] will be respected.
     pub prune_single_child_tabs: bool,
-    pub prune_empty_layouts: bool,
-    pub prune_single_child_layouts: bool,
+
+    /// Prune containers (that aren't [`Tabs`]) with only a single child?
+    pub prune_single_child_containers: bool,
+
+    /// If true, each pane will have a [`Tabs`] container as a parent.
+    ///
+    /// This will win out over [`Self::prune_single_child_tabs`].
     pub all_panes_must_have_tabs: bool,
-    /// If a horizontal layout contain another horizontal layout, join them?
-    /// Same for vertical layouts. Does NOT apply to grid layout or tab layouts.
-    pub join_nested_linear_layouts: bool,
+
+    /// If a horizontal container contain another horizontal container, join them?
+    /// Same for vertical containers. Does NOT apply to grid container or tab containers.
+    pub join_nested_linear_containerss: bool,
 }
 
 impl Default for SimplificationOptions {
@@ -100,10 +114,10 @@ impl Default for SimplificationOptions {
         Self {
             prune_empty_tabs: true,
             prune_single_child_tabs: true,
-            prune_empty_layouts: true,
-            prune_single_child_layouts: true,
+            prune_empty_containers: true,
+            prune_single_child_containers: true,
             all_panes_must_have_tabs: false,
-            join_nested_linear_layouts: true,
+            join_nested_linear_containerss: true,
         }
     }
 }
