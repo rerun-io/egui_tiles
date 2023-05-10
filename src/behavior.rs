@@ -92,7 +92,7 @@ pub trait Behavior<Pane> {
     ) {
     }
 
-    /// Return `false` if this pane should be removed from its parent.
+    /// Return `false` if a given pane should be removed from its parent.
     fn retain_pane(&mut self, _pane: &Pane) -> bool {
         true
     }
