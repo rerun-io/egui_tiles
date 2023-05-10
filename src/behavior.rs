@@ -118,9 +118,6 @@ pub trait Behavior<Pane> {
         // }
     }
 
-    // --------
-    // Settings:
-
     /// The height of the bar holding tab titles.
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         24.0
@@ -226,6 +223,11 @@ pub trait Behavior<Pane> {
     /// Show we preview panes that are being dragged,
     /// i.e. show their ui in the region where they will end up?
     fn preview_dragged_panes(&self) -> bool {
+        false
+    }
+
+    /// Show the contents of am active tab even while the tab is being dragged?
+    fn show_dragged_tab_contents(&self) -> bool {
         false
     }
 

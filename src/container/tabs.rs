@@ -59,9 +59,7 @@ impl Tabs {
     ) {
         let next_active = self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id);
 
-        // When dragged, don't show it (it is "being held")
-        let is_active_being_dragged = is_being_dragged(ui.ctx(), self.active);
-        if !is_active_being_dragged {
+        if behavior.show_dragged_tab_contents() || !is_being_dragged(ui.ctx(), self.active) {
             tree.tile_ui(behavior, drop_context, ui, self.active);
         }
 
