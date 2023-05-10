@@ -28,7 +28,7 @@
 //!     Text(String),
 //! }
 //!
-//! fn tree_ui(ui: &mut egui::Ui, tree: &mut egui_tile_tree::Tree<Pane>, settings: &mut Settings) {
+//! fn tree_ui(ui: &mut egui::Ui, tree: &mut egui_tiles::Tree<Pane>, settings: &mut Settings) {
 //!     let mut behavior = MyBehavior { settings };
 //!     tree.ui(&mut behavior, ui);
 //! }
@@ -37,7 +37,7 @@
 //!     settings: &'a mut Settings
 //! }
 //!
-//! impl<'a> egui_tile_tree::Behavior<Pane> for MyBehavior<'a> {
+//! impl<'a> egui_tiles::Behavior<Pane> for MyBehavior<'a> {
 //!     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
 //!         match pane {
 //!             Pane::Settings => "Settings".into(),
@@ -48,9 +48,9 @@
 //!     fn pane_ui(
 //!         &mut self,
 //!         ui: &mut egui::Ui,
-//!         _tile_id: egui_tile_tree::TileId,
+//!         _tile_id: egui_tiles::TileId,
 //!         pane: &mut Pane,
-//!     ) -> egui_tile_tree::UiResponse {
+//!     ) -> egui_tiles::UiResponse {
 //!         match pane {
 //!             Pane::Settings => self.settings.ui(ui),
 //!             Pane::Text(text) => {

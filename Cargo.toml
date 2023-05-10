@@ -6,13 +6,13 @@ authors = [
 categories = ["gui"]
 description = "A tiling layout engine for egui with drag-and-drop and resizing"
 edition = "2021"
-homepage = "https://github.com/rerun-io/egui_tile_tree"
+homepage = "https://github.com/rerun-io/egui_tiles"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 keywords = ["egui", "gui", "tile", "dock", "layout"]
 license = "MIT OR Apache-2.0"
-name = "egui_tile_tree"
+name = "egui_tiles"
 readme = "README.md"
-repository = "https://github.com/rerun-io/egui_tile_tree"
+repository = "https://github.com/rerun-io/egui_tiles"
 rust-version = "1.69"
 version = "0.1.0-alpha.1"
 

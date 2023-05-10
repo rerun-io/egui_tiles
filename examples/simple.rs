@@ -6,7 +6,7 @@ struct Pane {
 
 struct TreeBehavior {}
 
-impl egui_tile_tree::Behavior<Pane> for TreeBehavior {
+impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
         format!("Pane {}", pane.nr).into()
     }
@@ -14,9 +14,9 @@ impl egui_tile_tree::Behavior<Pane> for TreeBehavior {
     fn pane_ui(
         &mut self,
         ui: &mut egui::Ui,
-        _tile_id: egui_tile_tree::TileId,
+        _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
-    ) -> egui_tile_tree::UiResponse {
+    ) -> egui_tiles::UiResponse {
         // Give each pane a unique color:
         let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
@@ -28,9 +28,9 @@ impl egui_tile_tree::Behavior<Pane> for TreeBehavior {
             .add(egui::Button::new("Drag me!").sense(egui::Sense::drag()))
             .drag_started()
         {
-            egui_tile_tree::UiResponse::DragStarted
+            egui_tiles::UiResponse::DragStarted
         } else {
-            egui_tile_tree::UiResponse::None
+            egui_tiles::UiResponse::None
         }
     }
 }
@@ -53,7 +53,7 @@ fn main() -> Result<(), eframe::Error> {
     })
 }
 
-fn create_tree() -> egui_tile_tree::Tree<Pane> {
+fn create_tree() -> egui_tiles::Tree<Pane> {
     let mut next_view_nr = 0;
     let mut gen_pane = || {
         let pane = Pane { nr: next_view_nr };
@@ -61,7 +61,7 @@ fn create_tree() -> egui_tile_tree::Tree<Pane> {
         pane
     };
 
-    let mut tiles = egui_tile_tree::Tiles::default();
+    let mut tiles = egui_tiles::Tiles::default();
 
     let mut tabs = vec![];
     tabs.push({
@@ -76,5 +76,5 @@ fn create_tree() -> egui_tile_tree::Tree<Pane> {
 
     let root = tiles.insert_tab_tile(tabs);
 
-    egui_tile_tree::Tree::new(root, tiles)
+    egui_tiles::Tree::new(root, tiles)
 }

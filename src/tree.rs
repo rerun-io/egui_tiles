@@ -15,7 +15,7 @@ use super::{
 ///
 /// ## How to constriuct a [`Tree`]
 /// ```
-/// use egui_tile_tree::{Tiles, TileId, Tree};
+/// use egui_tiles::{Tiles, TileId, Tree};
 ///
 /// struct Pane { } // put some state here
 ///
