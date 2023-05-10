@@ -1,0 +1,45 @@
+[package]
+authors = [
+  "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
+  "rerun.io <opensource@rerun.io>",
+]
+categories = ["gui"]
+description = "A tiling layout engine for egui with drag-and-drop and resizing"
+edition = "2021"
+homepage = "https://github.com/rerun-io/egui_tile_tree"
+include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+keywords = ["egui", "gui", "tile", "dock", "layout"]
+license = "MIT OR Apache-2.0"
+name = "egui_tile_tree"
+readme = "README.md"
+repository = "https://github.com/rerun-io/egui_tile_tree"
+rust-version = "1.69"
+version = "0.1.0-alpha.1"
+
+[package.metadata.docs.rs]
+all-features = true
+
+
+[dependencies]
+egui = { version = "0.21", default-features = false }
+getrandom = { version = "0.2", features = ["js"] }
+itertools = "0.10"
+log = { version = "0.4", features = ["std"] }
+nohash-hasher = "0.2"
+rand = { version = "0.8.5", features = ["getrandom", "small_rng"] }
+serde = { version = "1", features = ["derive"] }
+
+
+# For the example:
+[dev-dependencies]
+eframe = { version = "0.21", default-features = false, features = [
+  "default_fonts",
+  "glow",
+  "persistence",
+] }
+env_logger = "0.10"
+
+[patch.crates-io]
+# Some patches awaiting egui 0.22
+eframe = { git = "https://github.com/emilk/egui", rev = "e9fa6c8ff68a0257ce0f2801446ba701917b7ae9" }
+egui = { git = "https://github.com/emilk/egui", rev = "e9fa6c8ff68a0257ce0f2801446ba701917b7ae9" }

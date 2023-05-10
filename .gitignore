@@ -3,3 +3,4 @@
 **/target_ra
 **/target_wasm
 /.vscode
+Cargo.lock
