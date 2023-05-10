@@ -283,7 +283,44 @@ impl<Pane> Tiles<Pane> {
                     }
                 }
             } else {
-                // TODO(emilk): join nested versions of the same horizontal/vertical layouts
+                if options.join_nested_linear_layouts {
+                    if let Container::Linear(parent) = container {
+                        let mut new_children = Vec::with_capacity(parent.children.len());
+                        for child_id in parent.children.drain(..) {
+                            if let Some(Tile::Container(Container::Linear(child))) =
+                                &mut self.get_mut(child_id)
+                            {
+                                if parent.dir == child.dir {
+                                    // absorb the child
+                                    log::debug!(
+                                        "Simplify: absorbing nested linear layout with {} children",
+                                        child.children.len()
+                                    );
+
+                                    let mut child_share_sum = 0.0;
+                                    for &grandchild in &child.children {
+                                        child_share_sum += child.shares[grandchild];
+                                    }
+                                    let share_normalizer =
+                                        parent.shares[child_id] / child_share_sum;
+                                    for &grandchild in &child.children {
+                                        new_children.push(grandchild);
+                                        parent.shares[grandchild] =
+                                            child.shares[grandchild] * share_normalizer;
+                                    }
+
+                                    self.tiles.remove(&child_id);
+                                } else {
+                                    // keep the child
+                                    new_children.push(child_id);
+                                }
+                            } else {
+                                new_children.push(child_id);
+                            }
+                        }
+                        parent.children = new_children;
+                    }
+                }
 
                 if options.prune_empty_layouts && container.is_empty() {
                     log::debug!("Simplify: removing empty layout tile");

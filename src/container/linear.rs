@@ -41,6 +41,24 @@ impl Shares {
             .map(|&child| available_width * self[child] / num_shares)
             .collect()
     }
+
+    pub fn retain(&mut self, keep: impl Fn(TileId) -> bool) {
+        self.shares.retain(|&child, _| keep(child));
+    }
+
+    pub fn sum(&self) -> f32 {
+        self.shares.values().sum()
+    }
+}
+
+impl<'a> IntoIterator for &'a Shares {
+    type Item = (&'a TileId, &'a f32);
+    type IntoIter = std::collections::hash_map::Iter<'a, TileId, f32>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.shares.iter()
+    }
 }
 
 impl std::ops::Index<TileId> for Shares {
@@ -62,7 +80,9 @@ impl std::ops::IndexMut<TileId> for Shares {
 // ----------------------------------------------------------------------------
 
 /// The direction of a [`Linear`] layout. Either horizontal or vertical.
-#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum LinearDir {
     #[default]
     Horizontal,
@@ -108,6 +128,10 @@ impl Linear {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
+        // GC:
+        let child_set: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
+        self.shares.retain(|id| child_set.contains(&id));
+
         match self.dir {
             LinearDir::Horizontal => {
                 self.layout_horizontal(tiles, style, behavior, rect);

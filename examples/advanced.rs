@@ -88,6 +88,10 @@ impl TreeBehavior {
                 ui.checkbox(&mut simplification_options.all_panes_must_have_tabs, "");
                 ui.end_row();
 
+                ui.label("Join nested layouts:");
+                ui.checkbox(&mut simplification_options.join_nested_linear_layouts, "");
+                ui.end_row();
+
                 ui.label("Tab bar height:");
                 ui.add(
                     egui::DragValue::new(tab_bar_height)

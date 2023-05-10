@@ -30,7 +30,6 @@
 //! * Easy per-tab close-buttons
 //! * Scrolling of tab-bar
 //! * Vertical tab bar
-//! * Auto-join nested horizontal/vertical layouts in the simplify step
 
 // ## Implementation notes
 // In many places we want to recursively visit all noted, while also mutating them.
@@ -150,6 +149,9 @@ pub struct SimplificationOptions {
     pub prune_empty_layouts: bool,
     pub prune_single_child_layouts: bool,
     pub all_panes_must_have_tabs: bool,
+    /// If a horizontal layout contain another horizontal layout, join them?
+    /// Same for vertical layouts. Does NOT apply to grid layout or tab layouts.
+    pub join_nested_linear_layouts: bool,
 }
 
 impl Default for SimplificationOptions {
@@ -160,6 +162,7 @@ impl Default for SimplificationOptions {
             prune_empty_layouts: true,
             prune_single_child_layouts: true,
             all_panes_must_have_tabs: false,
+            join_nested_linear_layouts: true,
         }
     }
 }
