@@ -251,6 +251,7 @@ impl<Pane> Tiles<Pane> {
         &mut self,
         options: &SimplificationOptions,
         it: TileId,
+        parent_layout: Option<Layout>,
     ) -> SimplifyAction {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::warn!("Failed to find tile {it:?} during simplify");
@@ -258,28 +259,32 @@ impl<Pane> Tiles<Pane> {
         };
 
         if let Tile::Container(container) = &mut tile {
-            // TODO(emilk): join nested versions of the same horizontal/vertical layouts
+            let layout = container.layout();
+            container.simplify_children(|child| self.simplify(options, child, Some(layout)));
 
-            container.simplify_children(|child| self.simplify(options, child));
-
-            if container.layout() == Layout::Tabs {
+            if layout == Layout::Tabs {
                 if options.prune_empty_tabs && container.is_empty() {
                     log::debug!("Simplify: removing empty tabs tile");
                     return SimplifyAction::Remove;
                 }
-                // TODO(emilk): join in child tiles that are single-child tabs
 
                 if options.prune_single_child_tabs && container.children().len() == 1 {
+                    let child_is_pane =
+                        matches!(self.get(container.children()[0]), Some(Tile::Pane(_)));
+
                     if options.all_panes_must_have_tabs
-                        && matches!(self.get(container.children()[0]), Some(Tile::Pane(_)))
+                        && child_is_pane
+                        && parent_layout != Some(Layout::Tabs)
                     {
-                        // Keep it
+                        // Keep it, even though we only one child
                     } else {
                         log::debug!("Simplify: collapsing single-child tabs tile");
                         return SimplifyAction::Replace(container.children()[0]);
                     }
                 }
             } else {
+                // TODO(emilk): join nested versions of the same horizontal/vertical layouts
+
                 if options.prune_empty_layouts && container.is_empty() {
                     log::debug!("Simplify: removing empty layout tile");
                     return SimplifyAction::Remove;

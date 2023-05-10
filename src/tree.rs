@@ -254,7 +254,7 @@ impl<Pane> Tree<Pane> {
     }
 
     fn simplify(&mut self, options: &SimplificationOptions) {
-        match self.tiles.simplify(options, self.root) {
+        match self.tiles.simplify(options, self.root, None) {
             SimplifyAction::Keep | SimplifyAction::Remove => {
                 // Never remove the root, even if we are told to because it is
                 // a container with no children, or whatever.
