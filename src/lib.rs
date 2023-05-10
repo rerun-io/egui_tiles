@@ -42,7 +42,7 @@
 // The ui pass does all the painting.
 // These two passes could be combined into one pass if we wanted to,
 // but having them split up makes the code slightly simpler, and
-// panes the door open for more complex layout (e.g. min/max sizes per tile).
+// leaves the door open for more complex layout (e.g. min/max sizes per tile).
 //
 // Everything is quite dynamic, so we have a bunch of defensive coding that call `warn!` on failure.
 // These situations should not happen in normal use, but could happen if the user messes with
