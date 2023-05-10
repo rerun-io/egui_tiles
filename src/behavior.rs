@@ -18,7 +18,7 @@ pub trait Behavior<Pane> {
     /// The title of a general tab.
     ///
     /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
-    /// uses the name of the [`ContainerKind`] for [`Container`]s.
+    /// uses the name of the [`crate::ContainerKind`] for [`crate::Container`]s.
     fn tab_title_for_tile(&mut self, tiles: &Tiles<Pane>, tile_id: TileId) -> WidgetText {
         if let Some(tile) = tiles.tiles.get(&tile_id) {
             match tile {
@@ -231,7 +231,7 @@ pub trait Behavior<Pane> {
         );
     }
 
-    /// How many columns should we use for a [`Grid]` put into [`GridLayout::Auto`]?
+    /// How many columns should we use for a [`crate::Grid`] put into [`crate::GridLayout::Auto`]?
     ///
     /// The default heuristic tried to find a good column count that results in a per-tile aspect-ratio
     /// of [`Self::ideal_tile_aspect_ratio`].
@@ -248,7 +248,7 @@ pub trait Behavior<Pane> {
         num_columns_heuristic(children.len(), rect, gap, self.ideal_tile_aspect_ratio())
     }
 
-    /// When using [`GridLayout::Auto`], what is the ideal aspect ratio of a tile?
+    /// When using [`crate::GridLayout::Auto`], what is the ideal aspect ratio of a tile?
     fn ideal_tile_aspect_ratio(&self) -> f32 {
         4.0 / 3.0
     }

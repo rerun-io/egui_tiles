@@ -11,7 +11,20 @@ use super::{
 ///
 /// You'll usually construct this once and then store it, calling [`Tree::ui`] each frame.
 ///
-/// See (the crate-level documentation)[crate] for how to construct and use a [`Tree`].
+/// See [the crate-level documentation](crate) for a complete example.
+///
+/// ## How to constriuct a [`Tree`]
+/// ```
+/// use egui_tile_tree::{Tiles, TileId, Tree};
+///
+/// struct Pane { } // put some state here
+///
+/// let mut tiles = Tiles::default();
+/// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
+/// let root: TileId = tiles.insert_tab_tile(tabs);
+///
+/// let tree = Tree::new(root, tiles);
+/// ```
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Tree<Pane> {
     pub root: TileId,
@@ -80,22 +93,22 @@ impl<Pane> Tree<Pane> {
         Self { root, tiles }
     }
 
-    /// Create a top-level [`Tabs`] container with the given panes.
+    /// Create a top-level [`crate::Tabs`] container with the given panes.
     pub fn new_tabs(panes: Vec<Pane>) -> Self {
         Self::new_container(ContainerKind::Tabs, panes)
     }
 
-    /// Create a top-level horizontal [`Linear`] container with the given panes.
+    /// Create a top-level horizontal [`crate::Linear`] container with the given panes.
     pub fn new_horizontal(panes: Vec<Pane>) -> Self {
         Self::new_container(ContainerKind::Horizontal, panes)
     }
 
-    /// Create a top-level vertical [`Linear`] container with the given panes.
+    /// Create a top-level vertical [`crate::Linear`] container with the given panes.
     pub fn new_vertical(panes: Vec<Pane>) -> Self {
         Self::new_container(ContainerKind::Vertical, panes)
     }
 
-    /// Create a top-level [`Grid`] container with the given panes.
+    /// Create a top-level [`crate::Grid`] container with the given panes.
     pub fn new_grid(panes: Vec<Pane>) -> Self {
         Self::new_container(ContainerKind::Grid, panes)
     }

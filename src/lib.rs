@@ -16,6 +16,65 @@
 //! The user needs to implement this in order to specify the `ui` of each `Pane` and
 //! the tab name of panes (if there are tab tiles).
 //!
+//! ## Example
+//! See [`Tree`] for how to construct a tree.
+//!
+//! ```
+//! use egui_tile_tree::{Tiles, TileId, Tree};
+//!
+//! struct Settings {
+//!     checked: bool,
+//! }
+//!
+//! impl Settings {
+//!     fn ui(&mut self, ui: &mut egui::Ui) {
+//!         ui.checkbox(&mut self.checked, "Checked");
+//!     }
+//! }
+//!
+//! // This specifies how you want to represent your panes in memory.
+//! // Implementing serde is optional, but will make the entire tree serializable.
+//! #[derive(serde::Serialize, serde::Deserialize)]
+//! enum Pane {
+//!     Settings,
+//!     Text(String),
+//! }
+//!
+//! struct MyBehavior<'a> {
+//!     settings: &'a mut Settings
+//! }
+//!
+//! impl<'a> egui_tile_tree::Behavior<Pane> for MyBehavior<'a> {
+//!     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
+//!         match pane {
+//!             Pane::Settings => "Settings".into(),
+//!             Pane::Text(text) => text.clone().into(),
+//!         }
+//!     }
+//!
+//!     fn pane_ui(
+//!         &mut self,
+//!         ui: &mut egui::Ui,
+//!         _tile_id: egui_tile_tree::TileId,
+//!         pane: &mut Pane,
+//!     ) -> egui_tile_tree::UiResponse {
+//!         match pane {
+//!             Pane::Settings => self.settings.ui(ui),
+//!             Pane::Text(text) => {
+//!                 ui.text_edit_singleline(text);
+//!             },
+//!         }
+//!
+//!         Default::default()
+//!     }
+//! }
+//!
+//! fn tree_ui(ui: &mut egui::Ui, tree: &mut Tree<Pane>, settings: &mut Settings) {
+//!     let mut behavior = MyBehavior { settings };
+//!     tree.ui(&mut behavior, ui);
+//! }
+//! ```
+//!
 //! ## Shares
 //! The relative sizes of linear layout (horizontal or vertical) and grid columns and rows are specified by _shares_.
 //! If the shares are `1,2,3` it means the first element gets `1/6` of the space, the second `2/6`, and the third `3/6`.
@@ -59,7 +118,7 @@ mod tiles;
 mod tree;
 
 pub use behavior::Behavior;
-pub use container::{Container, ContainerKind, Grid, GridLoc, Linear, LinearDir, Tabs};
+pub use container::{Container, ContainerKind, Grid, GridLayout, GridLoc, Linear, LinearDir, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
 pub use tree::Tree;
@@ -136,7 +195,7 @@ pub enum ResizeState {
 
 // ----------------------------------------------------------------------------
 
-/// An insertion point in a specific containter.
+/// An insertion point in a specific container.
 ///
 /// Specifies the expected container layout type, and where to insert.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

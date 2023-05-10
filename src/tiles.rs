@@ -6,6 +6,18 @@ use super::{
 };
 
 /// Contains all tile state, but no root.
+///
+/// ```
+/// use egui_tile_tree::{Tiles, TileId, Tree};
+///
+/// struct Pane { } // put some state here
+///
+/// let mut tiles = Tiles::default();
+/// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
+/// let root: TileId = tiles.insert_tab_tile(tabs);
+///
+/// let tree = Tree::new(root, tiles);
+/// ```
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
     pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
