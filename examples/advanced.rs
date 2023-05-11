@@ -219,7 +219,9 @@ impl eframe::App for MyApp {
             self.behavior.ui(ui);
             ui.separator();
 
-            tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, self.tree.root);
+            if let Some(root) = self.tree.root() {
+                tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, root);
+            }
 
             if let Some(parent) = self.behavior.add_child_to.take() {
                 let new_child = self.tree.tiles.insert_pane(Pane::with_nr(100));

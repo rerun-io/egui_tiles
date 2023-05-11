@@ -1,7 +1,7 @@
 use crate::{Container, ContainerKind};
 
 /// An identifier for a [`Tile`] in the tree, be it a [`Container`] or a pane.
-#[derive(Clone, Copy, Default, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TileId(u64);
 
 /// [`TileId`] is a high-entropy random id, so this is fine:

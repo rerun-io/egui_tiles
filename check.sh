@@ -21,4 +21,6 @@ cargo doc --document-private-items --no-deps --all-features
 
 cargo deny --all-features --log-level error check
 
+typos # cargo install typos-cli
+
 echo "All checks passed!"

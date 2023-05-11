@@ -131,13 +131,13 @@ impl<Pane> Tiles<Pane> {
                 if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
                     let index = index.min(tabs.children.len());
                     tabs.children.insert(index, child_id);
-                    tabs.active = child_id;
+                    tabs.set_active(child_id);
                     self.tiles.insert(parent_id, tile);
                 } else {
                     let new_tile_id = self.insert_tile(tile);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
                     tabs.children.insert(index.min(1), child_id);
-                    tabs.active = child_id;
+                    tabs.set_active(child_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Tabs(tabs)));
                 }
@@ -200,11 +200,13 @@ impl<Pane> Tiles<Pane> {
     /// Will also call [`Behavior::retain_pane`] to check if a users wants to remove a pane.
     ///
     /// Finally free up any tiles that are no longer reachable from the root.
-    pub(super) fn gc_root(&mut self, behavior: &mut dyn Behavior<Pane>, root_id: TileId) {
+    pub(super) fn gc_root(&mut self, behavior: &mut dyn Behavior<Pane>, root_id: Option<TileId>) {
         let mut visited = Default::default();
 
-        // We ignore the returned root action, because we will never remove the root.
-        let _root_action = self.gc_tile_id(behavior, &mut visited, root_id);
+        if let Some(root_id) = root_id {
+            // We ignore the returned root action, because we will never remove the root.
+            let _root_action = self.gc_tile_id(behavior, &mut visited, root_id);
+        }
 
         if visited.len() < self.tiles.len() {
             // This should only happen if the user set up the tree in a bad state,

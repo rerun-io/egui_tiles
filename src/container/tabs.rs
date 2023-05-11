@@ -12,12 +12,12 @@ pub struct Tabs {
     pub children: Vec<TileId>,
 
     /// The currently open tab.
-    pub active: TileId,
+    pub active: Option<TileId>,
 }
 
 impl Tabs {
     pub fn new(children: Vec<TileId>) -> Self {
-        let active = children.first().copied().unwrap_or_default();
+        let active = children.first().copied();
         Self { children, active }
     }
 
@@ -26,7 +26,11 @@ impl Tabs {
     }
 
     pub fn set_active(&mut self, child: TileId) {
-        self.active = child;
+        self.active = Some(child);
+    }
+
+    pub fn is_active(&self, child: TileId) -> bool {
+        Some(child) == self.active
     }
 
     pub(super) fn layout<Pane>(
@@ -36,16 +40,18 @@ impl Tabs {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        if !self.children.iter().any(|&child| child == self.active) {
+        if !self.children.iter().any(|&child| self.is_active(child)) {
             // Make sure something is active:
-            self.active = self.children.first().copied().unwrap_or_default();
+            self.active = self.children.first().copied();
         }
 
         let mut active_rect = rect;
         active_rect.min.y += behavior.tab_bar_height(style);
 
-        // Only lay out the active tab (saves CPU):
-        tiles.layout_tile(style, behavior, active_rect, self.active);
+        if let Some(active) = self.active {
+            // Only lay out the active tab (saves CPU):
+            tiles.layout_tile(style, behavior, active_rect, active);
+        }
     }
 
     pub(super) fn ui<Pane>(
@@ -59,8 +65,10 @@ impl Tabs {
     ) {
         let next_active = self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id);
 
-        tree.tile_ui(behavior, drop_context, ui, self.active);
-        crate::cover_tile_if_dragged(tree, behavior, ui, self.active);
+        if let Some(active) = self.active {
+            tree.tile_ui(behavior, drop_context, ui, active);
+            crate::cover_tile_if_dragged(tree, behavior, ui, active);
+        }
 
         // We have only laid out the active tab, so we need to switch active tab _after_ the ui pass above:
         self.active = next_active;
@@ -75,7 +83,7 @@ impl Tabs {
         rect: Rect,
         drop_context: &mut DropContext,
         tile_id: TileId,
-    ) -> TileId {
+    ) -> Option<TileId> {
         let mut next_active = self.active;
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
@@ -97,7 +105,7 @@ impl Tabs {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.set_clip_rect(ui.max_rect()); // Don't cover the `rtl_ui` buttons.
 
-                if tile_id != tree.root {
+                if !tree.is_root(tile_id) {
                     // Make the background behind the buttons draggable (to drag the parent container tile):
                     if ui
                         .interact(
@@ -115,14 +123,14 @@ impl Tabs {
                 for (i, &child_id) in self.children.iter().enumerate() {
                     let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
 
-                    let selected = child_id == self.active;
+                    let selected = self.is_active(child_id);
                     let id = child_id.id();
 
                     let response =
                         behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
                     let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                     if response.clicked() {
-                        next_active = child_id;
+                        next_active = Some(child_id);
                     }
 
                     if let Some(mouse_pos) = drop_context.mouse_pos {
@@ -130,7 +138,7 @@ impl Tabs {
                             && response.rect.contains(mouse_pos)
                         {
                             // Expand this tab - maybe the user wants to drop something into it!
-                            next_active = child_id;
+                            next_active = Some(child_id);
                         }
                     }
 
@@ -181,8 +189,8 @@ impl Tabs {
             SimplifyAction::Remove => false,
             SimplifyAction::Keep => true,
             SimplifyAction::Replace(new) => {
-                if self.active == *child {
-                    self.active = new;
+                if self.active == Some(*child) {
+                    self.active = Some(new);
                 }
                 *child = new;
                 true

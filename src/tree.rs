@@ -27,14 +27,18 @@ use super::{
 /// ```
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Tree<Pane> {
-    pub root: TileId,
+    /// None = empty tree
+    pub root: Option<TileId>,
+
+    /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
 }
 
 impl<Pane> Default for Tree<Pane> {
+    // An empty tree
     fn default() -> Self {
         Self {
-            root: Default::default(),
+            root: None,
             tiles: Default::default(),
         }
     }
@@ -74,9 +78,13 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             }
         }
 
-        writeln!(f, "Tree {{")?;
-        format_tile(f, &self.tiles, 1, self.root)?;
-        write!(f, "\n}}")
+        if let Some(root) = self.root {
+            writeln!(f, "Tree {{")?;
+            format_tile(f, &self.tiles, 1, root)?;
+            write!(f, "}}")
+        } else {
+            writeln!(f, "Tree {{ }}")
+        }
     }
 }
 
@@ -90,7 +98,10 @@ impl<Pane> Tree<Pane> {
     /// The most flexible constructor, allowing you to set up the tiles
     /// however you want.
     pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
-        Self { root, tiles }
+        Self {
+            root: Some(root),
+            tiles,
+        }
     }
 
     /// Create a top-level [`crate::Tabs`] container with the given panes.
@@ -124,8 +135,12 @@ impl<Pane> Tree<Pane> {
         Self::new(root, tiles)
     }
 
-    pub fn root(&self) -> TileId {
+    pub fn root(&self) -> Option<TileId> {
         self.root
+    }
+
+    pub fn is_root(&self, tile: TileId) -> bool {
+        self.root == Some(tile)
     }
 
     /// Show the tree in the given [`Ui`].
@@ -135,7 +150,9 @@ impl<Pane> Tree<Pane> {
         let options = behavior.simplification_options();
         self.simplify(&options);
         if options.all_panes_must_have_tabs {
-            self.tiles.make_all_panes_children_of_tabs(false, self.root);
+            if let Some(root) = self.root {
+                self.tiles.make_all_panes_children_of_tabs(false, root);
+            }
         }
 
         self.tiles.gc_root(behavior, self.root);
@@ -152,14 +169,12 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
-        self.tiles.layout_tile(
-            ui.style(),
-            behavior,
-            ui.available_rect_before_wrap(),
-            self.root,
-        );
+        if let Some(root) = self.root {
+            self.tiles
+                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
 
-        self.tile_ui(behavior, &mut drop_context, ui, self.root);
+            self.tile_ui(behavior, &mut drop_context, ui, root);
+        }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
     }
@@ -216,7 +231,9 @@ impl<Pane> Tree<Pane> {
     ///
     /// This means making the matching tiles and its ancestors the active tab in any tab layout.
     pub fn make_active(&mut self, should_activate: impl Fn(&Tile<Pane>) -> bool) {
-        self.tiles.make_active(self.root, &should_activate);
+        if let Some(root) = self.root {
+            self.tiles.make_active(root, &should_activate);
+        }
     }
 
     fn preview_dragged_tile(
@@ -278,13 +295,15 @@ impl<Pane> Tree<Pane> {
     }
 
     fn simplify(&mut self, options: &SimplificationOptions) {
-        match self.tiles.simplify(options, self.root, None) {
-            SimplifyAction::Keep | SimplifyAction::Remove => {
-                // Never remove the root, even if we are told to because it is
-                // a container with no children, or whatever.
-            }
-            SimplifyAction::Replace(new_root) => {
-                self.root = new_root;
+        if let Some(root) = self.root {
+            match self.tiles.simplify(options, root, None) {
+                SimplifyAction::Keep => {}
+                SimplifyAction::Remove => {
+                    self.root = None;
+                }
+                SimplifyAction::Replace(new_root) => {
+                    self.root = Some(new_root);
+                }
             }
         }
     }
@@ -307,7 +326,7 @@ impl<Pane> Tree<Pane> {
         }
 
         for &tile_id in self.tiles.tiles.keys() {
-            if tile_id == self.root {
+            if self.is_root(tile_id) {
                 continue; // not allowed to drag root
             }
 
