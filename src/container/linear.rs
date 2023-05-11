@@ -213,9 +213,8 @@ impl Linear {
         parent_id: TileId,
     ) {
         for &child in &self.children {
-            if !is_being_dragged(ui.ctx(), child) {
-                tree.tile_ui(behavior, drop_context, ui, child);
-            }
+            tree.tile_ui(behavior, drop_context, ui, child);
+            crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
         linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
@@ -276,9 +275,8 @@ impl Linear {
         parent_id: TileId,
     ) {
         for &child in &self.children {
-            if !is_being_dragged(ui.ctx(), child) {
-                tree.tile_ui(behavior, drop_context, ui, child);
-            }
+            tree.tile_ui(behavior, drop_context, ui, child);
+            crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
         linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {

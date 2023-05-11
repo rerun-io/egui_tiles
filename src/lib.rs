@@ -245,6 +245,21 @@ fn is_being_dragged(ctx: &egui::Context, tile_id: TileId) -> bool {
     ctx.memory(|mem| mem.is_being_dragged(tile_id.id())) && is_possible_drag(ctx)
 }
 
+/// If this tile is currently being dragged, cover it with a semi-transparent overlay ([`Behavior::dragged_overlay_color`]).
+fn cover_tile_if_dragged<Pane>(
+    tree: &Tree<Pane>,
+    behavior: &dyn Behavior<Pane>,
+    ui: &mut egui::Ui,
+    tile_id: TileId,
+) {
+    if is_being_dragged(ui.ctx(), tile_id) {
+        if let Some(child_rect) = tree.tiles.try_rect(tile_id) {
+            let overlay_color = behavior.dragged_overlay_color(ui.visuals());
+            ui.painter().rect_filled(child_rect, 0.0, overlay_color);
+        }
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 /// Context used for drag-and-dropping of tiles.

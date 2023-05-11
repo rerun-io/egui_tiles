@@ -59,9 +59,8 @@ impl Tabs {
     ) {
         let next_active = self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id);
 
-        if behavior.show_dragged_tab_contents() || !is_being_dragged(ui.ctx(), self.active) {
-            tree.tile_ui(behavior, drop_context, ui, self.active);
-        }
+        tree.tile_ui(behavior, drop_context, ui, self.active);
+        crate::cover_tile_if_dragged(tree, behavior, ui, self.active);
 
         // We have only laid out the active tab, so we need to switch active tab _after_ the ui pass above:
         self.active = next_active;

@@ -206,6 +206,7 @@ impl Grid {
     ) {
         for &child in &self.children {
             tree.tile_ui(behavior, drop_context, ui, child);
+            crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
         // Register drop-zones:

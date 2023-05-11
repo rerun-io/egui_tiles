@@ -140,9 +140,9 @@ pub trait Behavior<Pane> {
         false
     }
 
-    /// Show the contents of am active tab even while the tab is being dragged?
-    fn show_dragged_tab_contents(&self) -> bool {
-        false
+    /// Cover the tile that is being dragged with this color.
+    fn dragged_overlay_color(&self, visuals: &Visuals) -> Color32 {
+        visuals.panel_fill.gamma_multiply(0.5)
     }
 
     /// What are the rules for simplifying the tree?
