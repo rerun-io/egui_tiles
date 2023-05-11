@@ -29,7 +29,7 @@ impl std::fmt::Debug for TileId {
 // ----------------------------------------------------------------------------
 
 /// A tile in the tree. Either a pane (leaf) or a [`Container`] of more tiles.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Tile<Pane> {
     /// A leaf. This is where the user puts their UI, using the [`crate::Behavior`] trait.
     Pane(Pane),

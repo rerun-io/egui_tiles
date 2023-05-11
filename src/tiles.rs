@@ -18,7 +18,7 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
     pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
 

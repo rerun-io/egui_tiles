@@ -40,7 +40,7 @@ impl ContainerKind {
 // ----------------------------------------------------------------------------
 
 /// A container of several [`super::Tile`]s.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Container {
     Tabs(Tabs),
     Linear(Linear),

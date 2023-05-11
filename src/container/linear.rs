@@ -11,7 +11,7 @@ use crate::{
 /// How large of a share of space each child has, on a 1D axis.
 ///
 /// Used for [`Linear`] containers (horizontal and vertical).
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Shares {
     /// How large of a share each child has.
     ///
@@ -90,7 +90,7 @@ pub enum LinearDir {
 }
 
 /// Horizontal or vertical container.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Linear {
     pub children: Vec<TileId>,
     pub dir: LinearDir,
