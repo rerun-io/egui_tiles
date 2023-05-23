@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use egui::Vec2;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -137,6 +138,11 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     ) {
         if ui.button("➕").clicked() {
             self.add_child_to = Some(tile_id);
+        }
+
+        if ui.button(">").clicked() {
+            let initial_delta = Vec2::new(5.0, 0.0);
+            ui.scroll_with_delta(initial_delta)
         }
     }
 

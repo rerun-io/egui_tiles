@@ -1,4 +1,4 @@
-use egui::{vec2, Rect};
+use egui::{vec2, Rect, Vec2, ScrollArea, scroll_area::ScrollBarVisibility};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -98,55 +98,59 @@ impl Tabs {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
-            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self);
-
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
+            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self);
+            ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                ui.set_clip_rect(ui.max_rect()); // Don't cover the `rtl_ui` buttons.
+            let area = egui::ScrollArea::new([true, false])
+                .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
+                .max_width(ui.available_width());
 
-                if !tree.is_root(tile_id) {
-                    // Make the background behind the buttons draggable (to drag the parent container tile):
-                    if ui
-                        .interact(
-                            ui.max_rect(),
-                            ui.id().with("background"),
-                            egui::Sense::drag(),
-                        )
-                        .on_hover_cursor(egui::CursorIcon::Grab)
-                        .drag_started()
-                    {
-                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
-                    }
-                }
-
-                for (i, &child_id) in self.children.iter().enumerate() {
-                    let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
-
-                    let selected = self.is_active(child_id);
-                    let id = child_id.id();
-
-                    let response =
-                        behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
-                    let response = response.on_hover_cursor(egui::CursorIcon::Grab);
-                    if response.clicked() {
-                        next_active = Some(child_id);
-                    }
-
-                    if let Some(mouse_pos) = drop_context.mouse_pos {
-                        if drop_context.dragged_tile_id.is_some()
-                            && response.rect.contains(mouse_pos)
+            area.show(ui, |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    if !tree.is_root(tile_id) {
+                        // Make the background behind the buttons draggable (to drag the parent container tile):
+                        if ui
+                            .interact(
+                                ui.max_rect(),
+                                ui.id().with("background"),
+                                egui::Sense::drag(),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::Grab)
+                            .drag_started()
                         {
-                            // Expand this tab - maybe the user wants to drop something into it!
-                            next_active = Some(child_id);
+                            ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
                         }
                     }
 
-                    button_rects.insert(child_id, response.rect);
-                    if is_being_dragged {
-                        dragged_index = Some(i);
+                    for (i, &child_id) in self.children.iter().enumerate() {
+                        let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
+
+                        let selected = self.is_active(child_id);
+                        let id = child_id.id();
+
+                        let response =
+                            behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
+                        let response = response.on_hover_cursor(egui::CursorIcon::Grab);
+                        if response.clicked() {
+                            next_active = Some(child_id);
+                        }
+
+                        if let Some(mouse_pos) = drop_context.mouse_pos {
+                            if drop_context.dragged_tile_id.is_some()
+                                && response.rect.contains(mouse_pos)
+                            {
+                                // Expand this tab - maybe the user wants to drop something into it!
+                                next_active = Some(child_id);
+                            }
+                        }
+
+                        button_rects.insert(child_id, response.rect);
+                        if is_being_dragged {
+                            dragged_index = Some(i);
+                        }
                     }
-                }
+                });
             });
         });
 
