@@ -135,16 +135,14 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
-        tile_id: egui_tiles::TileId,
+        _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
         _scroll: Sender<f32>,
         _offset: Option<f32>
     ) {
-        // if _offset.is_some() && _offset.unwrap() > 45.0 {
         if ui.button("<").clicked() {
             _scroll.send(-45.0).unwrap();
         } 
-        // }
     }
 
     fn top_bar_rtl_ui(
@@ -161,7 +159,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         }
 
         if ui.button(">").clicked() {
-            // Float value to move scroll by
+            // Integer value to move scroll by
             // +'ve is right
             // -'ve is left
             _scroll.send(45.0).unwrap();

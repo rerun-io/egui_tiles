@@ -90,13 +90,10 @@ impl Tabs {
 
         let id = ui.make_persistent_id(tile_id);
 
-        println!("START:: LOC:{{{:?}}}, VAL:{:?}", id, 0.0);
         ui.ctx().memory_mut(
             |m|
             if m.data.get_temp::<f32>(id).is_none() {
                 m.data.insert_temp(id, scroll_length)
-            }else {
-                println!("Received: {:?}", m.data.get_temp::<f32>(id).unwrap());
             }
         );
 
@@ -133,7 +130,6 @@ impl Tabs {
                 if let Some(offset) = offset {
                     let mut offset = offset;
 
-                    println!("GOT UPDATE: {}:[{}] FROM LOC:{{{:?}}} MAX:{}", offset, new_position, id, ui.available_width());
                     offset += new_position;
 
                     // Max is: [`ui.available_width()`]
