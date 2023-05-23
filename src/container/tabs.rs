@@ -1,4 +1,4 @@
-use egui::{vec2, Rect, Vec2, ScrollArea, scroll_area::ScrollBarVisibility};
+use egui::{vec2, Rect, scroll_area::ScrollBarVisibility};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -85,6 +85,20 @@ impl Tabs {
         tile_id: TileId,
     ) -> Option<TileId> {
         let mut next_active = self.active;
+        
+        let scroll_length: f32 = 0.0;
+
+        let id = ui.make_persistent_id(tile_id);
+
+        println!("START:: LOC:{{{:?}}}, VAL:{:?}", id, 0.0);
+        ui.ctx().memory_mut(
+            |m|
+            if m.data.get_temp::<f32>(id).is_none() {
+                m.data.insert_temp(id, scroll_length)
+            }else {
+                println!("Received: {:?}", m.data.get_temp::<f32>(id).unwrap());
+            }
+        );
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
@@ -99,14 +113,48 @@ impl Tabs {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
-            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self);
+
+            let scrolling_channel = std::sync::mpsc::channel::<f32>();
+            let offset = ui.ctx().memory_mut(
+                |m|
+                m.data.get_temp::<f32>(id)
+            );
+
+            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self, scrolling_channel.0.clone(), offset);
+            behavior.top_bar_ltl_ui(&tree.tiles, ui, tile_id, self, scrolling_channel.0, offset);
+
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
-            let area = egui::ScrollArea::new([true, false])
+            let mut area = egui::ScrollArea::new([true, false])
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                 .max_width(ui.available_width());
 
-            area.show(ui, |ui| {
+            if let Ok(new_position) = scrolling_channel.1.try_recv() {
+                if let Some(offset) = offset {
+                    let mut offset = offset;
+
+                    println!("GOT UPDATE: {}:[{}] FROM LOC:{{{:?}}} MAX:{}", offset, new_position, id, ui.available_width());
+                    offset += new_position;
+
+                    // Max is: [`ui.available_width()`]
+                    if offset >= (ui.available_width()) {
+                        offset = ui.available_width();
+                    }
+
+                    if offset < 0.0 {
+                        offset = 0.0;
+                    }
+                    
+                    area = area.to_owned().horizontal_scroll_offset(offset); 
+
+                    ui.ctx().memory_mut(
+                        |m|
+                        m.data.insert_temp(id, offset)
+                    );
+                }
+            }
+
+            area.to_owned().show(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if !tree.is_root(tile_id) {
                         // Make the background behind the buttons draggable (to drag the parent container tile):
@@ -134,6 +182,7 @@ impl Tabs {
                         let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                         if response.clicked() {
                             next_active = Some(child_id);
+                            response.scroll_to_me(None)
                         }
 
                         if let Some(mouse_pos) = drop_context.mouse_pos {

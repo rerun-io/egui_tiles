@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::sync::mpsc::Sender;
+
 use eframe::egui;
 use egui::Vec2;
 
@@ -129,20 +131,40 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         format!("View {}", view.nr).into()
     }
 
+    fn top_bar_ltl_ui(
+        &mut self,
+        _tiles: &egui_tiles::Tiles<Pane>,
+        ui: &mut egui::Ui,
+        tile_id: egui_tiles::TileId,
+        _tabs: &egui_tiles::Tabs,
+        _scroll: Sender<f32>,
+        _offset: Option<f32>
+    ) {
+        // if _offset.is_some() && _offset.unwrap() > 45.0 {
+        if ui.button("<").clicked() {
+            _scroll.send(-45.0).unwrap();
+        } 
+        // }
+    }
+
     fn top_bar_rtl_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
         tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
+        _scroll: Sender<f32>,
+        _offset: Option<f32>
     ) {
         if ui.button("➕").clicked() {
             self.add_child_to = Some(tile_id);
         }
 
         if ui.button(">").clicked() {
-            let initial_delta = Vec2::new(5.0, 0.0);
-            ui.scroll_with_delta(initial_delta)
+            // Float value to move scroll by
+            // +'ve is right
+            // -'ve is left
+            _scroll.send(45.0).unwrap();
         }
     }
 

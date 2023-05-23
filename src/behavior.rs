@@ -1,3 +1,5 @@
+use std::sync::mpsc::Sender;
+
 use egui::{
     vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Visuals, WidgetText,
 };
@@ -113,6 +115,21 @@ pub trait Behavior<Pane> {
         _ui: &mut Ui,
         _tile_id: TileId,
         _tabs: &crate::Tabs,
+        _scroll: Sender<f32>,
+        _offset: Option<f32>
+    ) {
+        // if ui.button("➕").clicked() {
+        // }
+    }
+
+    fn top_bar_ltl_ui(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _ui: &mut Ui,
+        _tile_id: TileId,
+        _tabs: &crate::Tabs,
+        _scroll: Sender<f32>,
+        _offset: Option<f32>
     ) {
         // if ui.button("➕").clicked() {
         // }
