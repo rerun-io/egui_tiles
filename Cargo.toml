@@ -21,7 +21,7 @@ all-features = true
 
 
 [dependencies]
-egui = { version = "0.21", default-features = false }
+egui = { version = "0.22", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
 itertools = "0.10"
 log = { version = "0.4", features = ["std"] }
@@ -32,14 +32,9 @@ serde = { version = "1", features = ["derive"] }
 
 # For the example:
 [dev-dependencies]
-eframe = { version = "0.21", default-features = false, features = [
+eframe = { version = "0.22", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
 ] }
 env_logger = "0.10"
-
-[patch.crates-io]
-# Some patches awaiting egui 0.22
-eframe = { git = "https://github.com/emilk/egui", rev = "e9fa6c8ff68a0257ce0f2801446ba701917b7ae9" }
-egui = { git = "https://github.com/emilk/egui", rev = "e9fa6c8ff68a0257ce0f2801446ba701917b7ae9" }
