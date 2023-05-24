@@ -1,4 +1,4 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Sense};
+use egui::{scroll_area::ScrollBarVisibility, vec2, Rect};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
