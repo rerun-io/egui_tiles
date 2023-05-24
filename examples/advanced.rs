@@ -138,11 +138,11 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
         _scroll: Sender<f32>,
-        _offset: Option<f32>
+        _offset: Option<f32>,
     ) {
         if ui.button("<").clicked() {
             _scroll.send(-45.0).unwrap();
-        } 
+        }
     }
 
     fn top_bar_rtl_ui(
@@ -152,7 +152,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
         _scroll: Sender<f32>,
-        _offset: Option<f32>
+        _offset: Option<f32>,
     ) {
         if ui.button("➕").clicked() {
             self.add_child_to = Some(tile_id);

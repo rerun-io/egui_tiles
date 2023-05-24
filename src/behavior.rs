@@ -116,7 +116,7 @@ pub trait Behavior<Pane> {
         _tile_id: TileId,
         _tabs: &crate::Tabs,
         _scroll: Sender<f32>,
-        _offset: Option<f32>
+        _offset: Option<f32>,
     ) {
         // if ui.button("➕").clicked() {
         // }
@@ -129,7 +129,7 @@ pub trait Behavior<Pane> {
         _tile_id: TileId,
         _tabs: &crate::Tabs,
         _scroll: Sender<f32>,
-        _offset: Option<f32>
+        _offset: Option<f32>,
     ) {
         // if ui.button("➕").clicked() {
         // }

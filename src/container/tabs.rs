@@ -1,4 +1,4 @@
-use egui::{vec2, Rect, scroll_area::ScrollBarVisibility};
+use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Sense};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -85,17 +85,16 @@ impl Tabs {
         tile_id: TileId,
     ) -> Option<TileId> {
         let mut next_active = self.active;
-        
+
         let scroll_length: f32 = 0.0;
 
         let id = ui.make_persistent_id(tile_id);
 
-        ui.ctx().memory_mut(
-            |m|
+        ui.ctx().memory_mut(|m| {
             if m.data.get_temp::<f32>(id).is_none() {
                 m.data.insert_temp(id, scroll_length)
             }
-        );
+        });
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
@@ -112,12 +111,16 @@ impl Tabs {
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
             let scrolling_channel = std::sync::mpsc::channel::<f32>();
-            let offset = ui.ctx().memory_mut(
-                |m|
-                m.data.get_temp::<f32>(id)
-            );
+            let offset = ui.ctx().memory_mut(|m| m.data.get_temp::<f32>(id));
 
-            behavior.top_bar_rtl_ui(&tree.tiles, ui, tile_id, self, scrolling_channel.0.clone(), offset);
+            behavior.top_bar_rtl_ui(
+                &tree.tiles,
+                ui,
+                tile_id,
+                self,
+                scrolling_channel.0.clone(),
+                offset,
+            );
             behavior.top_bar_ltl_ui(&tree.tiles, ui, tile_id, self, scrolling_channel.0, offset);
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
@@ -140,17 +143,15 @@ impl Tabs {
                     if offset < 0.0 {
                         offset = 0.0;
                     }
-                    
-                    area = area.to_owned().horizontal_scroll_offset(offset); 
 
-                    ui.ctx().memory_mut(
-                        |m|
-                        m.data.insert_temp(id, offset)
-                    );
+                    area = area.to_owned().horizontal_scroll_offset(offset);
+
+                    ui.ctx().memory_mut(|m| m.data.insert_temp(id, offset));
                 }
             }
 
             area.to_owned().show(ui, |ui| {
+                // ui.interact(rect, id, Sense::)
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if !tree.is_root(tile_id) {
                         // Make the background behind the buttons draggable (to drag the parent container tile):
@@ -173,8 +174,14 @@ impl Tabs {
                         let selected = self.is_active(child_id);
                         let id = child_id.id();
 
-                        let response =
-                            behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
+                        let response = behavior.tab_ui(
+                            &tree.tiles,
+                            ui,
+                            id,
+                            child_id,
+                            selected,
+                            is_being_dragged,
+                        );
                         let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                         if response.clicked() {
                             next_active = Some(child_id);
