@@ -1,4 +1,4 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, Rect};
+use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -13,6 +13,13 @@ pub struct Tabs {
 
     /// The currently open tab.
     pub active: Option<TileId>,
+}
+
+#[derive(Default, Clone)]
+struct ScrollState {
+    pub offset: Vec2,
+    pub consumed: Vec2,
+    pub available: Vec2    
 }
 
 impl Tabs {
@@ -86,13 +93,12 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        let scroll_length: f32 = 0.0;
-
+        let scroll_state: ScrollState = ScrollState::default();
         let id = ui.make_persistent_id(tile_id);
 
         ui.ctx().memory_mut(|m| {
-            if m.data.get_temp::<f32>(id).is_none() {
-                m.data.insert_temp(id, scroll_length)
+            if m.data.get_temp::<ScrollState>(id).is_none() {
+                m.data.insert_temp(id, scroll_state)
             }
         });
 
@@ -106,22 +112,35 @@ impl Tabs {
         ui.painter()
             .rect_filled(ui.max_rect(), 0.0, behavior.tab_bar_color(ui.visuals()));
 
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
             let scrolling_channel = std::sync::mpsc::channel::<f32>();
-            let offset = ui.ctx().memory_mut(|m| m.data.get_temp::<f32>(id));
+            let mut scroll_state: ScrollState = ui.ctx().memory_mut(|m| m.data.get_temp::<ScrollState>(id)).unwrap();
+            
+            if scroll_state.offset.x > 0.0 {
+                behavior.top_bar_ltl_ui(
+                    &tree.tiles, ui, tile_id, 
+                    self, scroll_state.offset.x,
+                    scrolling_channel.0.clone()
+                );
+            }
 
-            behavior.top_bar_rtl_ui(
-                &tree.tiles,
-                ui,
-                tile_id,
-                self,
-                scrolling_channel.0.clone(),
-                offset,
-            );
-            behavior.top_bar_ltl_ui(&tree.tiles, ui, tile_id, self, scrolling_channel.0, offset);
+            // ui.allocate_space(scroll_state.available);
+
+            let should_show_scroll_right = scroll_state.consumed.x >= scroll_state.available.x;
+            
+            if should_show_scroll_right {
+                behavior.top_bar_rtl_ui(
+                    &tree.tiles,
+                    ui,
+                    tile_id,
+                    self,
+                    scroll_state.offset.x,
+                    scrolling_channel.0
+                );
+            }
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
@@ -130,27 +149,22 @@ impl Tabs {
                 .max_width(ui.available_width());
 
             if let Ok(new_position) = scrolling_channel.1.try_recv() {
-                if let Some(offset) = offset {
-                    let mut offset = offset;
+                scroll_state.offset.x += new_position;
 
-                    offset += new_position;
-
-                    // Max is: [`ui.available_width()`]
-                    if offset >= (ui.available_width()) {
-                        offset = ui.available_width();
-                    }
-
-                    if offset < 0.0 {
-                        offset = 0.0;
-                    }
-
-                    area = area.to_owned().horizontal_scroll_offset(offset);
-
-                    ui.ctx().memory_mut(|m| m.data.insert_temp(id, offset));
+                // Max is: [`ui.available_width()`]
+                if scroll_state.offset.x >= (ui.available_width()) {
+                    scroll_state.offset.x = ui.available_width();
                 }
+
+                if scroll_state.offset.x < 0.0 {
+                    scroll_state.offset.x = 0.0;
+                }
+
+                area = area.to_owned().horizontal_scroll_offset(scroll_state.offset.x);
+                ui.ctx().memory_mut(|m| m.data.insert_temp(id, scroll_state.clone()));
             }
 
-            area.to_owned().show(ui, |ui| {
+            let output = area.show_viewport(ui, |ui, _| {
                 // ui.interact(rect, id, Sense::)
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if !tree.is_root(tile_id) {
@@ -204,6 +218,12 @@ impl Tabs {
                     }
                 });
             });
+
+            scroll_state.offset = output.state.offset;
+            scroll_state.consumed = output.content_size;
+            scroll_state.available = output.inner_rect.size();
+
+            ui.ctx().memory_mut(|m| m.data.insert_temp(id, scroll_state));
         });
 
         // -----------

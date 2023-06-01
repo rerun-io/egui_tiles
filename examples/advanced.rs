@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use std::sync::mpsc::Sender;
+
 use eframe::egui;
 
 fn main() -> Result<(), eframe::Error> {
@@ -135,8 +136,8 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
-        _scroll: Sender<f32>,
-        _offset: Option<f32>,
+        _offset: f32,
+        _scroll: Sender<f32>
     ) {
         if ui.button("<").clicked() {
             _scroll.send(-45.0).unwrap();
@@ -147,14 +148,14 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
-        tile_id: egui_tiles::TileId,
+        _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
-        _scroll: Sender<f32>,
-        _offset: Option<f32>,
+        _offset: f32,
+        _scroll: Sender<f32>
     ) {
-        if ui.button("➕").clicked() {
-            self.add_child_to = Some(tile_id);
-        }
+        // if ui.button("➕").clicked() {
+        //     self.add_child_to = Some(tile_id);
+        // }
 
         if ui.button(">").clicked() {
             // Integer value to move scroll by
