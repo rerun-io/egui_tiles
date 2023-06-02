@@ -1,5 +1,3 @@
-use std::default;
-
 use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2};
 
 use crate::{
