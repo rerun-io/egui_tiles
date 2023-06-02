@@ -137,40 +137,28 @@ impl Tabs {
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
+            const LEFT_FRAME_SIZE: f32 = 20.0;
+
             let mut consume = ui.available_width();
 
-            if scroll_state.offset.x > 20.0 {
+            if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 if !scroll_state.prev_frame_left {
-                    scroll_state.offset_delta.x += 20.0;
+                    scroll_state.offset_delta.x += LEFT_FRAME_SIZE;
                 }
 
                 scroll_state.prev_frame_left = true;
 
-                consume -= 20.0;
+                consume -= LEFT_FRAME_SIZE;
             }else if scroll_state.offset.x > 0.0 {
                 if scroll_state.prev_frame_left {
-                    scroll_state.offset.x -= 20.0;
+                    scroll_state.offset.x -= LEFT_FRAME_SIZE;
                 }
+
+                // Uncomment the following for an ~animated~ reveal.
                 // consume -= scroll_state.offset.x;
             }else {
                 scroll_state.prev_frame_left = false;
             }
-
-            // let consume = if scroll_state.offset.x > 20.0 || scroll_state.prev_frame_left {
-            //     if !scroll_state.prev_frame_left {
-            //         scroll_state.offset_delta.x -= 20.0;
-            //         scroll_state.prev_frame_left = true;
-            //     }
-                
-            //     if scroll_state.offset.x == 0.0 {
-            //         scroll_state.prev_frame_left = false;
-            //     }
-                
-            //     ui.available_width() - 20.0 
-            // } else {
-            //     scroll_state.prev_frame_left = false;
-            //     ui.available_width() 
-            // };
 
             let mut scroll_area_size = Vec2::ZERO;
             scroll_area_size.x = consume;
