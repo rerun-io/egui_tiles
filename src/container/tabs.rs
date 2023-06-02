@@ -23,7 +23,7 @@ struct ScrollState {
     pub consumed: Vec2,
     pub available: Vec2,
     pub offset_delta: Vec2,
-    
+
     pub prev_frame_left: bool,
     pub prev_frame_right: bool
 }
@@ -137,20 +137,21 @@ impl Tabs {
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
-            println!("{} {}", scroll_state.offset.x, scroll_state.prev_frame_left);
-
             let mut consume = ui.available_width();
 
             if scroll_state.offset.x > 20.0 {
-                // if !scroll_state.prev_frame_left {
-                //     scroll_state.offset_delta.x -= 20.0;
-                // }
+                if !scroll_state.prev_frame_left {
+                    scroll_state.offset_delta.x += 20.0;
+                }
 
                 scroll_state.prev_frame_left = true;
 
                 consume -= 20.0;
             }else if scroll_state.offset.x > 0.0 {
-                consume -= scroll_state.offset.x;
+                if scroll_state.prev_frame_left {
+                    scroll_state.offset.x -= 20.0;
+                }
+                // consume -= scroll_state.offset.x;
             }else {
                 scroll_state.prev_frame_left = false;
             }
