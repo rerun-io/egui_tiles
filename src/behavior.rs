@@ -109,27 +109,27 @@ pub trait Behavior<Pane> {
     /// You can use this to, for instance, add a button for adding new tabs.
     ///
     /// The widgets will be added right-to-left.
-    fn top_bar_rtl_ui(
+    fn top_bar_right_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
         _ui: &mut Ui,
         _tile_id: TileId,
         _tabs: &crate::Tabs,
         _offset: f32,
-        _scroll: Sender<f32>,
+        _scroll: &mut f32,
     ) {
         // if ui.button("➕").clicked() {
         // }
     }
 
-    fn top_bar_ltl_ui(
+    fn top_bar_left_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
         _ui: &mut Ui,
         _tile_id: TileId,
         _tabs: &crate::Tabs,
         _offset: f32,
-        _scroll: Sender<f32>,
+        _scroll: &mut f32,
     ) {
         // if ui.button("➕").clicked() {
         // }

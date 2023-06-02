@@ -3,6 +3,7 @@
 use std::sync::mpsc::Sender;
 
 use eframe::egui;
+use egui::Button;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -130,38 +131,38 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         format!("View {}", view.nr).into()
     }
 
-    fn top_bar_ltl_ui(
+    fn top_bar_left_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
         _offset: f32,
-        _scroll: Sender<f32>
+        _scroll: &mut f32
     ) {
-        if ui.button("<").clicked() {
-            _scroll.send(-45.0).unwrap();
+        if ui.button("⏴").clicked() {           
+            *_scroll += -45.0;
         }
     }
 
-    fn top_bar_rtl_ui(
+    fn top_bar_right_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
         _offset: f32,
-        _scroll: Sender<f32>
+        _scroll: &mut f32 
     ) {
         // if ui.button("➕").clicked() {
         //     self.add_child_to = Some(tile_id);
         // }
 
-        if ui.button(">").clicked() {
+        if ui.button("⏵").clicked() {            
             // Integer value to move scroll by
             // +'ve is right
             // -'ve is left
-            _scroll.send(45.0).unwrap();
+            *_scroll += 45.0;
         }
     }
 

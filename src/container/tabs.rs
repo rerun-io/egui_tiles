@@ -1,4 +1,4 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2};
+use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2, Pos2};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -19,7 +19,8 @@ pub struct Tabs {
 struct ScrollState {
     pub offset: Vec2,
     pub consumed: Vec2,
-    pub available: Vec2    
+    pub available: Vec2,
+    pub offset_delta: Vec2  
 }
 
 impl Tabs {
@@ -112,61 +113,51 @@ impl Tabs {
         ui.painter()
             .rect_filled(ui.max_rect(), 0.0, behavior.tab_bar_color(ui.visuals()));
 
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
-            let scrolling_channel = std::sync::mpsc::channel::<f32>();
             let mut scroll_state: ScrollState = ui.ctx().memory_mut(|m| m.data.get_temp::<ScrollState>(id)).unwrap();
             
-            if scroll_state.offset.x > 0.0 {
-                behavior.top_bar_ltl_ui(
-                    &tree.tiles, ui, tile_id, 
-                    self, scroll_state.offset.x,
-                    scrolling_channel.0.clone()
-                );
-            }
-
-            // ui.allocate_space(scroll_state.available);
-
-            let should_show_scroll_right = scroll_state.consumed.x >= scroll_state.available.x;
-            
-            if should_show_scroll_right {
-                behavior.top_bar_rtl_ui(
+            if scroll_state.consumed.x > scroll_state.available.x {
+                behavior.top_bar_right_ui(
                     &tree.tiles,
                     ui,
                     tile_id,
                     self,
                     scroll_state.offset.x,
-                    scrolling_channel.0
+                    &mut scroll_state.offset_delta.x
                 );
             }
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
-            let mut area = egui::ScrollArea::new([true, false])
+            let total_width = ui.available_width();
+            let mut scroll_area_size = Vec2::ZERO;
+            scroll_area_size.x = total_width - 25.0;
+            scroll_area_size.y = ui.available_height();
+
+            let mut area = egui::ScrollArea::horizontal()
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
-                .max_width(ui.available_width());
+                .max_width(ui.available_width()-25.0);
 
-            if let Ok(new_position) = scrolling_channel.1.try_recv() {
-                scroll_state.offset.x += new_position;
-
+            {
                 // Max is: [`ui.available_width()`]
-                if scroll_state.offset.x >= (ui.available_width()) {
-                    scroll_state.offset.x = ui.available_width();
+                if scroll_state.offset_delta.x >= (ui.available_width()) {
+                    scroll_state.offset_delta.x = ui.available_width();
                 }
 
-                if scroll_state.offset.x < 0.0 {
-                    scroll_state.offset.x = 0.0;
+                if scroll_state.offset_delta.x < 0.0 {
+                    scroll_state.offset_delta.x = 0.0;
                 }
 
-                area = area.to_owned().horizontal_scroll_offset(scroll_state.offset.x);
-                ui.ctx().memory_mut(|m| m.data.insert_temp(id, scroll_state.clone()));
+                area = area.to_owned().horizontal_scroll_offset(scroll_state.offset.x + scroll_state.offset_delta.x);
+
+                scroll_state.offset_delta = Vec2::ZERO;
             }
 
             let output = area.show_viewport(ui, |ui, _| {
-                // ui.interact(rect, id, Sense::)
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.allocate_ui_with_layout(scroll_area_size, egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if !tree.is_root(tile_id) {
                         // Make the background behind the buttons draggable (to drag the parent container tile):
                         if ui
@@ -217,6 +208,25 @@ impl Tabs {
                         }
                     }
                 });
+            });
+
+            if scroll_state.offset.x > 0.0 {
+                
+            }
+
+            let total_width = ui.available_width();
+            let mut scroll_area_size = Vec2::ZERO;
+            scroll_area_size.x = 25.0;
+            scroll_area_size.y = ui.available_height();
+
+            println!("W: {:?}", scroll_area_size);
+
+            ui.allocate_ui_with_layout(scroll_area_size, egui::Layout::right_to_left(egui::Align::Center), | ui | {
+                behavior.top_bar_left_ui(
+                    &tree.tiles, ui, tile_id, 
+                    self, scroll_state.offset.x,
+                    &mut scroll_state.offset_delta.x
+                );
             });
 
             scroll_state.offset = output.state.offset;
