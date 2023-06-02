@@ -1,4 +1,4 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2, Pos2};
+use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -211,23 +211,18 @@ impl Tabs {
             });
 
             if scroll_state.offset.x > 0.0 {
-                
+                let mut scroll_area_size = Vec2::ZERO;
+                scroll_area_size.x = 25.0;
+                scroll_area_size.y = ui.available_height();
+
+                ui.allocate_ui_with_layout(scroll_area_size, egui::Layout::right_to_left(egui::Align::Center), | ui | {
+                    behavior.top_bar_left_ui(
+                        &tree.tiles, ui, tile_id, 
+                        self, scroll_state.offset.x,
+                        &mut scroll_state.offset_delta.x
+                    );
+                });
             }
-
-            let total_width = ui.available_width();
-            let mut scroll_area_size = Vec2::ZERO;
-            scroll_area_size.x = 25.0;
-            scroll_area_size.y = ui.available_height();
-
-            println!("W: {:?}", scroll_area_size);
-
-            ui.allocate_ui_with_layout(scroll_area_size, egui::Layout::right_to_left(egui::Align::Center), | ui | {
-                behavior.top_bar_left_ui(
-                    &tree.tiles, ui, tile_id, 
-                    self, scroll_state.offset.x,
-                    &mut scroll_state.offset_delta.x
-                );
-            });
 
             scroll_state.offset = output.state.offset;
             scroll_state.consumed = output.content_size;

@@ -1,5 +1,3 @@
-use std::sync::mpsc::Sender;
-
 use egui::{
     vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Visuals, WidgetText,
 };
