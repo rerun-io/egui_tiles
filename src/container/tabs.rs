@@ -99,7 +99,7 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        let scroll_state: ScrollState = ScrollState::default();
+        let scroll_state: ScrollState = ScrollState { prev_frame_left: false, prev_frame_right: false, ..ScrollState::default() };
         let id = ui.make_persistent_id(tile_id);
 
         ui.ctx().memory_mut(|m| {
@@ -124,22 +124,22 @@ impl Tabs {
 
             let mut scroll_state: ScrollState = ui.ctx().memory_mut(|m| m.data.get_temp::<ScrollState>(id)).unwrap();
 
-            if scroll_state.consumed.x > scroll_state.available.x {
-                behavior.top_bar_right_ui(
-                    &tree.tiles,
-                    ui,
-                    tile_id,
-                    self,
-                    scroll_state.offset.x,
-                    &mut scroll_state.offset_delta.x
-                );
-            }
-
-            ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
-
             const LEFT_FRAME_SIZE: f32 = 20.0;
+            const RIGHT_FRAME_SIZE: f32 = 20.0;
 
             let mut consume = ui.available_width();
+
+            if (scroll_state.offset.x - RIGHT_FRAME_SIZE) > scroll_state.available.x {
+                if scroll_state.prev_frame_right {
+                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
+                }
+
+                scroll_state.prev_frame_right = false;
+            }else if (scroll_state.offset.x - 0.0) > scroll_state.available.x {
+                // DO NOTHING
+            }else {
+                scroll_state.prev_frame_right = true;
+            }
 
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 if !scroll_state.prev_frame_left {
@@ -159,6 +159,22 @@ impl Tabs {
             }else {
                 scroll_state.prev_frame_left = false;
             }
+
+            if scroll_state.consumed.x > scroll_state.available.x 
+                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) < scroll_state.available.x {
+                consume -= RIGHT_FRAME_SIZE;
+
+                behavior.top_bar_right_ui(
+                    &tree.tiles,
+                    ui,
+                    tile_id,
+                    self,
+                    scroll_state.offset.x,
+                    &mut scroll_state.offset_delta.x
+                );
+            }
+
+            ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons. 
 
             let mut scroll_area_size = Vec2::ZERO;
             scroll_area_size.x = consume;
@@ -240,7 +256,7 @@ impl Tabs {
                 scroll_state.available = output.inner_rect.size();
             });
             
-            if scroll_state.offset.x > 0.0 {
+            if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), | ui | {
                     behavior.top_bar_left_ui(
                         &tree.tiles, ui, tile_id, 
