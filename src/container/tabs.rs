@@ -23,7 +23,7 @@ struct ScrollState {
     pub offset_delta: Vec2,
 
     pub prev_frame_left: bool,
-    pub prev_frame_right: bool
+    pub prev_frame_right: bool,
 }
 
 impl Tabs {
@@ -97,7 +97,11 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        let scroll_state: ScrollState = ScrollState { prev_frame_left: false, prev_frame_right: false, ..ScrollState::default() };
+        let scroll_state: ScrollState = ScrollState {
+            prev_frame_left: false,
+            prev_frame_right: false,
+            ..ScrollState::default()
+        };
         let id = ui.make_persistent_id(tile_id);
 
         ui.ctx().memory_mut(|m| {
@@ -120,7 +124,10 @@ impl Tabs {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
-            let mut scroll_state: ScrollState = ui.ctx().memory_mut(|m| m.data.get_temp::<ScrollState>(id)).unwrap();
+            let mut scroll_state: ScrollState = ui
+                .ctx()
+                .memory_mut(|m| m.data.get_temp::<ScrollState>(id))
+                .unwrap();
 
             const LEFT_FRAME_SIZE: f32 = 20.0;
             const RIGHT_FRAME_SIZE: f32 = 20.0;
@@ -133,9 +140,9 @@ impl Tabs {
                 }
 
                 scroll_state.prev_frame_right = false;
-            }else if (scroll_state.offset.x - 0.0) > scroll_state.available.x {
+            } else if (scroll_state.offset.x - 0.0) > scroll_state.available.x {
                 // DO NOTHING
-            }else {
+            } else {
                 scroll_state.prev_frame_right = true;
             }
 
@@ -147,19 +154,20 @@ impl Tabs {
                 scroll_state.prev_frame_left = true;
 
                 consume -= LEFT_FRAME_SIZE;
-            }else if scroll_state.offset.x > 0.0 {
+            } else if scroll_state.offset.x > 0.0 {
                 if scroll_state.prev_frame_left {
                     scroll_state.offset.x -= LEFT_FRAME_SIZE;
                 }
 
                 // Uncomment the following for an ~animated~ reveal.
                 // consume -= scroll_state.offset.x;
-            }else {
+            } else {
                 scroll_state.prev_frame_left = false;
             }
 
-            if scroll_state.consumed.x > scroll_state.available.x 
-                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) < scroll_state.available.x {
+            if scroll_state.consumed.x > scroll_state.available.x
+                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) < scroll_state.available.x
+            {
                 consume -= RIGHT_FRAME_SIZE;
 
                 behavior.top_bar_right_ui(
@@ -168,103 +176,113 @@ impl Tabs {
                     tile_id,
                     self,
                     scroll_state.offset.x,
-                    &mut scroll_state.offset_delta.x
+                    &mut scroll_state.offset_delta.x,
                 );
             }
 
-            ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons. 
+            ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
             let mut scroll_area_size = Vec2::ZERO;
             scroll_area_size.x = consume;
             scroll_area_size.y = ui.available_height();
 
-            ui.allocate_ui_with_layout(scroll_area_size, egui::Layout::left_to_right(egui::Align::Center), | ui | {
-                let mut area = egui::ScrollArea::horizontal()
-                .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
-                .max_width(consume);
+            ui.allocate_ui_with_layout(
+                scroll_area_size,
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    let mut area = egui::ScrollArea::horizontal()
+                        .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
+                        .max_width(consume);
 
-                {
-                    // Max is: [`ui.available_width()`]
-                    if scroll_state.offset_delta.x >= ui.available_width() {
-                        scroll_state.offset_delta.x = ui.available_width();
-                    }
-
-                    area = area.to_owned().horizontal_scroll_offset(scroll_state.offset.x + scroll_state.offset_delta.x);
-
-                    // Reset delta after use
-                    scroll_state.offset_delta = Vec2::ZERO;
-                }
-                
-                let output = area.show_viewport(ui, |ui, _ | {
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        if !tree.is_root(tile_id) {
-                            // Make the background behind the buttons draggable (to drag the parent container tile):
-                            if ui
-                                .interact(
-                                    ui.max_rect(),
-                                    ui.id().with("background"),
-                                    egui::Sense::drag(),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::Grab)
-                                .drag_started()
-                            {
-                                ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
-                            }
+                    {
+                        // Max is: [`ui.available_width()`]
+                        if scroll_state.offset_delta.x >= ui.available_width() {
+                            scroll_state.offset_delta.x = ui.available_width();
                         }
 
-                        for (i, &child_id) in self.children.iter().enumerate() {
-                            let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
+                        area = area.to_owned().horizontal_scroll_offset(
+                            scroll_state.offset.x + scroll_state.offset_delta.x,
+                        );
 
-                            let selected = self.is_active(child_id);
-                            let id = child_id.id();
+                        // Reset delta after use
+                        scroll_state.offset_delta = Vec2::ZERO;
+                    }
 
-                            let response = behavior.tab_ui(
-                                &tree.tiles,
-                                ui,
-                                id,
-                                child_id,
-                                selected,
-                                is_being_dragged,
-                            );
-                            let response = response.on_hover_cursor(egui::CursorIcon::Grab);
-                            if response.clicked() {
-                                next_active = Some(child_id);
-                                response.scroll_to_me(None)
-                            }
-
-                            if let Some(mouse_pos) = drop_context.mouse_pos {
-                                if drop_context.dragged_tile_id.is_some()
-                                    && response.rect.contains(mouse_pos)
+                    let output = area.show_viewport(ui, |ui, _| {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                            if !tree.is_root(tile_id) {
+                                // Make the background behind the buttons draggable (to drag the parent container tile):
+                                if ui
+                                    .interact(
+                                        ui.max_rect(),
+                                        ui.id().with("background"),
+                                        egui::Sense::drag(),
+                                    )
+                                    .on_hover_cursor(egui::CursorIcon::Grab)
+                                    .drag_started()
                                 {
-                                    // Expand this tab - maybe the user wants to drop something into it!
-                                    next_active = Some(child_id);
+                                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
                                 }
                             }
 
-                            button_rects.insert(child_id, response.rect);
-                            if is_being_dragged {
-                                dragged_index = Some(i);
-                            }
-                        }
-                    });
-                });
+                            for (i, &child_id) in self.children.iter().enumerate() {
+                                let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
 
-                scroll_state.offset = output.state.offset;
-                scroll_state.consumed = output.content_size;
-                scroll_state.available = output.inner_rect.size();
-            });
-            
+                                let selected = self.is_active(child_id);
+                                let id = child_id.id();
+
+                                let response = behavior.tab_ui(
+                                    &tree.tiles,
+                                    ui,
+                                    id,
+                                    child_id,
+                                    selected,
+                                    is_being_dragged,
+                                );
+                                let response = response.on_hover_cursor(egui::CursorIcon::Grab);
+                                if response.clicked() {
+                                    next_active = Some(child_id);
+                                    response.scroll_to_me(None)
+                                }
+
+                                if let Some(mouse_pos) = drop_context.mouse_pos {
+                                    if drop_context.dragged_tile_id.is_some()
+                                        && response.rect.contains(mouse_pos)
+                                    {
+                                        // Expand this tab - maybe the user wants to drop something into it!
+                                        next_active = Some(child_id);
+                                    }
+                                }
+
+                                button_rects.insert(child_id, response.rect);
+                                if is_being_dragged {
+                                    dragged_index = Some(i);
+                                }
+                            }
+                        });
+                    });
+
+                    scroll_state.offset = output.state.offset;
+                    scroll_state.consumed = output.content_size;
+                    scroll_state.available = output.inner_rect.size();
+                },
+            );
+
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), | ui | {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     behavior.top_bar_left_ui(
-                        &tree.tiles, ui, tile_id, 
-                        self, scroll_state.offset.x,
-                        &mut scroll_state.offset_delta.x
+                        &tree.tiles,
+                        ui,
+                        tile_id,
+                        self,
+                        scroll_state.offset.x,
+                        &mut scroll_state.offset_delta.x,
                     );
                 });
             }
 
-            ui.ctx().memory_mut(|m| m.data.insert_temp(id, scroll_state));
+            ui.ctx()
+                .memory_mut(|m| m.data.insert_temp(id, scroll_state));
         });
 
         // -----------
