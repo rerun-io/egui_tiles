@@ -209,7 +209,7 @@ impl<Pane> Tree<Pane> {
             log::warn!("Failed to find rect for tile {tile_id:?} during ui");
             return
         };
-        let Some(mut tile) = self.tiles.tiles.remove(&tile_id) else {
+        let Some(mut tile) = self.tiles.remove(tile_id) else {
             log::warn!("Failed to find tile {tile_id:?} during ui");
             return
         };
@@ -240,7 +240,7 @@ impl<Pane> Tree<Pane> {
             }
         };
 
-        self.tiles.tiles.insert(tile_id, tile);
+        self.tiles.insert(tile_id, tile);
         drop_context.enabled = drop_context_was_enabled;
     }
 
@@ -332,7 +332,7 @@ impl<Pane> Tree<Pane> {
             insertion_point.insertion
         );
         self.remove_tile_id_from_parent(moved_tile_id);
-        self.tiles.insert(insertion_point, moved_tile_id);
+        self.tiles.insert_at(insertion_point, moved_tile_id);
     }
 
     /// Find the currently dragged tile, if any.
@@ -342,7 +342,7 @@ impl<Pane> Tree<Pane> {
             return None;
         }
 
-        for &tile_id in self.tiles.tiles.keys() {
+        for tile_id in self.tiles.tile_ids() {
             if self.is_root(tile_id) {
                 continue; // not allowed to drag root
             }
@@ -368,7 +368,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// Performs no simplifcations.
     pub(super) fn remove_tile_id_from_parent(&mut self, remove_me: TileId) {
-        for parent in self.tiles.tiles.values_mut() {
+        for parent in self.tiles.tiles_mut() {
             if let Tile::Container(container) = parent {
                 container.retain(|child| child != remove_me);
             }

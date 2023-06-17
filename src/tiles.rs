@@ -20,7 +20,7 @@ use super::{
 /// ```
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
-    pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
+    tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
 
     /// Tiles are visible by default, so we only store the invisible ones.
     invisible: nohash_hasher::IntSet<TileId>,
@@ -65,6 +65,26 @@ impl<Pane> Tiles<Pane> {
         self.tiles.get_mut(&tile_id)
     }
 
+    /// All tiles, in arbitrary order
+    pub fn iter(&self) -> impl Iterator<Item = (&TileId, &Tile<Pane>)> + '_ {
+        self.tiles.iter()
+    }
+
+    /// All [`TileId`]s, in arbitrary order
+    pub fn tile_ids(&self) -> impl Iterator<Item = TileId> + '_ {
+        self.tiles.keys().copied()
+    }
+
+    /// All [`Tile`]s in arbitrary order
+    pub fn tiles(&self) -> impl Iterator<Item = &Tile<Pane>> + '_ {
+        self.tiles.values()
+    }
+
+    /// All [`Tile`]s in arbitrary order
+    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<Pane>> + '_ {
+        self.tiles.values_mut()
+    }
+
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
@@ -81,6 +101,14 @@ impl<Pane> Tiles<Pane> {
         } else {
             self.invisible.insert(tile_id);
         }
+    }
+
+    pub fn insert(&mut self, id: TileId, tile: Tile<Pane>) {
+        self.tiles.insert(id, tile);
+    }
+
+    pub fn remove(&mut self, id: TileId) -> Option<Tile<Pane>> {
+        self.tiles.remove(&id)
     }
 
     #[must_use]
@@ -141,7 +169,7 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn insert(&mut self, insertion_point: InsertionPoint, child_id: TileId) {
+    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, child_id: TileId) {
         let InsertionPoint {
             parent_id,
             insertion,

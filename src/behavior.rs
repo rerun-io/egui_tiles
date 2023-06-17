@@ -20,7 +20,7 @@ pub trait Behavior<Pane> {
     /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
     /// uses the name of the [`crate::ContainerKind`] for [`crate::Container`]s.
     fn tab_title_for_tile(&mut self, tiles: &Tiles<Pane>, tile_id: TileId) -> WidgetText {
-        if let Some(tile) = tiles.tiles.get(&tile_id) {
+        if let Some(tile) = tiles.get(tile_id) {
             match tile {
                 Tile::Pane(pane) => self.tab_title_for_pane(pane),
                 Tile::Container(container) => format!("{:?}", container.kind()).into(),
