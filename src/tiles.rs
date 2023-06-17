@@ -18,7 +18,7 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
     tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
 
@@ -28,6 +28,17 @@ pub struct Tiles<Pane> {
     /// Filled in by the layout step at the start of each frame.
     #[serde(default, skip)]
     pub(super) rects: nohash_hasher::IntMap<TileId, Rect>,
+}
+
+impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
+    fn eq(&self, other: &Tiles<Pane>) -> bool {
+        let Self {
+            tiles,
+            invisible,
+            rects: _, // ignore transient state
+        } = self;
+        tiles == &other.tiles && invisible == &other.invisible
+    }
 }
 
 impl<Pane> Default for Tiles<Pane> {
