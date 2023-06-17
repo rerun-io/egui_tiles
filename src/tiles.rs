@@ -510,6 +510,6 @@ impl<Pane: PartialEq> Tiles<Pane> {
                     false
                 }
             })
-            .map(|(node_id, _)| *node_id)
+            .map(|(tile_id, _)| *tile_id)
     }
 }
