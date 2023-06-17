@@ -265,6 +265,7 @@ fn tree_ui(
         behavior.tab_title_for_tile(tiles, tile_id).text()
     );
 
+    // Temporarily remove the tile to circumvent the borrowchecker
     let Some(mut tile) = tiles.remove(tile_id) else {
         log::warn!("Missing tile {tile_id:?}");
         return;
@@ -304,5 +305,6 @@ fn tree_ui(
         }
     });
 
+    // Put the tile back
     tiles.insert(tile_id, tile);
 }

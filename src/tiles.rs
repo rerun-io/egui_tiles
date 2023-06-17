@@ -497,3 +497,19 @@ impl<Pane> Tiles<Pane> {
         activate
     }
 }
+
+impl<Pane: PartialEq> Tiles<Pane> {
+    /// Find the tile with the given pane.
+    pub fn find_pane(&self, needle: &Pane) -> Option<TileId> {
+        self.tiles
+            .iter()
+            .find(|(_, tile)| {
+                if let Tile::Pane(pane) = *tile {
+                    pane == needle
+                } else {
+                    false
+                }
+            })
+            .map(|(node_id, _)| *node_id)
+    }
+}
