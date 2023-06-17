@@ -106,18 +106,26 @@ impl Grid {
         rect: Rect,
     ) {
         let gap = behavior.gap_width(style);
-        let child_ids: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
+        let visible_child_ids: Vec<TileId> = self
+            .children
+            .iter()
+            .copied()
+            .filter(|&child_id| tiles.is_visible(child_id))
+            .collect();
+        let child_set: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
 
         let num_cols = match self.layout {
-            GridLayout::Auto => behavior.grid_auto_column_count(tiles, &self.children, rect, gap),
+            GridLayout::Auto => behavior.grid_auto_column_count(visible_child_ids.len(), rect, gap),
             GridLayout::Columns(num_columns) => num_columns.at_least(1),
         };
-        let num_rows = (self.children.len() + num_cols - 1) / num_cols;
+        let num_rows = (visible_child_ids.len() + num_cols - 1) / num_cols;
 
         // Where to place each tile?
         let mut tile_id_from_location: BTreeMap<GridLoc, TileId> = Default::default();
         self.locations.retain(|&child_id, &mut loc| {
-            if child_ids.contains(&child_id) {
+            if !tiles.is_visible(child_id) {
+                true // retain locations of invisible children so that their order is kept!
+            } else if child_set.contains(&child_id) {
                 match tile_id_from_location.entry(loc) {
                     btree_map::Entry::Occupied(_) => {
                         false // two tiles assigned to the same position - forget this one for now
@@ -138,7 +146,7 @@ impl Grid {
 
         // Find location for tiles that don't have one yet
         let mut next_pos = 0;
-        for &child_id in &self.children {
+        for &child_id in &visible_child_ids {
             if let hash_map::Entry::Vacant(entry) = self.locations.entry(child_id) {
                 // find a position:
                 loop {
@@ -185,10 +193,11 @@ impl Grid {
         }
 
         // Each child now has a location. Use this to order them, in case we will later do auto-layouts:
-        self.children.sort_by_key(|&child| self.locations[&child]);
+        self.children
+            .sort_by_key(|&child| self.locations.get(&child));
 
         // Place each child:
-        for &child in &self.children {
+        for &child in &visible_child_ids {
             let loc = self.locations[&child];
             let child_rect =
                 Rect::from_x_y_ranges(self.col_ranges[loc.col], self.row_ranges[loc.row]);
@@ -205,8 +214,10 @@ impl Grid {
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            tree.tile_ui(behavior, drop_context, ui, child);
-            crate::cover_tile_if_dragged(tree, behavior, ui, child);
+            if tree.is_visible(child) {
+                tree.tile_ui(behavior, drop_context, ui, child);
+                crate::cover_tile_if_dragged(tree, behavior, ui, child);
+            }
         }
 
         // Register drop-zones:

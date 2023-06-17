@@ -11,6 +11,8 @@ use crate::{
 /// How large of a share of space each child has, on a 1D axis.
 ///
 /// Used for [`Linear`] containers (horizontal and vertical).
+///
+/// Also contains the shares for currently invisible tiles.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Shares {
     /// How large of a share each child has.
@@ -44,10 +46,6 @@ impl Shares {
 
     pub fn retain(&mut self, keep: impl Fn(TileId) -> bool) {
         self.shares.retain(|&child, _| keep(child));
-    }
-
-    pub fn sum(&self) -> f32 {
-        self.shares.values().sum()
     }
 }
 
@@ -106,6 +104,14 @@ impl Linear {
         }
     }
 
+    fn visible_childre<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+        self.children
+            .iter()
+            .copied()
+            .filter(|&child_id| tiles.is_visible(child_id))
+            .collect()
+    }
+
     /// Create a binary split with the given split ratio in the 0.0 - 1.0 range.
     ///
     /// The `fraction` is the fraction of the total width that the first child should get.
@@ -153,15 +159,17 @@ impl Linear {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        let num_gaps = self.children.len().saturating_sub(1);
+        let visible_children = self.visible_childre(tiles);
+
+        let num_gaps = visible_children.len().saturating_sub(1);
         let gap_width = behavior.gap_width(style);
         let total_gap_width = gap_width * num_gaps as f32;
         let available_width = (rect.width() - total_gap_width).at_least(0.0);
 
-        let widths = self.shares.split(&self.children, available_width);
+        let widths = self.shares.split(&visible_children, available_width);
 
         let mut x = rect.min.x;
-        for (child, width) in self.children.iter().zip(widths) {
+        for (child, width) in visible_children.iter().zip(widths) {
             let child_rect = Rect::from_min_size(pos2(x, rect.min.y), vec2(width, rect.height()));
             tiles.layout_tile(style, behavior, child_rect, *child);
             x += width + gap_width;
@@ -175,15 +183,17 @@ impl Linear {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        let num_gaps = self.children.len().saturating_sub(1);
+        let visible_children = self.visible_childre(tiles);
+
+        let num_gaps = visible_children.len().saturating_sub(1);
         let gap_height = behavior.gap_width(style);
         let total_gap_height = gap_height * num_gaps as f32;
         let available_height = (rect.height() - total_gap_height).at_least(0.0);
 
-        let heights = self.shares.split(&self.children, available_height);
+        let heights = self.shares.split(&visible_children, available_height);
 
         let mut y = rect.min.y;
-        for (child, height) in self.children.iter().zip(heights) {
+        for (child, height) in visible_children.iter().zip(heights) {
             let child_rect = Rect::from_min_size(pos2(rect.min.x, y), vec2(rect.width(), height));
             tiles.layout_tile(style, behavior, child_rect, *child);
             y += height + gap_height;
@@ -212,7 +222,9 @@ impl Linear {
         ui: &mut egui::Ui,
         parent_id: TileId,
     ) {
-        for &child in &self.children {
+        let visible_children = self.visible_childre(&tree.tiles);
+
+        for &child in &visible_children {
             tree.tile_ui(behavior, drop_context, ui, child);
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
@@ -228,7 +240,7 @@ impl Linear {
         // resizing:
 
         let parent_rect = tree.tiles.rect(parent_id);
-        for (i, (left, right)) in self.children.iter().copied().tuple_windows().enumerate() {
+        for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize", i));
 
             let left_rect = tree.tiles.rect(left);
@@ -248,7 +260,7 @@ impl Linear {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
-                    &self.children,
+                    &visible_children,
                     &response,
                     [left, right],
                     ui.painter().round_to_pixel(pointer.x) - x,
@@ -274,7 +286,9 @@ impl Linear {
         ui: &mut egui::Ui,
         parent_id: TileId,
     ) {
-        for &child in &self.children {
+        let visible_children = self.visible_childre(&tree.tiles);
+
+        for &child in &visible_children {
             tree.tile_ui(behavior, drop_context, ui, child);
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
@@ -290,7 +304,7 @@ impl Linear {
         // resizing:
 
         let parent_rect = tree.tiles.rect(parent_id);
-        for (i, (top, bottom)) in self.children.iter().copied().tuple_windows().enumerate() {
+        for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize", i));
 
             let top_rect = tree.tiles.rect(top);
@@ -310,7 +324,7 @@ impl Linear {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
-                    &self.children,
+                    &visible_children,
                     &response,
                     [top, bottom],
                     ui.painter().round_to_pixel(pointer.y) - y,
@@ -449,19 +463,21 @@ fn linear_drop_zones<Pane>(
         children,
         dragged_index,
         dir,
-        |tile_id| tree.tiles.rect(tile_id),
+        |tile_id| tree.tiles.try_rect(tile_id),
         add_drop_drect,
         after_rect,
     );
 }
 
 /// Register drop-zones for a linear container.
+///
+/// `get_rect`: return `None` for invisible tiles.
 pub(super) fn drop_zones(
     preview_thickness: f32,
     children: &[TileId],
     dragged_index: Option<usize>,
     dir: LinearDir,
-    get_rect: impl Fn(TileId) -> Rect,
+    get_rect: impl Fn(TileId) -> Option<Rect>,
     mut add_drop_drect: impl FnMut(Rect, usize),
     after_rect: impl Fn(Rect) -> Rect,
 ) {
@@ -490,7 +506,11 @@ pub(super) fn drop_zones(
     let mut insertion_index = 0; // skips over drag-source, if any, because it will be removed before its re-inserted
 
     for (i, &child) in children.iter().enumerate() {
-        let rect = get_rect(child);
+        let Some(rect) = get_rect(child) else {
+            // skip invisible child
+            insertion_index += 1;
+            continue;
+        };
 
         if Some(i) == dragged_index {
             // Suggest hole as a drop-target:

@@ -143,6 +143,20 @@ impl<Pane> Tree<Pane> {
         self.root == Some(tile)
     }
 
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn is_visible(&self, tile_id: TileId) -> bool {
+        self.tiles.is_visible(tile_id)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn set_visible(&mut self, tile_id: TileId, visible: bool) {
+        self.tiles.set_visible(tile_id, visible);
+    }
+
     /// Show the tree in the given [`Ui`].
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
@@ -186,6 +200,9 @@ impl<Pane> Tree<Pane> {
         ui: &mut Ui,
         tile_id: TileId,
     ) {
+        if !self.is_visible(tile_id) {
+            return;
+        }
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
         let Some(rect) = self.tiles.try_rect(tile_id) else {

@@ -22,6 +22,9 @@ use super::{
 pub struct Tiles<Pane> {
     pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
 
+    /// Tiles are visible by default, so we only store the invisible ones.
+    invisible: nohash_hasher::IntSet<TileId>,
+
     /// Filled in by the layout step at the start of each frame.
     #[serde(default, skip)]
     pub(super) rects: nohash_hasher::IntMap<TileId, Rect>,
@@ -31,6 +34,7 @@ impl<Pane> Default for Tiles<Pane> {
     fn default() -> Self {
         Self {
             tiles: Default::default(),
+            invisible: Default::default(),
             rects: Default::default(),
         }
     }
@@ -40,7 +44,11 @@ impl<Pane> Default for Tiles<Pane> {
 
 impl<Pane> Tiles<Pane> {
     pub(super) fn try_rect(&self, tile_id: TileId) -> Option<Rect> {
-        self.rects.get(&tile_id).copied()
+        if self.is_visible(tile_id) {
+            self.rects.get(&tile_id).copied()
+        } else {
+            None
+        }
     }
 
     pub(super) fn rect(&self, tile_id: TileId) -> Rect {
@@ -55,6 +63,24 @@ impl<Pane> Tiles<Pane> {
 
     pub fn get_mut(&mut self, tile_id: TileId) -> Option<&mut Tile<Pane>> {
         self.tiles.get_mut(&tile_id)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn is_visible(&self, tile_id: TileId) -> bool {
+        !self.invisible.contains(&tile_id)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn set_visible(&mut self, tile_id: TileId, visible: bool) {
+        if visible {
+            self.invisible.remove(&tile_id);
+        } else {
+            self.invisible.insert(tile_id);
+        }
     }
 
     #[must_use]
@@ -221,6 +247,7 @@ impl<Pane> Tiles<Pane> {
             );
         }
 
+        self.invisible.retain(|tile_id| visited.contains(tile_id));
         self.tiles.retain(|tile_id, _| visited.contains(tile_id));
     }
 

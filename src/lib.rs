@@ -75,6 +75,11 @@
 //! }
 //! ```
 //!
+//! ## Invisible tiles
+//! Tiles can be made invisible with [`Tree::set_visible`] and [`Tiles::set_visible`].
+//! Invisible tiles stil retain their ordering in the container their in until
+//! they are made visible again.
+//!
 //! ## Shares
 //! The relative sizes of linear layout (horizontal or vertical) and grid columns and rows are specified by _shares_.
 //! If the shares are `1,2,3` it means the first element gets `1/6` of the space, the second `2/6`, and the third `3/6`.
