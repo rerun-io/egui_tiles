@@ -77,7 +77,7 @@
 //!
 //! ## Invisible tiles
 //! Tiles can be made invisible with [`Tree::set_visible`] and [`Tiles::set_visible`].
-//! Invisible tiles stil retain their ordering in the container their in until
+//! Invisible tiles still retain their ordering in the container their in until
 //! they are made visible again.
 //!
 //! ## Shares
