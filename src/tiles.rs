@@ -122,6 +122,26 @@ impl<Pane> Tiles<Pane> {
         self.tiles.remove(&id)
     }
 
+    /// Remove the given tile and all child tiles, recursively.
+    ///
+    /// All removed tiles are returned in unspecified order.
+    pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        let mut removed_tiles = vec![];
+        self.remove_recursively_impl(id, &mut removed_tiles);
+        removed_tiles
+    }
+
+    fn remove_recursively_impl(&mut self, id: TileId, removed_tiles: &mut Vec<Tile<Pane>>) {
+        if let Some(tile) = self.remove(id) {
+            if let Tile::Container(container) = &tile {
+                for &child_id in container.children() {
+                    self.remove_recursively_impl(child_id, removed_tiles);
+                }
+            }
+            removed_tiles.push(tile);
+        }
+    }
+
     #[must_use]
     pub fn insert_tile(&mut self, tile: Tile<Pane>) -> TileId {
         let id = TileId::random();
