@@ -61,7 +61,7 @@ pub enum GridLayout {
 }
 
 /// A grid of tiles.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Grid {
     pub children: Vec<TileId>,
 
@@ -84,6 +84,26 @@ pub struct Grid {
     /// ui point y ranges for each row, recomputed during layout
     #[serde(skip)]
     row_ranges: Vec<Rangef>,
+}
+
+impl PartialEq for Grid {
+    fn eq(&self, other: &Self) -> bool {
+        let Self {
+            children,
+            layout,
+            locations,
+            col_shares,
+            row_shares,
+            col_ranges: _, // ignored because they are recomputed
+            row_ranges: _, // ignored because they are recomputed
+        } = self;
+
+        layout == &other.layout
+            && children == &other.children
+            && locations == &other.locations
+            && col_shares == &other.col_shares
+            && row_shares == &other.row_shares
+    }
 }
 
 impl Grid {
