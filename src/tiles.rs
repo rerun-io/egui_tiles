@@ -200,29 +200,29 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, child_id: TileId) {
+    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
         let InsertionPoint {
             parent_id,
             insertion,
         } = insertion_point;
 
-        let Some(mut tile) = self.tiles.remove(&parent_id) else {
+        let Some(mut parent_tile) = self.tiles.remove(&parent_id) else {
             log::warn!("Failed to insert: could not find parent {parent_id:?}");
             return;
         };
 
         match insertion {
             ContainerInsertion::Tabs(index) => {
-                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                if let Tile::Container(Container::Tabs(tabs)) = &mut parent_tile {
                     let index = index.min(tabs.children.len());
-                    tabs.children.insert(index, child_id);
-                    tabs.set_active(child_id);
-                    self.tiles.insert(parent_id, tile);
+                    tabs.children.insert(index, inserted_id);
+                    tabs.set_active(inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_tile(parent_tile);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
-                    tabs.children.insert(index.min(1), child_id);
-                    tabs.set_active(child_id);
+                    tabs.children.insert(index.min(1), inserted_id);
+                    tabs.set_active(inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Tabs(tabs)));
                 }
@@ -232,15 +232,15 @@ impl<Pane> Tiles<Pane> {
                     dir: LinearDir::Horizontal,
                     children,
                     ..
-                })) = &mut tile
+                })) = &mut parent_tile
                 {
                     let index = index.min(children.len());
-                    children.insert(index, child_id);
-                    self.tiles.insert(parent_id, tile);
+                    children.insert(index, inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_tile(parent_tile);
                     let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), child_id);
+                    linear.children.insert(index.min(1), inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
@@ -250,29 +250,28 @@ impl<Pane> Tiles<Pane> {
                     dir: LinearDir::Vertical,
                     children,
                     ..
-                })) = &mut tile
+                })) = &mut parent_tile
                 {
                     let index = index.min(children.len());
-                    children.insert(index, child_id);
-                    self.tiles.insert(parent_id, tile);
+                    children.insert(index, inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_tile(parent_tile);
                     let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), child_id);
+                    linear.children.insert(index.min(1), inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
             }
-            ContainerInsertion::Grid(insert_location) => {
-                if let Tile::Container(Container::Grid(grid)) = &mut tile {
-                    grid.locations.retain(|_, pos| *pos != insert_location);
-                    grid.locations.insert(child_id, insert_location);
-                    grid.children.push(child_id);
-                    self.tiles.insert(parent_id, tile);
+            ContainerInsertion::Grid(index) => {
+                if let Tile::Container(Container::Grid(grid)) = &mut parent_tile {
+                    let prev = grid.children.remove(index);
+                    grid.children.insert(index, inserted_id);
+                    grid.children.push(prev); // TODO: put in the same place as whatever was dragged
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
-                    let mut grid = Grid::new(vec![new_tile_id, child_id]);
-                    grid.locations.insert(child_id, insert_location);
+                    let new_tile_id = self.insert_tile(parent_tile);
+                    let grid = Grid::new(vec![new_tile_id, inserted_id]);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Grid(grid)));
                 }
@@ -465,7 +464,7 @@ impl<Pane> Tiles<Pane> {
             Tile::Pane(_) => {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
-                    log::debug!("Auto-adding Tabs-parent to pane {it:?}");
+                    log::trace!("Auto-adding Tabs-parent to pane {it:?}");
                     let new_id = TileId::random();
                     self.tiles.insert(new_id, tile);
                     self.tiles

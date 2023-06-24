@@ -208,7 +208,7 @@ enum ContainerInsertion {
     Tabs(usize),
     Horizontal(usize),
     Vertical(usize),
-    Grid(GridLoc),
+    Grid(usize),
 }
 
 /// Where in the tree to insert a tile.
