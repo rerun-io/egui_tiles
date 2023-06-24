@@ -146,7 +146,8 @@ impl Container {
         };
     }
 
-    pub(super) fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
+    /// Iterate through all children in order, and keep only those for which the closure returns `true`.
+    pub fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
         let retain = |tile_id: &TileId| retain(*tile_id);
         match self {
             Self::Tabs(tabs) => tabs.children.retain(retain),
