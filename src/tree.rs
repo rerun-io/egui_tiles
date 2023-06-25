@@ -400,7 +400,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// Performs no simplifcations.
     ///
-    /// If found, the parent tile and the childs index is returned.
+    /// If found, the parent tile and the child's index is returned.
     pub(super) fn remove_tile_id_from_parent(
         &mut self,
         remove_me: TileId,

@@ -66,7 +66,7 @@ pub struct Grid {
     /// We allow holes (for easier drag-dropping).
     children: Vec<Option<TileId>>,
 
-    /// Determins the number of columns.
+    /// Determines the number of columns.
     pub layout: GridLayout,
 
     /// Share of the available width assigned to each column.
@@ -162,7 +162,7 @@ impl Grid {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        // clea up any empty holes at the end
+        // clean up any empty holes at the end
         while self.children.last() == Some(&None) {
             self.children.pop();
         }
