@@ -510,30 +510,24 @@ pub(super) fn drop_zones(
     };
 
     let mut prev_rect: Option<Rect> = None;
-    let mut insertion_index = 0; // skips over drag-source, if any, because it will be removed before its re-inserted
 
     for (i, &child) in children.iter().enumerate() {
         let Some(rect) = get_rect(child) else {
             // skip invisible child
-            insertion_index += 1;
             continue;
         };
 
         if Some(i) == dragged_index {
             // Suggest hole as a drop-target:
             add_drop_drect(rect, i);
-        } else {
-            if let Some(prev_rect) = prev_rect {
-                if Some(i - 1) != dragged_index {
-                    // Suggest dropping between the rects:
-                    add_drop_drect(between_rects(prev_rect, rect), insertion_index);
-                }
-            } else {
-                // Suggest dropping before the first child:
-                add_drop_drect(before_rect(rect), 0);
+        } else if let Some(prev_rect) = prev_rect {
+            if Some(i - 1) != dragged_index {
+                // Suggest dropping between the rects:
+                add_drop_drect(between_rects(prev_rect, rect), i);
             }
-
-            insertion_index += 1;
+        } else {
+            // Suggest dropping before the first child:
+            add_drop_drect(before_rect(rect), 0);
         }
 
         prev_rect = Some(rect);
@@ -542,7 +536,7 @@ pub(super) fn drop_zones(
     if let Some(last_rect) = prev_rect {
         // Suggest dropping after the last child (unless that's the one being dragged):
         if dragged_index != Some(children.len() - 1) {
-            add_drop_drect(after_rect(last_rect), insertion_index + 1);
+            add_drop_drect(after_rect(last_rect), children.len());
         }
     }
 }
