@@ -147,6 +147,24 @@ impl Container {
         }
     }
 
+    /// Iterate through all children in order, and keep only those for which the closure returns `true`.
+    pub fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
+        match self {
+            Self::Tabs(tabs) => tabs.children.retain(|tile_id: &TileId| retain(*tile_id)),
+            Self::Linear(linear) => linear.children.retain(|tile_id: &TileId| retain(*tile_id)),
+            Self::Grid(grid) => grid.retain(retain),
+        }
+    }
+
+    /// Returns child index, if found.
+    pub fn remove_child(&mut self, child: TileId) -> Option<usize> {
+        match self {
+            Container::Tabs(tabs) => tabs.remove_child(child),
+            Container::Linear(linear) => linear.remove_child(child),
+            Container::Grid(grid) => grid.remove_child(child),
+        }
+    }
+
     pub fn kind(&self) -> ContainerKind {
         match self {
             Self::Tabs(_) => ContainerKind::Tabs,
@@ -173,15 +191,6 @@ impl Container {
             }
             ContainerKind::Grid => Self::Grid(Grid::new(self.children_vec())),
         };
-    }
-
-    /// Iterate through all children in order, and keep only those for which the closure returns `true`.
-    pub fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
-        match self {
-            Self::Tabs(tabs) => tabs.children.retain(|tile_id: &TileId| retain(*tile_id)),
-            Self::Linear(linear) => linear.children.retain(|tile_id: &TileId| retain(*tile_id)),
-            Self::Grid(grid) => grid.retain(retain),
-        }
     }
 
     pub(super) fn simplify_children(&mut self, simplify: impl FnMut(TileId) -> SimplifyAction) {

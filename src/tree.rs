@@ -331,7 +331,39 @@ impl<Pane> Tree<Pane> {
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
         );
-        self.remove_tile_id_from_parent(moved_tile_id);
+
+        if let Some((prev_parent_id, source_index)) = self.remove_tile_id_from_parent(moved_tile_id)
+        {
+            if prev_parent_id == insertion_point.parent_id {
+                let dest_index = insertion_point.insertion.index();
+                log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
+                // lets swap the two indices
+
+                #[allow(clippy::unwrap_used)] // we successfully removed from it: it must exist
+                let parent_tile = self.tiles.get_mut(prev_parent_id).unwrap();
+
+                match parent_tile {
+                    Tile::Pane(_) => unreachable!(),
+                    Tile::Container(container) => match container {
+                        Container::Tabs(tabs) => {
+                            tabs.children.insert(dest_index, moved_tile_id);
+                        }
+                        Container::Linear(linear) => {
+                            linear.children.insert(dest_index, moved_tile_id);
+                        }
+                        Container::Grid(grid) => {
+                            let dest = grid.replace_at(dest_index, moved_tile_id);
+                            if let Some(dest) = dest {
+                                grid.insert_at(source_index, dest);
+                            }
+                        }
+                    },
+                }
+                return; // done
+            }
+        }
+
+        // Moving to a new parent
         self.tiles.insert_at(insertion_point, moved_tile_id);
     }
 
@@ -367,12 +399,20 @@ impl<Pane> Tree<Pane> {
     /// The [`Tile`] itself is not removed from [`Self::tiles`].
     ///
     /// Performs no simplifcations.
-    pub(super) fn remove_tile_id_from_parent(&mut self, remove_me: TileId) {
-        for parent in self.tiles.tiles_mut() {
+    ///
+    /// If found, the parent tile and the childs index is returned.
+    pub(super) fn remove_tile_id_from_parent(
+        &mut self,
+        remove_me: TileId,
+    ) -> Option<(TileId, usize)> {
+        for (parent_id, parent) in self.tiles.iter_mut() {
             if let Tile::Container(container) = parent {
-                container.retain(|child| child != remove_me);
+                if let Some(child_index) = container.remove_child(remove_me) {
+                    return Some((*parent_id, child_index));
+                }
             }
         }
+        None
     }
 }
 

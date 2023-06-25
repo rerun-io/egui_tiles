@@ -81,6 +81,11 @@ impl<Pane> Tiles<Pane> {
         self.tiles.iter()
     }
 
+    /// All tiles, in arbitrary order
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&TileId, &mut Tile<Pane>)> + '_ {
+        self.tiles.iter_mut()
+    }
+
     /// All [`TileId`]s, in arbitrary order
     pub fn tile_ids(&self) -> impl Iterator<Item = TileId> + '_ {
         self.tiles.keys().copied()

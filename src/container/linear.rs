@@ -353,6 +353,13 @@ impl Linear {
             }
         });
     }
+
+    /// Returns child index, if found.
+    pub(crate) fn remove_child(&mut self, needle: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|&child| child == needle)?;
+        self.children.remove(index);
+        Some(index)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

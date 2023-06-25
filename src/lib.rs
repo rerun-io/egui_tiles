@@ -211,6 +211,17 @@ enum ContainerInsertion {
     Grid(usize),
 }
 
+impl ContainerInsertion {
+    fn index(self) -> usize {
+        match self {
+            ContainerInsertion::Tabs(index)
+            | ContainerInsertion::Horizontal(index)
+            | ContainerInsertion::Vertical(index)
+            | ContainerInsertion::Grid(index) => index,
+        }
+    }
+}
+
 /// Where in the tree to insert a tile.
 #[derive(Clone, Copy, Debug)]
 struct InsertionPoint {

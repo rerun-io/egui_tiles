@@ -129,11 +129,24 @@ impl Grid {
                 slot.replace(child);
             } else {
                 // put it before
+                log::trace!("Inserting {child:?} into Grid at {index}");
                 self.children.insert(index, Some(child));
             }
         } else {
             // put it last
+            log::trace!("Pushing {child:?} last in Grid");
             self.children.push(Some(child));
+        }
+    }
+
+    #[must_use]
+    pub fn replace_at(&mut self, index: usize, child: TileId) -> Option<TileId> {
+        if let Some(slot) = self.children.get_mut(index) {
+            slot.replace(child)
+        } else {
+            // put it last
+            self.children.push(Some(child));
+            None
         }
     }
 
@@ -149,6 +162,11 @@ impl Grid {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
+        // clea up any empty holes at the end
+        while self.children.last() == Some(&None) {
+            self.children.pop();
+        }
+
         let num_visible_children = self
             .children
             .iter()
@@ -165,8 +183,8 @@ impl Grid {
         let num_rows = (num_visible_children + num_cols - 1) / num_cols;
 
         if self.children.len() > num_cols * num_rows {
-            // Too many holes - collapse:
-            self.collapse_holes(); // TODO(emilk): collapse as few holes as possible?
+            // Too many holes
+            self.collapse_holes();
         }
 
         // Figure out where each column and row goes:
@@ -344,6 +362,16 @@ impl Grid {
                 }
             }
         }
+    }
+
+    /// Returns child index, if found.
+    pub(crate) fn remove_child(&mut self, needle: TileId) -> Option<usize> {
+        let index = self
+            .children
+            .iter()
+            .position(|&child| child == Some(needle))?;
+        self.children[index] = None;
+        Some(index)
     }
 }
 
