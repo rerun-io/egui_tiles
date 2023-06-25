@@ -239,7 +239,6 @@ impl eframe::App for MyApp {
             ui.monospace(&tree_debug);
             if self.last_tree_debug != tree_debug {
                 self.last_tree_debug = tree_debug;
-                log::debug!("{}", self.last_tree_debug);
             }
         });
 

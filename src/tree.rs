@@ -327,7 +327,7 @@ impl<Pane> Tree<Pane> {
 
     /// Move the given tile to the given insertion point.
     pub(super) fn move_tile(&mut self, moved_tile_id: TileId, insertion_point: InsertionPoint) {
-        log::debug!(
+        log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
         );
@@ -339,6 +339,13 @@ impl<Pane> Tree<Pane> {
                 log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
                 // lets swap the two indices
 
+                let compensated_index = if source_index < dest_index {
+                    // We removed an earlier element, so we need to adjust the index:
+                    dest_index.saturating_sub(1)
+                } else {
+                    dest_index
+                };
+
                 #[allow(clippy::unwrap_used)] // we successfully removed from it: it must exist
                 let parent_tile = self.tiles.get_mut(prev_parent_id).unwrap();
 
@@ -346,10 +353,11 @@ impl<Pane> Tree<Pane> {
                     Tile::Pane(_) => unreachable!(),
                     Tile::Container(container) => match container {
                         Container::Tabs(tabs) => {
-                            tabs.children.insert(dest_index, moved_tile_id);
+                            tabs.children.insert(compensated_index, moved_tile_id);
+                            tabs.active = Some(moved_tile_id);
                         }
                         Container::Linear(linear) => {
-                            linear.children.insert(dest_index, moved_tile_id);
+                            linear.children.insert(compensated_index, moved_tile_id);
                         }
                         Container::Grid(grid) => {
                             let dest = grid.replace_at(dest_index, moved_tile_id);

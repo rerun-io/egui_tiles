@@ -151,7 +151,7 @@ impl Grid {
     }
 
     fn collapse_holes(&mut self) {
-        log::debug!("Collaping grid holes");
+        log::trace!("Collaping grid holes");
         self.children.retain(|child| child.is_some());
     }
 

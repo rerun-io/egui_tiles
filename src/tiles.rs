@@ -384,7 +384,7 @@ impl<Pane> Tiles<Pane> {
 
             if kind == ContainerKind::Tabs {
                 if options.prune_empty_tabs && container.is_empty() {
-                    log::debug!("Simplify: removing empty tabs container");
+                    log::trace!("Simplify: removing empty tabs container");
                     return SimplifyAction::Remove;
                 }
 
@@ -398,7 +398,7 @@ impl<Pane> Tiles<Pane> {
                         {
                             // Keep it, even though we only one child
                         } else {
-                            log::debug!("Simplify: collapsing single-child tabs container");
+                            log::trace!("Simplify: collapsing single-child tabs container");
                             return SimplifyAction::Replace(only_child);
                         }
                     }
@@ -413,7 +413,7 @@ impl<Pane> Tiles<Pane> {
                             {
                                 if parent.dir == child.dir {
                                     // absorb the child
-                                    log::debug!(
+                                    log::trace!(
                                         "Simplify: absorbing nested linear container with {} children",
                                         child.children.len()
                                     );
@@ -444,12 +444,12 @@ impl<Pane> Tiles<Pane> {
                 }
 
                 if options.prune_empty_containers && container.is_empty() {
-                    log::debug!("Simplify: removing empty container tile");
+                    log::trace!("Simplify: removing empty container tile");
                     return SimplifyAction::Remove;
                 }
                 if options.prune_single_child_containers {
                     if let Some(only_child) = container.only_child() {
-                        log::debug!("Simplify: collapsing single-child container tile");
+                        log::trace!("Simplify: collapsing single-child container tile");
                         return SimplifyAction::Replace(only_child);
                     }
                 }
