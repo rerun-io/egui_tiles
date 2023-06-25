@@ -62,7 +62,9 @@ pub enum GridLayout {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Grid {
     /// The order of the children, row-major.
-    pub children: Vec<TileId>,
+    ///
+    /// We allow holes (for easier drag-dropping).
+    children: Vec<Option<TileId>>,
 
     /// Determins the number of columns.
     pub layout: GridLayout,
@@ -103,13 +105,41 @@ impl PartialEq for Grid {
 impl Grid {
     pub fn new(children: Vec<TileId>) -> Self {
         Self {
-            children,
+            children: children.into_iter().map(Some).collect(),
             ..Default::default()
         }
     }
 
+    pub fn num_children(&self) -> usize {
+        self.children().count()
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &TileId> {
+        self.children.iter().filter_map(|c| c.as_ref())
+    }
+
     pub fn add_child(&mut self, child: TileId) {
-        self.children.push(child);
+        self.children.push(Some(child));
+    }
+
+    pub fn insert_at(&mut self, index: usize, child: TileId) {
+        if let Some(slot) = self.children.get_mut(index) {
+            if slot.is_none() {
+                // put it in the empty hole
+                slot.replace(child);
+            } else {
+                // put it before
+                self.children.insert(index, Some(child));
+            }
+        } else {
+            // put it last
+            self.children.push(Some(child));
+        }
+    }
+
+    fn collapse_holes(&mut self) {
+        log::debug!("Collaping grid holes");
+        self.children.retain(|child| child.is_some());
     }
 
     pub(super) fn layout<Pane>(
@@ -119,19 +149,25 @@ impl Grid {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        let gap = behavior.gap_width(style);
-        let visible_child_ids: Vec<TileId> = self
+        let num_visible_children = self
             .children
             .iter()
-            .copied()
+            .filter_map(|&child| child)
             .filter(|&child_id| tiles.is_visible(child_id))
-            .collect();
+            .count();
+
+        let gap = behavior.gap_width(style);
 
         let num_cols = match self.layout {
-            GridLayout::Auto => behavior.grid_auto_column_count(visible_child_ids.len(), rect, gap),
+            GridLayout::Auto => behavior.grid_auto_column_count(num_visible_children, rect, gap),
             GridLayout::Columns(num_columns) => num_columns.at_least(1),
         };
-        let num_rows = (visible_child_ids.len() + num_cols - 1) / num_cols;
+        let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+
+        if self.children.len() > num_cols * num_rows {
+            // Too many holes - collapse:
+            self.collapse_holes(); // TODO(emilk): collapse as few holes as possible?
+        }
 
         // Figure out where each column and row goes:
         self.col_shares.resize(num_cols, 1.0);
@@ -158,11 +194,13 @@ impl Grid {
         }
 
         // Layout each child:
-        for (i, &child) in visible_child_ids.iter().enumerate() {
-            let col = i % num_cols;
-            let row = i / num_cols;
-            let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
-            tiles.layout_tile(style, behavior, child_rect, child);
+        for (i, &child) in self.children.iter().enumerate() {
+            if let Some(child) = child {
+                let col = i % num_cols;
+                let row = i / num_cols;
+                let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
+                tiles.layout_tile(style, behavior, child_rect, child);
+            }
         }
     }
 
@@ -175,9 +213,11 @@ impl Grid {
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            if tree.is_visible(child) {
-                tree.tile_ui(behavior, drop_context, ui, child);
-                crate::cover_tile_if_dragged(tree, behavior, ui, child);
+            if let Some(child) = child {
+                if tree.is_visible(child) {
+                    tree.tile_ui(behavior, drop_context, ui, child);
+                    crate::cover_tile_if_dragged(tree, behavior, ui, child);
+                }
             }
         }
 
@@ -281,19 +321,29 @@ impl Grid {
     }
 
     pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
-        let mut new_children = Vec::with_capacity(self.children.len());
-        for child in self.children.drain(..) {
-            match simplify(child) {
-                SimplifyAction::Remove => {}
-                SimplifyAction::Keep => {
-                    new_children.push(child);
-                }
-                SimplifyAction::Replace(new) => {
-                    new_children.push(new);
+        for child_opt in &mut self.children {
+            if let Some(child) = *child_opt {
+                match simplify(child) {
+                    SimplifyAction::Remove => {
+                        *child_opt = None;
+                    }
+                    SimplifyAction::Keep => {}
+                    SimplifyAction::Replace(new) => {
+                        *child_opt = Some(new);
+                    }
                 }
             }
         }
-        self.children = new_children;
+    }
+
+    pub(super) fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
+        for child_opt in &mut self.children {
+            if let Some(child) = *child_opt {
+                if !retain(child) {
+                    *child_opt = None;
+                }
+            }
+        }
     }
 }
 

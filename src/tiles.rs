@@ -188,7 +188,7 @@ impl<Pane> Tiles<Pane> {
     pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
         for (tile_id, tile) in &self.tiles {
             if let Tile::Container(container) = tile {
-                if container.children().contains(&child_id) {
+                if container.has_child(child_id) {
                     return Some(*tile_id);
                 }
             }
@@ -265,9 +265,7 @@ impl<Pane> Tiles<Pane> {
             }
             ContainerInsertion::Grid(index) => {
                 if let Tile::Container(Container::Grid(grid)) = &mut parent_tile {
-                    let prev = grid.children.remove(index);
-                    grid.children.insert(index, inserted_id);
-                    grid.children.push(prev); // TODO: put in the same place as whatever was dragged
+                    grid.insert_at(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
                     let new_tile_id = self.insert_tile(parent_tile);
@@ -385,18 +383,19 @@ impl<Pane> Tiles<Pane> {
                     return SimplifyAction::Remove;
                 }
 
-                if options.prune_single_child_tabs && container.children().len() == 1 {
-                    let child_is_pane =
-                        matches!(self.get(container.children()[0]), Some(Tile::Pane(_)));
+                if options.prune_single_child_tabs {
+                    if let Some(only_child) = container.only_child() {
+                        let child_is_pane = matches!(self.get(only_child), Some(Tile::Pane(_)));
 
-                    if options.all_panes_must_have_tabs
-                        && child_is_pane
-                        && parent_kind != Some(ContainerKind::Tabs)
-                    {
-                        // Keep it, even though we only one child
-                    } else {
-                        log::debug!("Simplify: collapsing single-child tabs container");
-                        return SimplifyAction::Replace(container.children()[0]);
+                        if options.all_panes_must_have_tabs
+                            && child_is_pane
+                            && parent_kind != Some(ContainerKind::Tabs)
+                        {
+                            // Keep it, even though we only one child
+                        } else {
+                            log::debug!("Simplify: collapsing single-child tabs container");
+                            return SimplifyAction::Replace(only_child);
+                        }
                     }
                 }
             } else {
@@ -443,9 +442,11 @@ impl<Pane> Tiles<Pane> {
                     log::debug!("Simplify: removing empty container tile");
                     return SimplifyAction::Remove;
                 }
-                if options.prune_single_child_containers && container.children().len() == 1 {
-                    log::debug!("Simplify: collapsing single-child container tile");
-                    return SimplifyAction::Replace(container.children()[0]);
+                if options.prune_single_child_containers {
+                    if let Some(only_child) = container.only_child() {
+                        log::debug!("Simplify: collapsing single-child container tile");
+                        return SimplifyAction::Replace(only_child);
+                    }
                 }
             }
         }

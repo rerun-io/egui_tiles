@@ -99,15 +99,44 @@ impl Container {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.children().is_empty()
+        self.num_children() == 0
     }
 
-    pub fn children(&self) -> &[TileId] {
+    pub fn num_children(&self) -> usize {
         match self {
-            Self::Tabs(tabs) => &tabs.children,
-            Self::Linear(linear) => &linear.children,
-            Self::Grid(grid) => &grid.children,
+            Container::Tabs(tabs) => tabs.children.len(),
+            Container::Linear(linear) => linear.children.len(),
+            Container::Grid(grid) => grid.num_children(),
         }
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &TileId> {
+        match self {
+            Self::Tabs(tabs) => itertools::Either::Left(tabs.children.iter()),
+            Self::Linear(linear) => itertools::Either::Left(linear.children.iter()),
+            Self::Grid(grid) => itertools::Either::Right(grid.children()),
+        }
+    }
+
+    /// If we have exactly one child, return it
+    pub fn only_child(&self) -> Option<TileId> {
+        let mut only_child = None;
+        for &child in self.children() {
+            if only_child.is_none() {
+                only_child = Some(child);
+            } else {
+                return None;
+            }
+        }
+        only_child
+    }
+
+    pub fn children_vec(&self) -> Vec<TileId> {
+        self.children().copied().collect()
+    }
+
+    pub fn has_child(&self, needle: TileId) -> bool {
+        self.children().any(|&t| t == needle)
     }
 
     pub fn add_child(&mut self, child: TileId) {
@@ -135,24 +164,23 @@ impl Container {
         }
 
         *self = match kind {
-            ContainerKind::Tabs => Self::Tabs(Tabs::new(self.children().to_vec())),
+            ContainerKind::Tabs => Self::Tabs(Tabs::new(self.children_vec())),
             ContainerKind::Horizontal => {
-                Self::Linear(Linear::new(LinearDir::Horizontal, self.children().to_vec()))
+                Self::Linear(Linear::new(LinearDir::Horizontal, self.children_vec()))
             }
             ContainerKind::Vertical => {
-                Self::Linear(Linear::new(LinearDir::Vertical, self.children().to_vec()))
+                Self::Linear(Linear::new(LinearDir::Vertical, self.children_vec()))
             }
-            ContainerKind::Grid => Self::Grid(Grid::new(self.children().to_vec())),
+            ContainerKind::Grid => Self::Grid(Grid::new(self.children_vec())),
         };
     }
 
     /// Iterate through all children in order, and keep only those for which the closure returns `true`.
     pub fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
-        let retain = |tile_id: &TileId| retain(*tile_id);
         match self {
-            Self::Tabs(tabs) => tabs.children.retain(retain),
-            Self::Linear(linear) => linear.children.retain(retain),
-            Self::Grid(grid) => grid.children.retain(retain),
+            Self::Tabs(tabs) => tabs.children.retain(|tile_id: &TileId| retain(*tile_id)),
+            Self::Linear(linear) => linear.children.retain(|tile_id: &TileId| retain(*tile_id)),
+            Self::Grid(grid) => grid.retain(retain),
         }
     }
 
