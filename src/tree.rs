@@ -339,7 +339,7 @@ impl<Pane> Tree<Pane> {
                 log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
                 // lets swap the two indices
 
-                let compensated_index = if source_index < dest_index {
+                let adjusted_index = if source_index < dest_index {
                     // We removed an earlier element, so we need to adjust the index:
                     dest_index.saturating_sub(1)
                 } else {
@@ -353,13 +353,14 @@ impl<Pane> Tree<Pane> {
                     Tile::Pane(_) => unreachable!(),
                     Tile::Container(container) => match container {
                         Container::Tabs(tabs) => {
-                            tabs.children.insert(compensated_index, moved_tile_id);
+                            tabs.children.insert(adjusted_index, moved_tile_id);
                             tabs.active = Some(moved_tile_id);
                         }
                         Container::Linear(linear) => {
-                            linear.children.insert(compensated_index, moved_tile_id);
+                            linear.children.insert(adjusted_index, moved_tile_id);
                         }
                         Container::Grid(grid) => {
+                            // the grid allow holes in its children list, so don't use `adjusted_index`
                             let dest = grid.replace_at(dest_index, moved_tile_id);
                             if let Some(dest) = dest {
                                 grid.insert_at(source_index, dest);

@@ -396,7 +396,7 @@ impl<Pane> Tiles<Pane> {
                             && child_is_pane
                             && parent_kind != Some(ContainerKind::Tabs)
                         {
-                            // Keep it, even though we only one child
+                            // Keep it, even though we only have one child
                         } else {
                             log::trace!("Simplify: collapsing single-child tabs container");
                             return SimplifyAction::Replace(only_child);

@@ -64,9 +64,10 @@ pub struct Grid {
     /// The order of the children, row-major.
     ///
     /// We allow holes (for easier drag-dropping).
+    /// We collapse all holes if they become too numerous.
     children: Vec<Option<TileId>>,
 
-    /// Determines the number of columns.
+    /// Determins the number of columns.
     pub layout: GridLayout,
 
     /// Share of the available width assigned to each column.
@@ -91,8 +92,8 @@ impl PartialEq for Grid {
             layout,
             col_shares,
             row_shares,
-            col_ranges: _, // ignored because they are recomputed
-            row_ranges: _, // ignored because they are recomputed
+            col_ranges: _, // ignored because they are recomputed each frame
+            row_ranges: _, // ignored because they are recomputed each frame
         } = self;
 
         layout == &other.layout

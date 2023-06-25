@@ -212,6 +212,7 @@ enum ContainerInsertion {
 }
 
 impl ContainerInsertion {
+    /// Where in the parent (in what order among its children).
     fn index(self) -> usize {
         match self {
             ContainerInsertion::Tabs(index)
