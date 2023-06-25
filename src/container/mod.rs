@@ -8,7 +8,7 @@ mod grid;
 mod linear;
 mod tabs;
 
-pub use grid::{Grid, GridLayout, GridLoc};
+pub use grid::{Grid, GridLayout};
 pub use linear::{Linear, LinearDir, Shares};
 pub use tabs::Tabs;
 

@@ -6,33 +6,6 @@ use crate::{
     Tiles, Tree,
 };
 
-/// A location in a grid (row and column).
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct GridLoc {
-    // Row first for sorting
-    pub row: usize,
-    pub col: usize,
-}
-
-impl GridLoc {
-    #[inline]
-    pub fn from_col_row(col: usize, row: usize) -> Self {
-        Self { col, row }
-    }
-}
-
 /// How to lay out the children of a grid.
 #[derive(
     Clone,

@@ -123,7 +123,7 @@ mod tiles;
 mod tree;
 
 pub use behavior::Behavior;
-pub use container::{Container, ContainerKind, Grid, GridLayout, GridLoc, Linear, LinearDir, Tabs};
+pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
 pub use tree::Tree;
