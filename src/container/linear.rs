@@ -104,7 +104,7 @@ impl Linear {
         }
     }
 
-    fn visible_childre<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+    fn visible_children<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
         self.children
             .iter()
             .copied()
@@ -159,7 +159,7 @@ impl Linear {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        let visible_children = self.visible_childre(tiles);
+        let visible_children = self.visible_children(tiles);
 
         let num_gaps = visible_children.len().saturating_sub(1);
         let gap_width = behavior.gap_width(style);
@@ -183,7 +183,7 @@ impl Linear {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
-        let visible_children = self.visible_childre(tiles);
+        let visible_children = self.visible_children(tiles);
 
         let num_gaps = visible_children.len().saturating_sub(1);
         let gap_height = behavior.gap_width(style);
@@ -222,7 +222,7 @@ impl Linear {
         ui: &mut egui::Ui,
         parent_id: TileId,
     ) {
-        let visible_children = self.visible_childre(&tree.tiles);
+        let visible_children = self.visible_children(&tree.tiles);
 
         for &child in &visible_children {
             tree.tile_ui(behavior, drop_context, ui, child);
@@ -286,7 +286,7 @@ impl Linear {
         ui: &mut egui::Ui,
         parent_id: TileId,
     ) {
-        let visible_children = self.visible_childre(&tree.tiles);
+        let visible_children = self.visible_children(&tree.tiles);
 
         for &child in &visible_children {
             tree.tile_ui(behavior, drop_context, ui, child);
