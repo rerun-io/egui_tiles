@@ -40,7 +40,7 @@ pub struct Grid {
     /// We collapse all holes if they become too numerous.
     children: Vec<Option<TileId>>,
 
-    /// Determins the number of columns.
+    /// Determines the number of columns.
     pub layout: GridLayout,
 
     /// Share of the available width assigned to each column.
