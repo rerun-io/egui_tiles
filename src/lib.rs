@@ -259,7 +259,7 @@ fn is_possible_drag(ctx: &egui::Context) -> bool {
 }
 
 fn is_being_dragged(ctx: &egui::Context, tile_id: TileId) -> bool {
-    ctx.memory(|mem| mem.is_being_dragged(tile_id.id())) && is_possible_drag(ctx)
+    ctx.memory(|mem| mem.is_being_dragged(tile_id.egui_id())) && is_possible_drag(ctx)
 }
 
 /// If this tile is currently being dragged, cover it with a semi-transparent overlay ([`Behavior::dragged_overlay_color`]).

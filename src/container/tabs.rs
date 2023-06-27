@@ -126,7 +126,7 @@ impl Tabs {
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .drag_started()
                     {
-                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
+                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
                     }
                 }
 
@@ -138,7 +138,7 @@ impl Tabs {
                     let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
 
                     let selected = self.is_active(child_id);
-                    let id = child_id.id();
+                    let id = child_id.egui_id();
 
                     let response =
                         behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);

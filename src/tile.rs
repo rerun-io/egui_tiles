@@ -10,8 +10,8 @@ impl TileId {
     }
 
     /// Corresponding [`egui::Id`], used for dragging.
-    pub fn id(&self) -> egui::Id {
-        egui::Id::new(self)
+    pub fn egui_id(&self) -> egui::Id {
+        egui::Id::new(("egui_tile", self))
     }
 }
 
