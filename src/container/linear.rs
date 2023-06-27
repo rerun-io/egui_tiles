@@ -19,7 +19,7 @@ pub struct Shares {
     ///
     /// For instance, the shares `[1, 2, 3]` means that the first child gets 1/6 of the space,
     /// the second gets 2/6 and the third gets 3/6.
-    shares: nohash_hasher::IntMap<TileId, f32>,
+    shares: ahash::HashMap<TileId, f32>,
 }
 
 impl Shares {
@@ -141,7 +141,7 @@ impl Linear {
         rect: Rect,
     ) {
         // GC:
-        let child_set: nohash_hasher::IntSet<TileId> = self.children.iter().copied().collect();
+        let child_set: ahash::HashSet<TileId> = self.children.iter().copied().collect();
         self.shares.retain(|id| child_set.contains(&id));
 
         match self.dir {

@@ -20,19 +20,22 @@ use super::{
 /// ```
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
-    tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
+    next_tile_id: u64,
+
+    tiles: ahash::HashMap<TileId, Tile<Pane>>,
 
     /// Tiles are visible by default, so we only store the invisible ones.
-    invisible: nohash_hasher::IntSet<TileId>,
+    invisible: ahash::HashSet<TileId>,
 
     /// Filled in by the layout step at the start of each frame.
     #[serde(default, skip)]
-    pub(super) rects: nohash_hasher::IntMap<TileId, Rect>,
+    pub(super) rects: ahash::HashMap<TileId, Rect>,
 }
 
 impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
     fn eq(&self, other: &Tiles<Pane>) -> bool {
         let Self {
+            next_tile_id: _, // ignored
             tiles,
             invisible,
             rects: _, // ignore transient state
@@ -44,6 +47,7 @@ impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
 impl<Pane> Default for Tiles<Pane> {
     fn default() -> Self {
         Self {
+            next_tile_id: 1,
             tiles: Default::default(),
             invisible: Default::default(),
             rects: Default::default(),
@@ -148,30 +152,31 @@ impl<Pane> Tiles<Pane> {
     }
 
     #[must_use]
-    pub fn insert_tile(&mut self, tile: Tile<Pane>) -> TileId {
-        let id = TileId::random();
+    pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
+        let id = TileId::from_u64(self.next_tile_id);
+        self.next_tile_id += 1;
         self.tiles.insert(id, tile);
         id
     }
 
     #[must_use]
     pub fn insert_pane(&mut self, pane: Pane) -> TileId {
-        self.insert_tile(Tile::Pane(pane))
+        self.insert_new(Tile::Pane(pane))
     }
 
     #[must_use]
     pub fn insert_container(&mut self, container: impl Into<Container>) -> TileId {
-        self.insert_tile(Tile::Container(container.into()))
+        self.insert_new(Tile::Container(container.into()))
     }
 
     #[must_use]
     pub fn insert_tab_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_tabs(children)))
+        self.insert_new(Tile::Container(Container::new_tabs(children)))
     }
 
     #[must_use]
     pub fn insert_horizontal_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_linear(
+        self.insert_new(Tile::Container(Container::new_linear(
             LinearDir::Horizontal,
             children,
         )))
@@ -179,7 +184,7 @@ impl<Pane> Tiles<Pane> {
 
     #[must_use]
     pub fn insert_vertical_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_linear(
+        self.insert_new(Tile::Container(Container::new_linear(
             LinearDir::Vertical,
             children,
         )))
@@ -187,7 +192,7 @@ impl<Pane> Tiles<Pane> {
 
     #[must_use]
     pub fn insert_grid_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_grid(children)))
+        self.insert_new(Tile::Container(Container::new_grid(children)))
     }
 
     pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
@@ -224,7 +229,7 @@ impl<Pane> Tiles<Pane> {
                     tabs.set_active(inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(parent_tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
                     tabs.children.insert(index.min(1), inserted_id);
                     tabs.set_active(inserted_id);
@@ -243,7 +248,7 @@ impl<Pane> Tiles<Pane> {
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(parent_tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -261,7 +266,7 @@ impl<Pane> Tiles<Pane> {
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(parent_tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -273,7 +278,7 @@ impl<Pane> Tiles<Pane> {
                     grid.insert_at(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(parent_tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let grid = Grid::new(vec![new_tile_id, inserted_id]);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Grid(grid)));
@@ -316,7 +321,7 @@ impl<Pane> Tiles<Pane> {
     fn gc_tile_id(
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
-        visited: &mut nohash_hasher::IntSet<TileId>,
+        visited: &mut ahash::HashSet<TileId>,
         tile_id: TileId,
     ) -> GcAction {
         let Some(mut tile) = self.tiles.remove(&tile_id) else { return GcAction::Remove; };
@@ -471,8 +476,7 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = TileId::random();
-                    self.tiles.insert(new_id, tile);
+                    let new_id = self.insert_new(tile);
                     self.tiles
                         .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
                     return;

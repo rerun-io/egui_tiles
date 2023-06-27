@@ -131,7 +131,7 @@ impl<Pane> Tree<Pane> {
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
-        let root = tiles.insert_tile(Tile::Container(Container::new(kind, tile_ids)));
+        let root = tiles.insert_new(Tile::Container(Container::new(kind, tile_ids)));
         Self::new(root, tiles)
     }
 

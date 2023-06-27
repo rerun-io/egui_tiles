@@ -4,14 +4,9 @@ use crate::{Container, ContainerKind};
 #[derive(Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TileId(u64);
 
-/// [`TileId`] is a high-entropy random id, so this is fine:
-impl nohash_hasher::IsEnabled for TileId {}
-
 impl TileId {
-    /// Generate a new random [`TileId`].
-    pub fn random() -> Self {
-        use rand::Rng as _;
-        Self(rand::thread_rng().gen())
+    pub(crate) fn from_u64(n: u64) -> Self {
+        Self(n)
     }
 
     /// Corresponding [`egui::Id`], used for dragging.

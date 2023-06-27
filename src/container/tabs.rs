@@ -100,7 +100,7 @@ impl Tabs {
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
         let mut ui = ui.child_ui(tab_bar_rect, *ui.layout());
 
-        let mut button_rects = nohash_hasher::IntMap::default();
+        let mut button_rects = ahash::HashMap::default();
         let mut dragged_index = None;
 
         ui.painter()
