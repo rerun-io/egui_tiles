@@ -131,7 +131,7 @@ impl<Pane> Tree<Pane> {
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
-        let root = tiles.insert_tile(Tile::Container(Container::new(kind, tile_ids)));
+        let root = tiles.insert_new(Tile::Container(Container::new(kind, tile_ids)));
         Self::new(root, tiles)
     }
 
@@ -141,6 +141,20 @@ impl<Pane> Tree<Pane> {
 
     pub fn is_root(&self, tile: TileId) -> bool {
         self.root == Some(tile)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn is_visible(&self, tile_id: TileId) -> bool {
+        self.tiles.is_visible(tile_id)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn set_visible(&mut self, tile_id: TileId, visible: bool) {
+        self.tiles.set_visible(tile_id, visible);
     }
 
     /// Show the tree in the given [`Ui`].
@@ -186,13 +200,16 @@ impl<Pane> Tree<Pane> {
         ui: &mut Ui,
         tile_id: TileId,
     ) {
+        if !self.is_visible(tile_id) {
+            return;
+        }
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
         let Some(rect) = self.tiles.try_rect(tile_id) else {
             log::warn!("Failed to find rect for tile {tile_id:?} during ui");
             return
         };
-        let Some(mut tile) = self.tiles.tiles.remove(&tile_id) else {
+        let Some(mut tile) = self.tiles.remove(tile_id) else {
             log::warn!("Failed to find tile {tile_id:?} during ui");
             return
         };
@@ -215,7 +232,7 @@ impl<Pane> Tree<Pane> {
         match &mut tile {
             Tile::Pane(pane) => {
                 if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
+                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
                 }
             }
             Tile::Container(container) => {
@@ -223,7 +240,7 @@ impl<Pane> Tree<Pane> {
             }
         };
 
-        self.tiles.tiles.insert(tile_id, tile);
+        self.tiles.insert(tile_id, tile);
         drop_context.enabled = drop_context_was_enabled;
     }
 
@@ -310,12 +327,53 @@ impl<Pane> Tree<Pane> {
 
     /// Move the given tile to the given insertion point.
     pub(super) fn move_tile(&mut self, moved_tile_id: TileId, insertion_point: InsertionPoint) {
-        log::debug!(
+        log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
         );
-        self.remove_tile_id_from_parent(moved_tile_id);
-        self.tiles.insert(insertion_point, moved_tile_id);
+
+        if let Some((prev_parent_id, source_index)) = self.remove_tile_id_from_parent(moved_tile_id)
+        {
+            if prev_parent_id == insertion_point.parent_id {
+                let dest_index = insertion_point.insertion.index();
+                log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
+                // lets swap the two indices
+
+                let adjusted_index = if source_index < dest_index {
+                    // We removed an earlier element, so we need to adjust the index:
+                    dest_index.saturating_sub(1)
+                } else {
+                    dest_index
+                };
+
+                #[allow(clippy::unwrap_used)] // we successfully removed from it: it must exist
+                let parent_tile = self.tiles.get_mut(prev_parent_id).unwrap();
+
+                match parent_tile {
+                    Tile::Pane(_) => unreachable!(),
+                    Tile::Container(container) => match container {
+                        Container::Tabs(tabs) => {
+                            tabs.children.insert(adjusted_index, moved_tile_id);
+                            tabs.active = Some(moved_tile_id);
+                        }
+                        Container::Linear(linear) => {
+                            linear.children.insert(adjusted_index, moved_tile_id);
+                        }
+                        Container::Grid(grid) => {
+                            // the grid allow holes in its children list, so don't use `adjusted_index`
+                            let dest = grid.replace_at(dest_index, moved_tile_id);
+                            if let Some(dest) = dest {
+                                grid.insert_at(source_index, dest);
+                            }
+                        }
+                    },
+                }
+                return; // done
+            }
+        }
+
+        // Moving to a new parent
+        self.tiles.insert_at(insertion_point, moved_tile_id);
     }
 
     /// Find the currently dragged tile, if any.
@@ -325,12 +383,12 @@ impl<Pane> Tree<Pane> {
             return None;
         }
 
-        for &tile_id in self.tiles.tiles.keys() {
+        for tile_id in self.tiles.tile_ids() {
             if self.is_root(tile_id) {
                 continue; // not allowed to drag root
             }
 
-            let id = tile_id.id();
+            let id = tile_id.egui_id();
             let is_tile_being_dragged = ctx.memory(|mem| mem.is_being_dragged(id));
             if is_tile_being_dragged {
                 // Abort drags on escape:
@@ -350,12 +408,20 @@ impl<Pane> Tree<Pane> {
     /// The [`Tile`] itself is not removed from [`Self::tiles`].
     ///
     /// Performs no simplifcations.
-    pub(super) fn remove_tile_id_from_parent(&mut self, remove_me: TileId) {
-        for parent in self.tiles.tiles.values_mut() {
+    ///
+    /// If found, the parent tile and the child's index is returned.
+    pub(super) fn remove_tile_id_from_parent(
+        &mut self,
+        remove_me: TileId,
+    ) -> Option<(TileId, usize)> {
+        for (parent_id, parent) in self.tiles.iter_mut() {
             if let Tile::Container(container) = parent {
-                container.retain(|child| child != remove_me);
+                if let Some(child_index) = container.remove_child(remove_me) {
+                    return Some((*parent_id, child_index));
+                }
             }
         }
+        None
     }
 }
 

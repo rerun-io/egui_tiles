@@ -40,9 +40,19 @@ impl Tabs {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
+        if let Some(active) = self.active {
+            if !tiles.is_visible(active) {
+                self.active = None;
+            }
+        }
+
         if !self.children.iter().any(|&child| self.is_active(child)) {
             // Make sure something is active:
-            self.active = self.children.first().copied();
+            self.active = self
+                .children
+                .iter()
+                .copied()
+                .find(|&child_id| tiles.is_visible(child_id));
         }
 
         let mut active_rect = rect;
@@ -90,7 +100,7 @@ impl Tabs {
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
         let mut ui = ui.child_ui(tab_bar_rect, *ui.layout());
 
-        let mut button_rects = nohash_hasher::IntMap::default();
+        let mut button_rects = ahash::HashMap::default();
         let mut dragged_index = None;
 
         ui.painter()
@@ -116,15 +126,19 @@ impl Tabs {
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .drag_started()
                     {
-                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.id()));
+                        ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
                     }
                 }
 
                 for (i, &child_id) in self.children.iter().enumerate() {
+                    if !tree.is_visible(child_id) {
+                        continue;
+                    }
+
                     let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
 
                     let selected = self.is_active(child_id);
-                    let id = child_id.id();
+                    let id = child_id.egui_id();
 
                     let response =
                         behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
@@ -171,7 +185,7 @@ impl Tabs {
             &self.children,
             dragged_index,
             super::LinearDir::Horizontal,
-            |tile_id| button_rects[&tile_id],
+            |tile_id| button_rects.get(&tile_id).copied(),
             |rect, i| {
                 drop_context.suggest_rect(
                     InsertionPoint::new(tile_id, ContainerInsertion::Tabs(i)),
@@ -196,5 +210,12 @@ impl Tabs {
                 true
             }
         });
+    }
+
+    /// Returns child index, if found.
+    pub(crate) fn remove_child(&mut self, needle: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|&child| child == needle)?;
+        self.children.remove(index);
+        Some(index)
     }
 }

@@ -75,6 +75,11 @@
 //! }
 //! ```
 //!
+//! ## Invisible tiles
+//! Tiles can be made invisible with [`Tree::set_visible`] and [`Tiles::set_visible`].
+//! Invisible tiles still retain their ordering in the container their in until
+//! they are made visible again.
+//!
 //! ## Shares
 //! The relative sizes of linear layout (horizontal or vertical) and grid columns and rows are specified by _shares_.
 //! If the shares are `1,2,3` it means the first element gets `1/6` of the space, the second `2/6`, and the third `3/6`.
@@ -118,7 +123,7 @@ mod tiles;
 mod tree;
 
 pub use behavior::Behavior;
-pub use container::{Container, ContainerKind, Grid, GridLayout, GridLoc, Linear, LinearDir, Tabs};
+pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
 pub use tree::Tree;
@@ -203,7 +208,19 @@ enum ContainerInsertion {
     Tabs(usize),
     Horizontal(usize),
     Vertical(usize),
-    Grid(GridLoc),
+    Grid(usize),
+}
+
+impl ContainerInsertion {
+    /// Where in the parent (in what order among its children).
+    fn index(self) -> usize {
+        match self {
+            ContainerInsertion::Tabs(index)
+            | ContainerInsertion::Horizontal(index)
+            | ContainerInsertion::Vertical(index)
+            | ContainerInsertion::Grid(index) => index,
+        }
+    }
 }
 
 /// Where in the tree to insert a tile.
@@ -242,7 +259,7 @@ fn is_possible_drag(ctx: &egui::Context) -> bool {
 }
 
 fn is_being_dragged(ctx: &egui::Context, tile_id: TileId) -> bool {
-    ctx.memory(|mem| mem.is_being_dragged(tile_id.id())) && is_possible_drag(ctx)
+    ctx.memory(|mem| mem.is_being_dragged(tile_id.egui_id())) && is_possible_drag(ctx)
 }
 
 /// If this tile is currently being dragged, cover it with a semi-transparent overlay ([`Behavior::dragged_overlay_color`]).

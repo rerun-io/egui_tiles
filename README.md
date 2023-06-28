@@ -24,7 +24,7 @@ Supports:
 ### Comparison with [egui_dock](https://github.com/Adanos020/egui_dock)
 [egui_dock](https://github.com/Adanos020/egui_dock) is an excellent crate serving similar needs. `egui_tiles` aims to become a more flexible and feature-rich alternative to `egui_dock`.
 
-`egui_dock` only supports binary splits (left/right or top/bottom), while `egui_tiles` support full horizontal and vertical layouts, as well as grid layouts. `egui_tiles` is also strives to be more customizable, enabling users to override the default style and behavior by implementing methods on a `Behavior` `trait`.
+`egui_dock` only supports binary splits (left/right or top/bottom), while `egui_tiles` support full horizontal and vertical layouts, as well as grid layouts. `egui_tiles` also strives to be more customizable, enabling users to override the default style and behavior by implementing methods on a `Behavior` `trait`.
 
 `egui_dock` supports some features that `egui_tiles` does not yet support, such as close-buttons on each tab, and built-in scroll areas.
 
