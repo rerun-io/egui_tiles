@@ -353,11 +353,13 @@ impl<Pane> Tree<Pane> {
                     Tile::Pane(_) => unreachable!(),
                     Tile::Container(container) => match container {
                         Container::Tabs(tabs) => {
-                            tabs.children.insert(adjusted_index, moved_tile_id);
+                            let insertion_index = adjusted_index.min(tabs.children.len());
+                            tabs.children.insert(insertion_index, moved_tile_id);
                             tabs.active = Some(moved_tile_id);
                         }
                         Container::Linear(linear) => {
-                            linear.children.insert(adjusted_index, moved_tile_id);
+                            let insertion_index = adjusted_index.min(linear.children.len());
+                            linear.children.insert(insertion_index, moved_tile_id);
                         }
                         Container::Grid(grid) => {
                             // the grid allow holes in its children list, so don't use `adjusted_index`

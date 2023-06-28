@@ -113,6 +113,7 @@ impl Grid {
         }
     }
 
+    /// Returns the child already at the given index, if any.
     #[must_use]
     pub fn replace_at(&mut self, index: usize, child: TileId) -> Option<TileId> {
         if let Some(slot) = self.children.get_mut(index) {
