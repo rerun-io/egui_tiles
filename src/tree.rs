@@ -135,6 +135,13 @@ impl<Pane> Tree<Pane> {
         Self::new(root, tiles)
     }
 
+    /// Check if [`Self::root`] is [`None`].
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.root.is_none()
+    }
+
+    #[inline]
     pub fn root(&self) -> Option<TileId> {
         self.root
     }
@@ -334,43 +341,47 @@ impl<Pane> Tree<Pane> {
 
         if let Some((prev_parent_id, source_index)) = self.remove_tile_id_from_parent(moved_tile_id)
         {
+            // Check to see if we are moving a tile within the same container:
+
             if prev_parent_id == insertion_point.parent_id {
-                let dest_index = insertion_point.insertion.index();
-                log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
-                // lets swap the two indices
+                let parent_tile = self.tiles.get_mut(prev_parent_id);
 
-                let adjusted_index = if source_index < dest_index {
-                    // We removed an earlier element, so we need to adjust the index:
-                    dest_index.saturating_sub(1)
-                } else {
-                    dest_index
-                };
+                if let Some(Tile::Container(container)) = parent_tile {
+                    if container.kind() == insertion_point.insertion.kind() {
+                        let dest_index = insertion_point.insertion.index();
+                        log::trace!(
+                            "Moving within the same parent: {source_index} -> {dest_index}"
+                        );
+                        // lets swap the two indices
 
-                #[allow(clippy::unwrap_used)] // we successfully removed from it: it must exist
-                let parent_tile = self.tiles.get_mut(prev_parent_id).unwrap();
+                        let adjusted_index = if source_index < dest_index {
+                            // We removed an earlier element, so we need to adjust the index:
+                            dest_index - 1
+                        } else {
+                            dest_index
+                        };
 
-                match parent_tile {
-                    Tile::Pane(_) => unreachable!(),
-                    Tile::Container(container) => match container {
-                        Container::Tabs(tabs) => {
-                            let insertion_index = adjusted_index.min(tabs.children.len());
-                            tabs.children.insert(insertion_index, moved_tile_id);
-                            tabs.active = Some(moved_tile_id);
-                        }
-                        Container::Linear(linear) => {
-                            let insertion_index = adjusted_index.min(linear.children.len());
-                            linear.children.insert(insertion_index, moved_tile_id);
-                        }
-                        Container::Grid(grid) => {
-                            // the grid allow holes in its children list, so don't use `adjusted_index`
-                            let dest = grid.replace_at(dest_index, moved_tile_id);
-                            if let Some(dest) = dest {
-                                grid.insert_at(source_index, dest);
+                        match container {
+                            Container::Tabs(tabs) => {
+                                let insertion_index = adjusted_index.min(tabs.children.len());
+                                tabs.children.insert(insertion_index, moved_tile_id);
+                                tabs.active = Some(moved_tile_id);
+                            }
+                            Container::Linear(linear) => {
+                                let insertion_index = adjusted_index.min(linear.children.len());
+                                linear.children.insert(insertion_index, moved_tile_id);
+                            }
+                            Container::Grid(grid) => {
+                                // the grid allow holes in its children list, so don't use `adjusted_index`
+                                let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                if let Some(dest) = dest_tile {
+                                    grid.insert_at(source_index, dest);
+                                }
                             }
                         }
-                    },
+                        return; // done
+                    }
                 }
-                return; // done
             }
         }
 

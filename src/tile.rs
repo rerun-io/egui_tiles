@@ -17,7 +17,7 @@ impl TileId {
 
 impl std::fmt::Debug for TileId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:08X}", self.0 as u32)
+        write!(f, "#{}", self.0)
     }
 }
 
@@ -58,5 +58,13 @@ impl<Pane> Tile<Pane> {
     #[inline]
     pub fn is_container(&self) -> bool {
         matches!(self, Self::Container(_))
+    }
+
+    #[inline]
+    pub fn container_kind(&self) -> Option<ContainerKind> {
+        match self {
+            Self::Pane(_) => None,
+            Self::Container(container) => Some(container.kind()),
+        }
     }
 }

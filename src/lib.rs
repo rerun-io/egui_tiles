@@ -221,6 +221,15 @@ impl ContainerInsertion {
             | ContainerInsertion::Grid(index) => index,
         }
     }
+
+    fn kind(self) -> ContainerKind {
+        match self {
+            ContainerInsertion::Tabs(_) => ContainerKind::Tabs,
+            ContainerInsertion::Horizontal(_) => ContainerKind::Horizontal,
+            ContainerInsertion::Vertical(_) => ContainerKind::Vertical,
+            ContainerInsertion::Grid(_) => ContainerKind::Grid,
+        }
+    }
 }
 
 /// Where in the tree to insert a tile.
