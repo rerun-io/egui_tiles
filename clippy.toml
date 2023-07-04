@@ -1,0 +1,14 @@
+msrv = "1.69"
+
+allow-unwrap-in-tests = true
+
+# https://doc.rust-lang.org/nightly/clippy/lint_configuration.html#avoid-breaking-exported-api
+# We want suggestions, even if it changes public API.
+avoid-breaking-exported-api = false
+
+max-fn-params-bools = 1
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#/large_include_file
+max-include-file-size = 1000
+
+too-many-lines-threshold = 100
