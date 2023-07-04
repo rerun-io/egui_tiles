@@ -38,6 +38,7 @@ pub trait Behavior<Pane> {
     ///
     /// You can override the default implementation to add e.g. a close button.
     /// Make sure it is sensitive to clicks and drags (if you want to enable drag-and-drop of tabs).
+    #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
         tiles: &Tiles<Pane>,
