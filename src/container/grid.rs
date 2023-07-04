@@ -130,6 +130,15 @@ impl Grid {
         self.children.retain(|child| child.is_some());
     }
 
+    /// Keeps holes
+    pub fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
+        self.children
+            .iter()
+            .filter(|id| id.map_or(true, |id| tiles.is_visible(id)))
+            .copied()
+            .collect()
+    }
+
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
@@ -142,12 +151,7 @@ impl Grid {
             self.children.pop();
         }
 
-        let num_visible_children = self
-            .children
-            .iter()
-            .filter_map(|&child| child)
-            .filter(|&child_id| tiles.is_visible(child_id))
-            .count();
+        let num_visible_children = self.visible_children(tiles).len();
 
         let gap = behavior.gap_width(style);
 
@@ -187,7 +191,7 @@ impl Grid {
         }
 
         // Layout each child:
-        for (i, &child) in self.children.iter().enumerate() {
+        for (i, &child) in self.visible_children(tiles).iter().enumerate() {
             if let Some(child) = child {
                 let col = i % num_cols;
                 let row = i / num_cols;
