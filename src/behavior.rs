@@ -20,7 +20,7 @@ pub trait Behavior<Pane> {
     /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
     /// uses the name of the [`crate::ContainerKind`] for [`crate::Container`]s.
     fn tab_title_for_tile(&mut self, tiles: &Tiles<Pane>, tile_id: TileId) -> WidgetText {
-        if let Some(tile) = tiles.tiles.get(&tile_id) {
+        if let Some(tile) = tiles.get(tile_id) {
             match tile {
                 Tile::Pane(pane) => self.tab_title_for_pane(pane),
                 Tile::Container(container) => format!("{:?}", container.kind()).into(),
@@ -38,6 +38,7 @@ pub trait Behavior<Pane> {
     ///
     /// You can override the default implementation to add e.g. a close button.
     /// Make sure it is sensitive to clicks and drags (if you want to enable drag-and-drop of tabs).
+    #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
         tiles: &Tiles<Pane>,
@@ -253,14 +254,13 @@ pub trait Behavior<Pane> {
     ///
     /// The `rect` is the available space for the grid,
     /// and `gap` is the distance between each column and row.
-    fn grid_auto_column_count(
-        &self,
-        _tiles: &Tiles<Pane>,
-        children: &[TileId],
-        rect: Rect,
-        gap: f32,
-    ) -> usize {
-        num_columns_heuristic(children.len(), rect, gap, self.ideal_tile_aspect_ratio())
+    fn grid_auto_column_count(&self, num_visible_children: usize, rect: Rect, gap: f32) -> usize {
+        num_columns_heuristic(
+            num_visible_children,
+            rect,
+            gap,
+            self.ideal_tile_aspect_ratio(),
+        )
     }
 
     /// When using [`crate::GridLayout::Auto`], what is the ideal aspect ratio of a tile?

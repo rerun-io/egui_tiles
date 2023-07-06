@@ -4,25 +4,20 @@ use crate::{Container, ContainerKind};
 #[derive(Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TileId(u64);
 
-/// [`TileId`] is a high-entropy random id, so this is fine:
-impl nohash_hasher::IsEnabled for TileId {}
-
 impl TileId {
-    /// Generate a new random [`TileId`].
-    pub fn random() -> Self {
-        use rand::Rng as _;
-        Self(rand::thread_rng().gen())
+    pub(crate) fn from_u64(n: u64) -> Self {
+        Self(n)
     }
 
     /// Corresponding [`egui::Id`], used for dragging.
-    pub fn id(&self) -> egui::Id {
-        egui::Id::new(self)
+    pub fn egui_id(&self) -> egui::Id {
+        egui::Id::new(("egui_tile", self))
     }
 }
 
 impl std::fmt::Debug for TileId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:08X}", self.0 as u32)
+        write!(f, "#{}", self.0)
     }
 }
 
@@ -63,5 +58,13 @@ impl<Pane> Tile<Pane> {
     #[inline]
     pub fn is_container(&self) -> bool {
         matches!(self, Self::Container(_))
+    }
+
+    #[inline]
+    pub fn container_kind(&self) -> Option<ContainerKind> {
+        match self {
+            Self::Pane(_) => None,
+            Self::Container(container) => Some(container.kind()),
+        }
     }
 }

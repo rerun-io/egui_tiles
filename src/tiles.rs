@@ -18,19 +18,38 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tiles<Pane> {
-    pub tiles: nohash_hasher::IntMap<TileId, Tile<Pane>>,
+    next_tile_id: u64,
+
+    tiles: ahash::HashMap<TileId, Tile<Pane>>,
+
+    /// Tiles are visible by default, so we only store the invisible ones.
+    invisible: ahash::HashSet<TileId>,
 
     /// Filled in by the layout step at the start of each frame.
     #[serde(default, skip)]
-    pub(super) rects: nohash_hasher::IntMap<TileId, Rect>,
+    pub(super) rects: ahash::HashMap<TileId, Rect>,
+}
+
+impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
+    fn eq(&self, other: &Tiles<Pane>) -> bool {
+        let Self {
+            next_tile_id: _, // ignored
+            tiles,
+            invisible,
+            rects: _, // ignore transient state
+        } = self;
+        tiles == &other.tiles && invisible == &other.invisible
+    }
 }
 
 impl<Pane> Default for Tiles<Pane> {
     fn default() -> Self {
         Self {
+            next_tile_id: 1,
             tiles: Default::default(),
+            invisible: Default::default(),
             rects: Default::default(),
         }
     }
@@ -40,7 +59,11 @@ impl<Pane> Default for Tiles<Pane> {
 
 impl<Pane> Tiles<Pane> {
     pub(super) fn try_rect(&self, tile_id: TileId) -> Option<Rect> {
-        self.rects.get(&tile_id).copied()
+        if self.is_visible(tile_id) {
+            self.rects.get(&tile_id).copied()
+        } else {
+            None
+        }
     }
 
     pub(super) fn rect(&self, tile_id: TileId) -> Rect {
@@ -57,31 +80,103 @@ impl<Pane> Tiles<Pane> {
         self.tiles.get_mut(&tile_id)
     }
 
+    /// All tiles, in arbitrary order
+    pub fn iter(&self) -> impl Iterator<Item = (&TileId, &Tile<Pane>)> + '_ {
+        self.tiles.iter()
+    }
+
+    /// All tiles, in arbitrary order
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&TileId, &mut Tile<Pane>)> + '_ {
+        self.tiles.iter_mut()
+    }
+
+    /// All [`TileId`]s, in arbitrary order
+    pub fn tile_ids(&self) -> impl Iterator<Item = TileId> + '_ {
+        self.tiles.keys().copied()
+    }
+
+    /// All [`Tile`]s in arbitrary order
+    pub fn tiles(&self) -> impl Iterator<Item = &Tile<Pane>> + '_ {
+        self.tiles.values()
+    }
+
+    /// All [`Tile`]s in arbitrary order
+    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<Pane>> + '_ {
+        self.tiles.values_mut()
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn is_visible(&self, tile_id: TileId) -> bool {
+        !self.invisible.contains(&tile_id)
+    }
+
+    /// Tiles are visible by default.
+    ///
+    /// Invisible tiles still retain their place in the tile hierarchy.
+    pub fn set_visible(&mut self, tile_id: TileId, visible: bool) {
+        if visible {
+            self.invisible.remove(&tile_id);
+        } else {
+            self.invisible.insert(tile_id);
+        }
+    }
+
+    pub fn insert(&mut self, id: TileId, tile: Tile<Pane>) {
+        self.tiles.insert(id, tile);
+    }
+
+    pub fn remove(&mut self, id: TileId) -> Option<Tile<Pane>> {
+        self.tiles.remove(&id)
+    }
+
+    /// Remove the given tile and all child tiles, recursively.
+    ///
+    /// All removed tiles are returned in unspecified order.
+    pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        let mut removed_tiles = vec![];
+        self.remove_recursively_impl(id, &mut removed_tiles);
+        removed_tiles
+    }
+
+    fn remove_recursively_impl(&mut self, id: TileId, removed_tiles: &mut Vec<Tile<Pane>>) {
+        if let Some(tile) = self.remove(id) {
+            if let Tile::Container(container) = &tile {
+                for &child_id in container.children() {
+                    self.remove_recursively_impl(child_id, removed_tiles);
+                }
+            }
+            removed_tiles.push(tile);
+        }
+    }
+
     #[must_use]
-    pub fn insert_tile(&mut self, tile: Tile<Pane>) -> TileId {
-        let id = TileId::random();
+    pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
+        let id = TileId::from_u64(self.next_tile_id);
+        self.next_tile_id += 1;
         self.tiles.insert(id, tile);
         id
     }
 
     #[must_use]
     pub fn insert_pane(&mut self, pane: Pane) -> TileId {
-        self.insert_tile(Tile::Pane(pane))
+        self.insert_new(Tile::Pane(pane))
     }
 
     #[must_use]
     pub fn insert_container(&mut self, container: impl Into<Container>) -> TileId {
-        self.insert_tile(Tile::Container(container.into()))
+        self.insert_new(Tile::Container(container.into()))
     }
 
     #[must_use]
     pub fn insert_tab_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_tabs(children)))
+        self.insert_new(Tile::Container(Container::new_tabs(children)))
     }
 
     #[must_use]
     pub fn insert_horizontal_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_linear(
+        self.insert_new(Tile::Container(Container::new_linear(
             LinearDir::Horizontal,
             children,
         )))
@@ -89,7 +184,7 @@ impl<Pane> Tiles<Pane> {
 
     #[must_use]
     pub fn insert_vertical_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_linear(
+        self.insert_new(Tile::Container(Container::new_linear(
             LinearDir::Vertical,
             children,
         )))
@@ -97,13 +192,13 @@ impl<Pane> Tiles<Pane> {
 
     #[must_use]
     pub fn insert_grid_tile(&mut self, children: Vec<TileId>) -> TileId {
-        self.insert_tile(Tile::Container(Container::new_grid(children)))
+        self.insert_new(Tile::Container(Container::new_grid(children)))
     }
 
     pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
         for (tile_id, tile) in &self.tiles {
             if let Tile::Container(container) = tile {
-                if container.children().contains(&child_id) {
+                if container.has_child(child_id) {
                     return Some(*tile_id);
                 }
             }
@@ -115,29 +210,29 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn insert(&mut self, insertion_point: InsertionPoint, child_id: TileId) {
+    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
         let InsertionPoint {
             parent_id,
             insertion,
         } = insertion_point;
 
-        let Some(mut tile) = self.tiles.remove(&parent_id) else {
+        let Some(mut parent_tile) = self.tiles.remove(&parent_id) else {
             log::warn!("Failed to insert: could not find parent {parent_id:?}");
             return;
         };
 
         match insertion {
             ContainerInsertion::Tabs(index) => {
-                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                if let Tile::Container(Container::Tabs(tabs)) = &mut parent_tile {
                     let index = index.min(tabs.children.len());
-                    tabs.children.insert(index, child_id);
-                    tabs.set_active(child_id);
-                    self.tiles.insert(parent_id, tile);
+                    tabs.children.insert(index, inserted_id);
+                    tabs.set_active(inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
-                    tabs.children.insert(index.min(1), child_id);
-                    tabs.set_active(child_id);
+                    tabs.children.insert(index.min(1), inserted_id);
+                    tabs.set_active(inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Tabs(tabs)));
                 }
@@ -147,15 +242,15 @@ impl<Pane> Tiles<Pane> {
                     dir: LinearDir::Horizontal,
                     children,
                     ..
-                })) = &mut tile
+                })) = &mut parent_tile
                 {
                     let index = index.min(children.len());
-                    children.insert(index, child_id);
-                    self.tiles.insert(parent_id, tile);
+                    children.insert(index, inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), child_id);
+                    linear.children.insert(index.min(1), inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
@@ -165,29 +260,26 @@ impl<Pane> Tiles<Pane> {
                     dir: LinearDir::Vertical,
                     children,
                     ..
-                })) = &mut tile
+                })) = &mut parent_tile
                 {
                     let index = index.min(children.len());
-                    children.insert(index, child_id);
-                    self.tiles.insert(parent_id, tile);
+                    children.insert(index, inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
+                    let new_tile_id = self.insert_new(parent_tile);
                     let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), child_id);
+                    linear.children.insert(index.min(1), inserted_id);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Linear(linear)));
                 }
             }
-            ContainerInsertion::Grid(insert_location) => {
-                if let Tile::Container(Container::Grid(grid)) = &mut tile {
-                    grid.locations.retain(|_, pos| *pos != insert_location);
-                    grid.locations.insert(child_id, insert_location);
-                    grid.children.push(child_id);
-                    self.tiles.insert(parent_id, tile);
+            ContainerInsertion::Grid(index) => {
+                if let Tile::Container(Container::Grid(grid)) = &mut parent_tile {
+                    grid.insert_at(index, inserted_id);
+                    self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_tile(tile);
-                    let mut grid = Grid::new(vec![new_tile_id, child_id]);
-                    grid.locations.insert(child_id, insert_location);
+                    let new_tile_id = self.insert_new(parent_tile);
+                    let grid = Grid::new(vec![new_tile_id, inserted_id]);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Grid(grid)));
                 }
@@ -221,6 +313,7 @@ impl<Pane> Tiles<Pane> {
             );
         }
 
+        self.invisible.retain(|tile_id| visited.contains(tile_id));
         self.tiles.retain(|tile_id, _| visited.contains(tile_id));
     }
 
@@ -228,7 +321,7 @@ impl<Pane> Tiles<Pane> {
     fn gc_tile_id(
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
-        visited: &mut nohash_hasher::IntSet<TileId>,
+        visited: &mut ahash::HashSet<TileId>,
         tile_id: TileId,
     ) -> GcAction {
         let Some(mut tile) = self.tiles.remove(&tile_id) else { return GcAction::Remove; };
@@ -296,22 +389,23 @@ impl<Pane> Tiles<Pane> {
 
             if kind == ContainerKind::Tabs {
                 if options.prune_empty_tabs && container.is_empty() {
-                    log::debug!("Simplify: removing empty tabs container");
+                    log::trace!("Simplify: removing empty tabs container");
                     return SimplifyAction::Remove;
                 }
 
-                if options.prune_single_child_tabs && container.children().len() == 1 {
-                    let child_is_pane =
-                        matches!(self.get(container.children()[0]), Some(Tile::Pane(_)));
+                if options.prune_single_child_tabs {
+                    if let Some(only_child) = container.only_child() {
+                        let child_is_pane = matches!(self.get(only_child), Some(Tile::Pane(_)));
 
-                    if options.all_panes_must_have_tabs
-                        && child_is_pane
-                        && parent_kind != Some(ContainerKind::Tabs)
-                    {
-                        // Keep it, even though we only one child
-                    } else {
-                        log::debug!("Simplify: collapsing single-child tabs container");
-                        return SimplifyAction::Replace(container.children()[0]);
+                        if options.all_panes_must_have_tabs
+                            && child_is_pane
+                            && parent_kind != Some(ContainerKind::Tabs)
+                        {
+                            // Keep it, even though we only have one child
+                        } else {
+                            log::trace!("Simplify: collapsing single-child tabs container");
+                            return SimplifyAction::Replace(only_child);
+                        }
                     }
                 }
             } else {
@@ -324,7 +418,7 @@ impl<Pane> Tiles<Pane> {
                             {
                                 if parent.dir == child.dir {
                                     // absorb the child
-                                    log::debug!(
+                                    log::trace!(
                                         "Simplify: absorbing nested linear container with {} children",
                                         child.children.len()
                                     );
@@ -355,12 +449,14 @@ impl<Pane> Tiles<Pane> {
                 }
 
                 if options.prune_empty_containers && container.is_empty() {
-                    log::debug!("Simplify: removing empty container tile");
+                    log::trace!("Simplify: removing empty container tile");
                     return SimplifyAction::Remove;
                 }
-                if options.prune_single_child_containers && container.children().len() == 1 {
-                    log::debug!("Simplify: collapsing single-child container tile");
-                    return SimplifyAction::Replace(container.children()[0]);
+                if options.prune_single_child_containers {
+                    if let Some(only_child) = container.only_child() {
+                        log::trace!("Simplify: collapsing single-child container tile");
+                        return SimplifyAction::Replace(only_child);
+                    }
                 }
             }
         }
@@ -379,9 +475,8 @@ impl<Pane> Tiles<Pane> {
             Tile::Pane(_) => {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
-                    log::debug!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = TileId::random();
-                    self.tiles.insert(new_id, tile);
+                    log::trace!("Auto-adding Tabs-parent to pane {it:?}");
+                    let new_id = self.insert_new(tile);
                     self.tiles
                         .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
                     return;
@@ -429,5 +524,21 @@ impl<Pane> Tiles<Pane> {
 
         self.tiles.insert(it, tile);
         activate
+    }
+}
+
+impl<Pane: PartialEq> Tiles<Pane> {
+    /// Find the tile with the given pane.
+    pub fn find_pane(&self, needle: &Pane) -> Option<TileId> {
+        self.tiles
+            .iter()
+            .find(|(_, tile)| {
+                if let Tile::Pane(pane) = *tile {
+                    pane == needle
+                } else {
+                    false
+                }
+            })
+            .map(|(tile_id, _)| *tile_id)
     }
 }
