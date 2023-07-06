@@ -1,5 +1,7 @@
 # Release Checklist
 
+* [ ] Update `CHANGELOG.md`
+* [ ] Bump version numbers
 * [ ] `git commit -m 'Release 0.x.0 - summary'`
 * [ ] `cargo publish`
 * [ ] `git tag -a 0.x.0 -m 'Release 0.x.0 - summary'`
