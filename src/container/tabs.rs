@@ -164,20 +164,34 @@ impl Tabs {
                 &mut scroll_state.offset_delta.x,
             );
 
+            println!(
+                "{:?} {}",
+                scroll_state,
+                ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x)
+                    .abs()
+            );
+
             // Mutable consumable width
             let mut consume = ui.available_width();
 
             // Determine scroll changes due to left button variability
-            if scroll_state.consumed.x > scroll_state.available.x
-                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) > scroll_state.available.x
+            if ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x).abs()
+                <= 1.0
             {
                 if scroll_state.prev_frame_right {
-                    scroll_state.offset_delta.x -= RIGHT_FRAME_SIZE;
+                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
                 }
 
                 scroll_state.prev_frame_right = false;
-            } else if (scroll_state.offset.x - 0.0) > scroll_state.available.x {
+            } else if ((scroll_state.offset.x + RIGHT_FRAME_SIZE + scroll_state.available.x)
+                - scroll_state.consumed.x)
+                .abs()
+                <= 1.0
+            {
                 // DO NOTHING
+                if scroll_state.prev_frame_right {
+                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
+                }
             } else {
                 scroll_state.prev_frame_right = true;
             }
