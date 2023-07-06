@@ -128,12 +128,14 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         format!("View {}", view.nr).into()
     }
 
-    fn top_bar_rtl_ui(
+    fn top_bar_right_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
         tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
+        _offset: f32,
+        _scroll: &mut f32,
     ) {
         if ui.button("➕").clicked() {
             self.add_child_to = Some(tile_id);
