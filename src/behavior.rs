@@ -108,20 +108,12 @@ pub trait Behavior<Pane> {
     /// You can use this to, for instance, add a button for adding new tabs.
     ///
     /// The widgets will be added right-to-left.
+    ///
+    /// The offset value represents the offset of the right bar UI component.
+    ///
+    /// `_scroll` is a mutable reference to the scroll value, adding or subtracting
+    /// from this value will alter the current horizontal scroll location.
     fn top_bar_right_ui(
-        &mut self,
-        _tiles: &Tiles<Pane>,
-        _ui: &mut Ui,
-        _tile_id: TileId,
-        _tabs: &crate::Tabs,
-        _offset: f32,
-        _scroll: &mut f32,
-    ) {
-        // if ui.button("➕").clicked() {
-        // }
-    }
-
-    fn top_bar_left_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
         _ui: &mut Ui,

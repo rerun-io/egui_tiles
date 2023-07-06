@@ -15,14 +15,25 @@ pub struct Tabs {
     pub active: Option<TileId>,
 }
 
-#[derive(Default, Clone)]
+/// The current tab scrolling state
+#[derive(Default, Debug, Clone)]
 struct ScrollState {
+    /// The horizontal (and vertical) offset
     pub offset: Vec2,
+
+    /// The consumed width and height
     pub consumed: Vec2,
+
+    /// The available width and height
     pub available: Vec2,
+
+    /// The current scrolling offset
     pub offset_delta: Vec2,
 
+    /// `true` if the previous frame had the left menu active
     pub prev_frame_left: bool,
+
+    /// `true` if the previous frame had the right menu active
     pub prev_frame_right: bool,
 }
 
@@ -139,14 +150,29 @@ impl Tabs {
                 .memory_mut(|m| m.data.get_temp::<ScrollState>(id))
                 .unwrap();
 
+            // Fixed size icons for `⏴` and `⏵`
             const LEFT_FRAME_SIZE: f32 = 20.0;
             const RIGHT_FRAME_SIZE: f32 = 20.0;
 
+            // Show Right UI Menu (any size allowed)
+            behavior.top_bar_right_ui(
+                &tree.tiles,
+                ui,
+                tile_id,
+                self,
+                scroll_state.offset.x,
+                &mut scroll_state.offset_delta.x,
+            );
+
+            // Mutable consumable width
             let mut consume = ui.available_width();
 
-            if (scroll_state.offset.x - RIGHT_FRAME_SIZE) > scroll_state.available.x {
+            // Determine scroll changes due to left button variability
+            if scroll_state.consumed.x > scroll_state.available.x
+                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) > scroll_state.available.x
+            {
                 if scroll_state.prev_frame_right {
-                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
+                    scroll_state.offset_delta.x -= RIGHT_FRAME_SIZE;
                 }
 
                 scroll_state.prev_frame_right = false;
@@ -156,6 +182,7 @@ impl Tabs {
                 scroll_state.prev_frame_right = true;
             }
 
+            // Determine scroll changes due to right button variability
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 if !scroll_state.prev_frame_left {
                     scroll_state.offset_delta.x += LEFT_FRAME_SIZE;
@@ -168,32 +195,28 @@ impl Tabs {
                 if scroll_state.prev_frame_left {
                     scroll_state.offset.x -= LEFT_FRAME_SIZE;
                 }
-
-                // Uncomment the following for an ~animated~ reveal.
-                // consume -= scroll_state.offset.x;
             } else {
                 scroll_state.prev_frame_left = false;
             }
 
-            if scroll_state.consumed.x > scroll_state.available.x
-                && (scroll_state.offset.x - RIGHT_FRAME_SIZE) < scroll_state.available.x
+            // If consumed > available (by margin), show right scroll icon.
+            if ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x).abs()
+                >= 1.0
             {
                 consume -= RIGHT_FRAME_SIZE;
 
-                behavior.top_bar_right_ui(
-                    &tree.tiles,
-                    ui,
-                    tile_id,
-                    self,
-                    scroll_state.offset.x,
-                    &mut scroll_state.offset_delta.x,
-                );
+                if ui.button("⏵").clicked() {
+                    // Integer value to move scroll by
+                    // positive is right
+                    // negative is left
+                    scroll_state.offset_delta.x += 45.0;
+                }
             }
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
             let mut scroll_area_size = Vec2::ZERO;
-            scroll_area_size.x = consume;
+            scroll_area_size.x = consume; // Enforce currently consumable width (left scroll icon not yet placed)
             scroll_area_size.y = ui.available_height();
 
             ui.allocate_ui_with_layout(
@@ -283,14 +306,9 @@ impl Tabs {
 
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    behavior.top_bar_left_ui(
-                        &tree.tiles,
-                        ui,
-                        tile_id,
-                        self,
-                        scroll_state.offset.x,
-                        &mut scroll_state.offset_delta.x,
-                    );
+                    if ui.button("⏴").clicked() {
+                        scroll_state.offset_delta.x += -45.0;
+                    }
                 });
             }
 
