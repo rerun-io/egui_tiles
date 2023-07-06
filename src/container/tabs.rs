@@ -118,11 +118,13 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
+        // Reset current scroll state for the next frame.
         let scroll_state: ScrollState = ScrollState {
             prev_frame_left: false,
             prev_frame_right: false,
             ..ScrollState::default()
         };
+
         let id = ui.make_persistent_id(tile_id);
 
         ui.ctx().memory_mut(|m| {
@@ -164,20 +166,17 @@ impl Tabs {
                 &mut scroll_state.offset_delta.x,
             );
 
-            println!(
-                "{:?} {}",
-                scroll_state,
-                ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x)
-                    .abs()
-            );
-
             // Mutable consumable width
             let mut consume = ui.available_width();
 
             // Determine scroll changes due to left button variability
+            // We add the --[------] (used + visible)
+            // to determine how far has been traveled by the rightmost
+            // element, and so determines if it can move further forward or not.
             if ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x).abs()
                 <= 1.0
             {
+                // Move to the end to prevent re-caching (infinitely scrolling)
                 if scroll_state.prev_frame_right {
                     scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
                 }
@@ -188,7 +187,7 @@ impl Tabs {
                 .abs()
                 <= 1.0
             {
-                // DO NOTHING
+                // Alter offset on approach to smooth connection and mitigate jarring motion
                 if scroll_state.prev_frame_right {
                     scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
                 }
