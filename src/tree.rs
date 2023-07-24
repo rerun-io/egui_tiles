@@ -39,17 +39,6 @@ pub struct Tree<Pane> {
     pub(crate) id: egui::Id,
 }
 
-impl<Pane> Default for Tree<Pane> {
-    // An empty tree
-    fn default() -> Self {
-        Self {
-            root: None,
-            tiles: Default::default(),
-            id: egui::Id::null(),
-        }
-    }
-}
-
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print a hierarchical view of the tree:
@@ -97,49 +86,62 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
 // ----------------------------------------------------------------------------
 
 impl<Pane> Tree<Pane> {
-    pub fn empty() -> Self {
-        Self::default()
+    pub fn empty(id: impl Into<egui::Id>) -> Self {
+        Self {
+            root: None,
+            tiles: Default::default(),
+            id: id.into(),
+        }
     }
 
     /// The most flexible constructor, allowing you to set up the tiles
     /// however you want.
-    pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
+    pub fn new(id: impl Into<egui::Id>, root: TileId, tiles: Tiles<Pane>) -> Self {
         Self {
             root: Some(root),
             tiles,
-            id: egui::Id::null(),
+            id: id.into(),
         }
     }
 
+    pub fn id(&self) -> egui::Id {
+        self.id
+    }
+
+    pub fn id_source(mut self, id: impl Into<egui::Id>) -> Self {
+        self.id = id.into();
+        self
+    }
+
     /// Create a top-level [`crate::Tabs`] container with the given panes.
-    pub fn new_tabs(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Tabs, panes)
+    pub fn new_tabs(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Tabs, panes)
     }
 
     /// Create a top-level horizontal [`crate::Linear`] container with the given panes.
-    pub fn new_horizontal(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Horizontal, panes)
+    pub fn new_horizontal(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Horizontal, panes)
     }
 
     /// Create a top-level vertical [`crate::Linear`] container with the given panes.
-    pub fn new_vertical(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Vertical, panes)
+    pub fn new_vertical(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Vertical, panes)
     }
 
     /// Create a top-level [`crate::Grid`] container with the given panes.
-    pub fn new_grid(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Grid, panes)
+    pub fn new_grid(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Grid, panes)
     }
 
     /// Create a top-level container with the given panes.
-    pub fn new_container(kind: ContainerKind, panes: Vec<Pane>) -> Self {
+    pub fn new_container(id: impl Into<egui::Id>, kind: ContainerKind, panes: Vec<Pane>) -> Self {
         let mut tiles = Tiles::default();
         let tile_ids = panes
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
         let root = tiles.insert_new(Tile::Container(Container::new(kind, tile_ids)));
-        Self::new(root, tiles)
+        Self::new(id, root, tiles)
     }
 
     /// Check if [`Self::root`] is [`None`].
