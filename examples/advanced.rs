@@ -23,7 +23,7 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Pane {
     nr: usize,
 }
@@ -156,14 +156,14 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct MyApp {
     tree: egui_tiles::Tree<Pane>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     behavior: TreeBehavior,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     last_tree_debug: String,
 }
 

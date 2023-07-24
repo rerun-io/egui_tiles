@@ -25,7 +25,8 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
     /// None = empty tree
     pub root: Option<TileId>,

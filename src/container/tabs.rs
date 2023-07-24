@@ -6,7 +6,8 @@ use crate::{
 };
 
 /// A container with tabs. Only one tab is open (active) at a time.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tabs {
     /// The tabs, in order.
     pub children: Vec<TileId>,

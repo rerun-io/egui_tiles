@@ -13,7 +13,8 @@ use crate::{
 /// Used for [`Linear`] containers (horizontal and vertical).
 ///
 /// Also contains the shares for currently invisible tiles.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Shares {
     /// How large of a share each child has.
     ///
@@ -82,9 +83,8 @@ impl std::ops::IndexMut<TileId> for Shares {
 // ----------------------------------------------------------------------------
 
 /// The direction of a [`Linear`] container. Either horizontal or vertical.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum LinearDir {
     #[default]
     Horizontal,
@@ -92,7 +92,8 @@ pub enum LinearDir {
 }
 
 /// Horizontal or vertical container.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Linear {
     pub children: Vec<TileId>,
     pub dir: LinearDir,

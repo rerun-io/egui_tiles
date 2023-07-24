@@ -7,19 +7,8 @@ use crate::{
 };
 
 /// How to lay out the children of a grid.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum GridLayout {
     /// Place children in a grid, with a dynamic number of columns and rows.
     /// Resizing the window may change the number of columns and rows.
@@ -32,7 +21,8 @@ pub enum GridLayout {
 }
 
 /// A grid of tiles.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Grid {
     /// The order of the children, row-major.
     ///
@@ -50,11 +40,11 @@ pub struct Grid {
     pub row_shares: Vec<f32>,
 
     /// ui point x ranges for each column, recomputed during layout
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     col_ranges: Vec<Rangef>,
 
     /// ui point y ranges for each row, recomputed during layout
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     row_ranges: Vec<Rangef>,
 }
 
