@@ -103,6 +103,7 @@ impl<Pane> Tree<Pane> {
         }
     }
 
+    /// Get the id used by this Tree.
     pub fn id(&self) -> egui::Id {
         self.id
     }
