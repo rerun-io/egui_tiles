@@ -33,6 +33,10 @@ pub struct Tree<Pane> {
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
+
+    /// The previous id used to draw the tree.
+    #[serde(skip, default = "egui::Id::null")]
+    pub(crate) id: egui::Id,
 }
 
 impl<Pane> Default for Tree<Pane> {
@@ -41,6 +45,7 @@ impl<Pane> Default for Tree<Pane> {
         Self {
             root: None,
             tiles: Default::default(),
+            id: egui::Id::null(),
         }
     }
 }
@@ -102,6 +107,7 @@ impl<Pane> Tree<Pane> {
         Self {
             root: Some(root),
             tiles,
+            id: egui::Id::null(),
         }
     }
 
@@ -169,6 +175,8 @@ impl<Pane> Tree<Pane> {
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
     pub fn ui(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
+        self.id = ui.id();
+
         self.simplify(&behavior.simplification_options());
 
         self.gc(behavior);
