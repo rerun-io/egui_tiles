@@ -461,7 +461,7 @@ fn linear_drop_zones<Pane>(
     let preview_thickness = 12.0;
     let dragged_index = children
         .iter()
-        .position(|&child| is_being_dragged(egui_ctx, child));
+        .position(|&child| is_being_dragged(egui_ctx, &tree.id, child));
 
     let after_rect = |rect: Rect| match dir {
         LinearDir::Horizontal => Rect::from_min_max(

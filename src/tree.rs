@@ -242,7 +242,7 @@ impl<Pane> Tree<Pane> {
         match &mut tile {
             Tile::Pane(pane) => {
                 if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
+                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id(&self.id)));
                 }
             }
             Tile::Container(container) => {
@@ -419,7 +419,7 @@ impl<Pane> Tree<Pane> {
                 continue; // not allowed to drag root
             }
 
-            let id = tile_id.egui_id();
+            let id = tile_id.egui_id(&self.id);
             let is_tile_being_dragged = ctx.memory(|mem| mem.is_being_dragged(id));
             if is_tile_being_dragged {
                 // Abort drags on escape:
