@@ -35,7 +35,6 @@ pub struct Tree<Pane> {
     pub tiles: Tiles<Pane>,
 
     /// The previous id used to draw the tree.
-    #[serde(skip, default = "egui::Id::null")]
     pub(crate) id: egui::Id,
 }
 
@@ -106,11 +105,6 @@ impl<Pane> Tree<Pane> {
 
     pub fn id(&self) -> egui::Id {
         self.id
-    }
-
-    pub fn id_source(mut self, id: impl Into<egui::Id>) -> Self {
-        self.id = id.into();
-        self
     }
 
     /// Create a top-level [`crate::Tabs`] container with the given panes.
