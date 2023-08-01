@@ -89,6 +89,17 @@ pub trait Behavior<Pane> {
         response
     }
 
+    /// Show the ui for the tab being dragged.
+    fn drag_ui(&mut self, tiles: &Tiles<Pane>, ui: &mut Ui, tile_id: TileId) {
+        let mut frame = egui::Frame::popup(ui.style());
+        frame.fill = frame.fill.gamma_multiply(0.5); // Make see-through
+        frame.show(ui, |ui| {
+            // TODO(emilk): preview contents?
+            let text = self.tab_title_for_tile(tiles, tile_id);
+            ui.label(text);
+        });
+    }
+
     /// Called by the default implementation of [`Self::tab_ui`] for each added button
     fn on_tab_button(
         &mut self,
