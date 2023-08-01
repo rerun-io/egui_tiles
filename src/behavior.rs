@@ -237,6 +237,16 @@ pub trait Behavior<Pane> {
         }
     }
 
+    /// When drag-and-dropping a tile, the candidate area is drawn with this stroke.
+    fn drag_preview_stroke(&self, visuals: &Visuals) -> Stroke {
+        visuals.selection.stroke
+    }
+
+    /// When drag-and-dropping a tile, the candidate area is drawn with this background color.
+    fn drag_preview_color(&self, visuals: &Visuals) -> Color32 {
+        visuals.selection.stroke.color.gamma_multiply(0.5)
+    }
+
     /// When drag-and-dropping a tile, how do we preview what is about to happen?
     fn paint_drag_preview(
         &self,
@@ -245,20 +255,15 @@ pub trait Behavior<Pane> {
         parent_rect: Option<Rect>,
         preview_rect: Rect,
     ) {
-        let preview_stroke = visuals.selection.stroke;
-        let preview_color = preview_stroke.color;
+        let preview_stroke = self.drag_preview_stroke(visuals);
+        let preview_color = self.drag_preview_color(visuals);
 
         if let Some(parent_rect) = parent_rect {
             // Show which parent we will be dropped into
             painter.rect_stroke(parent_rect, 1.0, preview_stroke);
         }
 
-        painter.rect(
-            preview_rect,
-            1.0,
-            preview_color.gamma_multiply(0.5),
-            preview_stroke,
-        );
+        painter.rect(preview_rect, 1.0, preview_color, preview_stroke);
     }
 
     /// How many columns should we use for a [`crate::Grid`] put into [`crate::GridLayout::Auto`]?
