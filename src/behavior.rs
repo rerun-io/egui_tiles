@@ -61,8 +61,8 @@ pub trait Behavior<Pane> {
 
         // Show a gap when dragged
         if ui.is_rect_visible(rect) && !is_being_dragged {
-            let bg_color = self.tab_bg_color(ui.visuals(), tile_id, active);
-            let stroke = self.tab_outline_stroke(ui.visuals(), tile_id, active);
+            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, active);
+            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, active);
             ui.painter().rect(rect.shrink(0.5), 0.0, bg_color, stroke);
 
             if active {
@@ -74,7 +74,7 @@ pub trait Behavior<Pane> {
                 );
             }
 
-            let text_color = self.tab_text_color(ui.visuals(), tile_id, active);
+            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, active);
             ui.painter().galley_with_color(
                 egui::Align2::CENTER_CENTER
                     .align_size_within_rect(galley.size(), rect)
@@ -177,7 +177,13 @@ pub trait Behavior<Pane> {
     }
 
     /// The background color of a tab.
-    fn tab_bg_color(&self, visuals: &Visuals, _tile_id: TileId, active: bool) -> Color32 {
+    fn tab_bg_color(
+        &self,
+        visuals: &Visuals,
+        _tiles: &Tiles<Pane>,
+        _tile_id: TileId,
+        active: bool,
+    ) -> Color32 {
         if active {
             visuals.panel_fill // same as the tab contents
         } else {
@@ -186,7 +192,13 @@ pub trait Behavior<Pane> {
     }
 
     /// Stroke of the outline around a tab title.
-    fn tab_outline_stroke(&self, visuals: &Visuals, _tile_id: TileId, active: bool) -> Stroke {
+    fn tab_outline_stroke(
+        &self,
+        visuals: &Visuals,
+        _tiles: &Tiles<Pane>,
+        _tile_id: TileId,
+        active: bool,
+    ) -> Stroke {
         if active {
             Stroke::new(1.0, visuals.widgets.active.bg_fill)
         } else {
@@ -200,7 +212,13 @@ pub trait Behavior<Pane> {
     }
 
     /// The color of the title text of the tab.
-    fn tab_text_color(&self, visuals: &Visuals, _tile_id: TileId, active: bool) -> Color32 {
+    fn tab_text_color(
+        &self,
+        visuals: &Visuals,
+        _tiles: &Tiles<Pane>,
+        _tile_id: TileId,
+        active: bool,
+    ) -> Color32 {
         if active {
             visuals.widgets.active.text_color()
         } else {
