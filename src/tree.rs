@@ -277,7 +277,7 @@ impl<Pane> Tree<Pane> {
             .current_pos(mouse_pos)
             .interactable(false)
             .show(ui.ctx(), |ui| {
-                behavior.drag_ui(&self.tiles, ui, dragged_tile_id)
+                behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
         if let Some(preview_rect) = drop_context.preview_rect {
