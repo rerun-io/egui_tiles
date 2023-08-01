@@ -277,13 +277,7 @@ impl<Pane> Tree<Pane> {
             .current_pos(mouse_pos)
             .interactable(false)
             .show(ui.ctx(), |ui| {
-                let mut frame = egui::Frame::popup(ui.style());
-                frame.fill = frame.fill.gamma_multiply(0.5); // Make see-through
-                frame.show(ui, |ui| {
-                    // TODO(emilk): preview contents?
-                    let text = behavior.tab_title_for_tile(&self.tiles, dragged_tile_id);
-                    ui.label(text);
-                });
+                behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
         if let Some(preview_rect) = drop_context.preview_rect {
