@@ -13,7 +13,7 @@ use super::{
 ///
 /// See [the crate-level documentation](crate) for a complete example.
 ///
-/// ## How to constriuct a [`Tree`]
+/// ## How to construct a [`Tree`]
 /// ```
 /// use egui_tiles::{Tiles, TileId, Tree};
 ///
