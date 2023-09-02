@@ -84,9 +84,7 @@ pub trait Behavior<Pane> {
             );
         }
 
-        self.on_tab_button(tiles, tile_id, &response);
-
-        response
+        self.on_tab_button(tiles, tile_id, response)
     }
 
     /// Show the ui for the tab being dragged.
@@ -105,8 +103,9 @@ pub trait Behavior<Pane> {
         &mut self,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        _button_response: &Response,
-    ) {
+        button_response: Response,
+    ) -> Response {
+        button_response
     }
 
     /// Return `false` if a given pane should be removed from its parent.
