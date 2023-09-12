@@ -72,6 +72,17 @@ impl<Pane> Tiles<Pane> {
         rect.unwrap_or(egui::Rect::from_min_max(Pos2::ZERO, Pos2::ZERO))
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tiles.is_empty()
+    }
+
+    /// The number of tiles, including invisible tiles.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.tiles.len()
+    }
+
     pub fn get(&self, tile_id: TileId) -> Option<&Tile<Pane>> {
         self.tiles.get(&tile_id)
     }
@@ -121,6 +132,10 @@ impl<Pane> Tiles<Pane> {
         } else {
             self.invisible.insert(tile_id);
         }
+    }
+
+    pub fn toggle_visibility(&mut self, tile_id: TileId) {
+        self.set_visible(tile_id, !self.is_visible(tile_id));
     }
 
     pub fn insert(&mut self, id: TileId, tile: Tile<Pane>) {
