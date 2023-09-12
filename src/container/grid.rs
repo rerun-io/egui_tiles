@@ -217,7 +217,8 @@ impl Grid {
             let num_holes = visible_children_and_holes
                 .iter()
                 .filter(|c| c.is_none())
-                .count();
+                .count()
+                + (num_cols * num_rows - visible_children_and_holes.len());
 
             if num_cols.min(num_rows) <= num_holes {
                 // More holes than there are columns or rows - let's collapse all holes
