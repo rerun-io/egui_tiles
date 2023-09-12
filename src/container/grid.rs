@@ -88,6 +88,7 @@ impl Grid {
         self.children().count()
     }
 
+    /// Includes invisible children.
     pub fn children(&self) -> impl Iterator<Item = &TileId> {
         self.children.iter().filter_map(|c| c.as_ref())
     }
@@ -152,9 +153,11 @@ impl Grid {
 
         let gap = behavior.gap_width(style);
 
+        let visible_children_and_holes = self.visible_children_and_holes(tiles);
+
         // Calculate grid dimensions:
         let (num_cols, num_rows) = {
-            let num_visible_children = self.visible_children_and_holes(tiles).len();
+            let num_visible_children = visible_children_and_holes.len();
 
             let num_cols = match self.layout {
                 GridLayout::Auto => {
@@ -164,17 +167,9 @@ impl Grid {
             };
             let num_cols = num_cols.at_least(1);
             let num_rows = (num_visible_children + num_cols - 1) / num_cols;
-            debug_assert!(num_visible_children <= num_cols * num_rows);
-
-            if num_cols * num_rows < self.children.len() {
-                // Too many holes
-                self.collapse_holes();
-            }
-
             (num_cols, num_rows)
         };
 
-        let visible_children_and_holes = self.visible_children_and_holes(tiles); // again, because we may have collapsed some holes
         debug_assert!(visible_children_and_holes.len() <= num_cols * num_rows);
 
         // Figure out where each column and row goes:
@@ -214,6 +209,20 @@ impl Grid {
                 let row = i / num_cols;
                 let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
                 tiles.layout_tile(style, behavior, child_rect, child);
+            }
+        }
+
+        // Check if we should collapse some holes:
+        {
+            let num_holes = visible_children_and_holes
+                .iter()
+                .filter(|c| c.is_none())
+                .count();
+
+            if num_cols.min(num_rows) <= num_holes {
+                // More holes than there are columns or rows - let's collapse all holes
+                // so that we can shrink for next frame:
+                self.collapse_holes();
             }
         }
     }
