@@ -53,7 +53,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             indent: usize,
             tile_id: TileId,
         ) -> std::fmt::Result {
-            write!(f, "{} {tile_id:?} ", "  ".repeat(indent))?;
+            write!(f, "{} {tile_id:?}: ", "  ".repeat(indent))?;
             if let Some(tile) = tiles.get(tile_id) {
                 match tile {
                     Tile::Pane(pane) => writeln!(f, "Pane {pane:?}"),
@@ -74,7 +74,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
                     }
                 }
             } else {
-                write!(f, "DANGLING {tile_id:?}")
+                writeln!(f, "DANGLING")
             }
         }
 
