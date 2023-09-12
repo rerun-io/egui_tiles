@@ -130,8 +130,7 @@ impl Grid {
         self.children.retain(|child| child.is_some());
     }
 
-    /// Keeps holes
-    pub fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
+    fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
         self.children
             .iter()
             .filter(|id| id.map_or(true, |id| tiles.is_visible(id)))
@@ -151,20 +150,32 @@ impl Grid {
             self.children.pop();
         }
 
-        let num_visible_children = self.visible_children(tiles).len();
-
         let gap = behavior.gap_width(style);
 
-        let num_cols = match self.layout {
-            GridLayout::Auto => behavior.grid_auto_column_count(num_visible_children, rect, gap),
-            GridLayout::Columns(num_columns) => num_columns.at_least(1),
-        };
-        let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+        // Calculate grid dimensions:
+        let (num_cols, num_rows) = {
+            let num_visible_children = self.visible_children_and_holes(tiles).len();
 
-        if self.children.len() > num_cols * num_rows {
-            // Too many holes
-            self.collapse_holes();
-        }
+            let num_cols = match self.layout {
+                GridLayout::Auto => {
+                    behavior.grid_auto_column_count(num_visible_children, rect, gap)
+                }
+                GridLayout::Columns(num_columns) => num_columns,
+            };
+            let num_cols = num_cols.at_least(1);
+            let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+            debug_assert!(num_visible_children <= num_cols * num_rows);
+
+            if num_cols * num_rows < self.children.len() {
+                // Too many holes
+                self.collapse_holes();
+            }
+
+            (num_cols, num_rows)
+        };
+
+        let visible_children_and_holes = self.visible_children_and_holes(tiles); // again, because we may have collapsed some holes
+        debug_assert!(visible_children_and_holes.len() <= num_cols * num_rows);
 
         // Figure out where each column and row goes:
         self.col_shares.resize(num_cols, 1.0);
@@ -172,6 +183,9 @@ impl Grid {
 
         let col_widths = sizes_from_shares(&self.col_shares, rect.width(), gap);
         let row_heights = sizes_from_shares(&self.row_shares, rect.height(), gap);
+
+        debug_assert_eq!(col_widths.len(), num_cols);
+        debug_assert_eq!(row_heights.len(), num_rows);
 
         {
             let mut x = rect.left();
@@ -190,8 +204,11 @@ impl Grid {
             }
         }
 
+        debug_assert_eq!(self.col_ranges.len(), num_cols);
+        debug_assert_eq!(self.row_ranges.len(), num_rows);
+
         // Layout each child:
-        for (i, &child) in self.visible_children(tiles).iter().enumerate() {
+        for (i, &child) in visible_children_and_holes.iter().enumerate() {
             if let Some(child) = child {
                 let col = i % num_cols;
                 let row = i / num_cols;
