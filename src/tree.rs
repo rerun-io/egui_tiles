@@ -254,9 +254,13 @@ impl<Pane> Tree<Pane> {
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
     ///
     /// This means making the matching tiles and its ancestors the active tab in any tab layout.
-    pub fn make_active(&mut self, should_activate: impl Fn(&Tile<Pane>) -> bool) {
+    ///
+    /// Returns `true` if a tab was made active.
+    pub fn make_active(&mut self, mut should_activate: impl FnMut(&Tile<Pane>) -> bool) -> bool {
         if let Some(root) = self.root {
-            self.tiles.make_active(root, &should_activate);
+            self.tiles.make_active(root, &mut should_activate)
+        } else {
+            false
         }
     }
 

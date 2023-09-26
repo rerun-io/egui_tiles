@@ -508,10 +508,11 @@ impl<Pane> Tiles<Pane> {
         self.tiles.insert(it, tile);
     }
 
+    /// Returns true if the active tile was found in this tree.
     pub(super) fn make_active(
         &mut self,
         it: TileId,
-        should_activate: &dyn Fn(&Tile<Pane>) -> bool,
+        should_activate: &mut dyn FnMut(&Tile<Pane>) -> bool,
     ) -> bool {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::warn!("Failed to find tile {it:?} during make_active");
