@@ -1,5 +1,6 @@
 use egui::{
-    vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Visuals, WidgetText,
+    vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
+    WidgetText,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -276,7 +277,7 @@ pub trait Behavior<Pane> {
     fn grid_auto_column_count(&self, num_visible_children: usize, rect: Rect, gap: f32) -> usize {
         num_columns_heuristic(
             num_visible_children,
-            rect,
+            rect.size(),
             gap,
             self.ideal_tile_aspect_ratio(),
         )
@@ -289,21 +290,26 @@ pub trait Behavior<Pane> {
 }
 
 /// How many columns should we use to fit `n` children in a grid?
-fn num_columns_heuristic(n: usize, rect: Rect, gap: f32, desired_aspect: f32) -> usize {
+fn num_columns_heuristic(n: usize, size: Vec2, gap: f32, desired_aspect: f32) -> usize {
     let mut best_loss = f32::INFINITY;
     let mut best_num_columns = 1;
 
     for ncols in 1..=n {
+        if 4 <= n && ncols == n - 1 {
+            // Don't suggest 7 columns when n=8 - that produces an ugly orphan on a single row.
+            continue;
+        }
+
         let nrows = (n + ncols - 1) / ncols;
 
-        let cell_width = (rect.width() - gap * (ncols as f32 - 1.0)) / (ncols as f32);
-        let cell_height = (rect.height() - gap * (nrows as f32 - 1.0)) / (nrows as f32);
+        let cell_width = (size.x - gap * (ncols as f32 - 1.0)) / (ncols as f32);
+        let cell_height = (size.y - gap * (nrows as f32 - 1.0)) / (nrows as f32);
 
         let cell_aspect = cell_width / cell_height;
         let aspect_diff = (desired_aspect - cell_aspect).abs();
         let num_empty_cells = ncols * nrows - n;
 
-        let loss = aspect_diff + 0.1 * num_empty_cells as f32; // TODO(emilk): weight differently?
+        let loss = aspect_diff * n as f32 + 2.0 * num_empty_cells as f32;
 
         if loss < best_loss {
             best_loss = loss;
@@ -312,4 +318,23 @@ fn num_columns_heuristic(n: usize, rect: Rect, gap: f32, desired_aspect: f32) ->
     }
 
     best_num_columns
+}
+
+#[test]
+fn test_num_columns_heuristic() {
+    // Four tiles should always be in a 1x4, 2x2, or 4x1 grid - NEVER 2x3 or 3x2.
+
+    let n = 4;
+    let gap = 0.0;
+    let ideal_tile_aspect_ratio = 4.0 / 3.0;
+
+    for i in 0..=100 {
+        let size = Vec2::new(100.0, egui::remap(i as f32, 0.0..=100.0, 1.0..=1000.0));
+
+        let ncols = num_columns_heuristic(n, size, gap, ideal_tile_aspect_ratio);
+        assert!(
+            ncols == 1 || ncols == 2 || ncols == 4,
+            "Size {size:?} got {ncols} columns"
+        );
+    }
 }
