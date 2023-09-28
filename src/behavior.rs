@@ -287,6 +287,12 @@ pub trait Behavior<Pane> {
     fn ideal_tile_aspect_ratio(&self) -> f32 {
         4.0 / 3.0
     }
+
+    // Callbacks:
+
+    /// Called if the user edits the tree somehow, e.g. changes the size of some container,
+    /// clicks a tab, or drags a tile.
+    fn on_edit(&mut self) {}
 }
 
 /// How many columns should we use to fit `n` children in a grid?
