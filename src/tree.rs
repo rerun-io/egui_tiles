@@ -168,13 +168,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
     pub fn ui(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
-        let options = behavior.simplification_options();
-        self.simplify(&options);
-        if options.all_panes_must_have_tabs {
-            if let Some(root) = self.root {
-                self.tiles.make_all_panes_children_of_tabs(false, root);
-            }
-        }
+        self.simplify(&behavior.simplification_options());
 
         self.gc(behavior);
 
@@ -316,7 +310,7 @@ impl<Pane> Tree<Pane> {
         }
     }
 
-    /// Simplify the tree using the given options.
+    /// Simplify and normalize the tree using the given options.
     ///
     /// This is also called at the start of [`Slef::ui`].
     pub fn simplify(&mut self, options: &SimplificationOptions) {
@@ -329,6 +323,12 @@ impl<Pane> Tree<Pane> {
                 SimplifyAction::Replace(new_root) => {
                     self.root = Some(new_root);
                 }
+            }
+        }
+
+        if options.all_panes_must_have_tabs {
+            if let Some(root) = self.root {
+                self.tiles.make_all_panes_children_of_tabs(false, root);
             }
         }
     }
