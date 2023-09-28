@@ -1,6 +1,13 @@
 # `egui_tiles` Changelog
 
+
 ## [Unreleased](https://github.com/rerun-io/rerun/compare/latest...HEAD)
+
+
+## [0.3.0]](https://github.com/rerun-io/rerun/compare/0.2.0...0.3.0)
+* Update to egui 0.23
+* Better grid column-count heuristic
+* Make drag preview style customizable
 
 
 ## [0.2.0]](https://github.com/rerun-io/rerun/compare/0.1.0...0.2.0) - Invisible tiles - 2023-07-06
