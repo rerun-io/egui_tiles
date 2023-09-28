@@ -312,7 +312,7 @@ impl<Pane> Tree<Pane> {
 
     /// Simplify and normalize the tree using the given options.
     ///
-    /// This is also called at the start of [`Slef::ui`].
+    /// This is also called at the start of [`Self::ui`].
     pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
             match self.tiles.simplify(options, root, None) {
