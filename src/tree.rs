@@ -168,15 +168,9 @@ impl<Pane> Tree<Pane> {
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
     pub fn ui(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
-        let options = behavior.simplification_options();
-        self.simplify(&options);
-        if options.all_panes_must_have_tabs {
-            if let Some(root) = self.root {
-                self.tiles.make_all_panes_children_of_tabs(false, root);
-            }
-        }
+        self.simplify(&behavior.simplification_options());
 
-        self.tiles.gc_root(behavior, self.root);
+        self.gc(behavior);
 
         self.tiles.rects.clear();
 
@@ -316,7 +310,10 @@ impl<Pane> Tree<Pane> {
         }
     }
 
-    fn simplify(&mut self, options: &SimplificationOptions) {
+    /// Simplify and normalize the tree using the given options.
+    ///
+    /// This is also called at the start of [`Self::ui`].
+    pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
             match self.tiles.simplify(options, root, None) {
                 SimplifyAction::Keep => {}
@@ -328,6 +325,19 @@ impl<Pane> Tree<Pane> {
                 }
             }
         }
+
+        if options.all_panes_must_have_tabs {
+            if let Some(root) = self.root {
+                self.tiles.make_all_panes_children_of_tabs(false, root);
+            }
+        }
+    }
+
+    /// Garbage-collect tiles that are no longer reachable from the root tile.
+    ///
+    /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
+    pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
+        self.tiles.gc_root(behavior, self.root);
     }
 
     /// Move the given tile to the given insertion point.
