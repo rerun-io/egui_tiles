@@ -176,7 +176,7 @@ impl<Pane> Tree<Pane> {
             }
         }
 
-        self.tiles.gc_root(behavior, self.root);
+        self.gc(behavior);
 
         self.tiles.rects.clear();
 
@@ -316,7 +316,10 @@ impl<Pane> Tree<Pane> {
         }
     }
 
-    fn simplify(&mut self, options: &SimplificationOptions) {
+    /// Simplify the tree using the given options.
+    ///
+    /// This is also called at the start of [`Slef::ui`].
+    pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
             match self.tiles.simplify(options, root, None) {
                 SimplifyAction::Keep => {}
@@ -328,6 +331,13 @@ impl<Pane> Tree<Pane> {
                 }
             }
         }
+    }
+
+    /// Garbage-collect tiles that are no longer reachable from the root tile.
+    ///
+    /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
+    pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
+        self.tiles.gc_root(behavior, self.root);
     }
 
     /// Move the given tile to the given insertion point.
