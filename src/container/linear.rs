@@ -374,12 +374,16 @@ fn resize_interaction<Pane>(
     tile_width: impl Fn(TileId) -> f32,
 ) -> ResizeState {
     if splitter_response.double_clicked() {
+        behavior.on_edit();
+
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
         shares[left] = mean;
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
+        behavior.on_edit();
+
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:
             shares[right] += shrink_shares(

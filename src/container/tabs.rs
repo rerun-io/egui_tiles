@@ -126,6 +126,7 @@ impl Tabs {
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .drag_started()
                     {
+                        behavior.on_edit();
                         ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
                     }
                 }
@@ -144,6 +145,7 @@ impl Tabs {
                         behavior.tab_ui(&tree.tiles, ui, id, child_id, selected, is_being_dragged);
                     let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                     if response.clicked() {
+                        behavior.on_edit();
                         next_active = Some(child_id);
                     }
 
@@ -152,6 +154,7 @@ impl Tabs {
                             && response.rect.contains(mouse_pos)
                         {
                             // Expand this tab - maybe the user wants to drop something into it!
+                            behavior.on_edit();
                             next_active = Some(child_id);
                         }
                     }

@@ -304,6 +304,7 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             ui.memory_mut(|mem| mem.stop_dragging());
             if let Some(insertion_point) = drop_context.best_insertion {
+                behavior.on_edit();
                 self.move_tile(dragged_tile_id, insertion_point);
             }
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
