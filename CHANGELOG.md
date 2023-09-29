@@ -4,6 +4,12 @@
 ## [Unreleased](https://github.com/rerun-io/rerun/compare/latest...HEAD)
 
 
+## [0.3.1]](https://github.com/rerun-io/rerun/compare/0.3.0...0.3.1)
+* Report edits to user with Behavior::on_edit (#29)
+* Make `Tree::simplify` public (#28)
+* Add `Shares::set_share` method (#25)
+
+
 ## [0.3.0]](https://github.com/rerun-io/rerun/compare/0.2.0...0.3.0)
 * Update to egui 0.23
 * Better grid column-count heuristic
