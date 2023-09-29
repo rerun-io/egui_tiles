@@ -29,6 +29,10 @@ impl Shares {
         }
     }
 
+    pub fn set_share(&mut self, id: TileId, share: f32) {
+        self.shares.insert(id, share);
+    }
+
     /// Split the given width based on the share of the children.
     pub fn split(&self, children: &[TileId], available_width: f32) -> Vec<f32> {
         let mut num_shares = 0.0;
