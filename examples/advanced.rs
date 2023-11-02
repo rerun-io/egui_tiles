@@ -11,9 +11,11 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "egui_tiles example",
         options,
-        Box::new(|cc| {
+        Box::new(|_cc| {
+            #[cfg_attr(not(feature = "serde"), allow(unused_mut))]
             let mut app = MyApp::default();
-            if let Some(storage) = cc.storage {
+            #[cfg(feature = "serde")]
+            if let Some(storage) = _cc.storage {
                 if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
                     app = state;
                 }
@@ -23,7 +25,7 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Pane {
     nr: usize,
 }
@@ -156,14 +158,14 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct MyApp {
     tree: egui_tiles::Tree<Pane>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     behavior: TreeBehavior,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     last_tree_debug: String,
 }
 
@@ -247,8 +249,9 @@ impl eframe::App for MyApp {
         });
     }
 
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, &self);
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {
+        #[cfg(feature = "serde")]
+        eframe::set_value(_storage, eframe::APP_KEY, &self);
     }
 }
 

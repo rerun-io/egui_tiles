@@ -18,7 +18,8 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tiles<Pane> {
     next_tile_id: u64,
 
@@ -28,7 +29,7 @@ pub struct Tiles<Pane> {
     invisible: ahash::HashSet<TileId>,
 
     /// Filled in by the layout step at the start of each frame.
-    #[serde(default, skip)]
+    #[cfg_attr(feature = "serde", serde(default, skip))]
     pub(super) rects: ahash::HashMap<TileId, Rect>,
 }
 

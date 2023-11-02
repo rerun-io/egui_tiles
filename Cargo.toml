@@ -28,7 +28,7 @@ ahash = { version = "0.8.1", default-features = false, features = [
 egui = { version = "0.23", default-features = false }
 itertools = "0.11"
 log = { version = "0.4", features = ["std"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"], optional = true }
 
 
 # For the example:
@@ -39,3 +39,7 @@ eframe = { version = "0.23", default-features = false, features = [
   "persistence",
 ] }
 env_logger = "0.10"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "egui/serde"]

@@ -17,7 +17,8 @@ pub use tabs::Tabs;
 /// The layout type of a [`Container`].
 ///
 /// This is used to describe a [`Container`], and to change it to a different layout type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum ContainerKind {
     /// Each child in an individual tab.
     #[default]
@@ -40,7 +41,8 @@ impl ContainerKind {
 // ----------------------------------------------------------------------------
 
 /// A container of several [`super::Tile`]s.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Container {
     Tabs(Tabs),
     Linear(Linear),
