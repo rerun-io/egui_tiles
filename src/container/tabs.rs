@@ -1,4 +1,4 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, Rect, Vec2};
+use egui::{scroll_area::ScrollBarVisibility, vec2, NumExt, Rect, Vec2};
 
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
@@ -8,6 +8,9 @@ use crate::{
 // Fixed size icons for `⏴` and `⏵`
 const LEFT_FRAME_SIZE: f32 = 20.0;
 const RIGHT_FRAME_SIZE: f32 = 20.0;
+
+/// Clicking the scroll buttons scrolls how much?
+const SCROLL_INCREMENT: f32 = 45.0;
 
 /// A container with tabs. Only one tab is open (active) at a time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -22,7 +25,7 @@ pub struct Tabs {
 /// The current tab scrolling state
 #[derive(Clone, Copy, Debug, Default)]
 struct ScrollState {
-    /// The horizontal (and vertical) offset
+    /// The current horizontal (and vertical) offset
     pub offset: Vec2,
 
     /// The consumed width and height
@@ -31,7 +34,7 @@ struct ScrollState {
     /// The available width and height
     pub available: Vec2,
 
-    /// The current scrolling offset
+    /// Change in the scrolling offset to be applied next frame.
     pub offset_delta: Vec2,
 
     /// `true` if the previous frame had the left menu active
@@ -43,11 +46,13 @@ struct ScrollState {
 
 impl ScrollState {
     pub fn update(&mut self, consume: &mut f32) {
+        let eps = 1.0;
+
         // Determine scroll changes due to left button variability
         // We add the --[------] (used + visible)
         // to determine how far has been traveled by the rightmost
         // element, and so determines if it can move further forward or not.
-        if (self.offset.x + self.available.x - self.consumed.x).abs() <= 1.0 {
+        if (self.offset.x + self.available.x - self.consumed.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
             if self.prev_frame_right {
                 self.offset_delta.x += RIGHT_FRAME_SIZE;
@@ -55,7 +60,7 @@ impl ScrollState {
 
             self.prev_frame_right = false;
         } else if (self.offset.x + RIGHT_FRAME_SIZE + self.available.x - self.consumed.x).abs()
-            <= 1.0
+            <= eps
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
             if self.prev_frame_right {
@@ -213,7 +218,7 @@ impl Tabs {
                     // Integer value to move scroll by
                     // positive is right
                     // negative is left
-                    scroll_state.offset_delta.x += 45.0;
+                    scroll_state.offset_delta.x += SCROLL_INCREMENT;
                 }
             }
 
@@ -232,12 +237,10 @@ impl Tabs {
                         .max_width(consume);
 
                     {
-                        // Max is: [`ui.available_width()`]
-                        if scroll_state.offset_delta.x >= ui.available_width() {
-                            scroll_state.offset_delta.x = ui.available_width();
-                        }
+                        scroll_state.offset_delta.x =
+                            scroll_state.offset_delta.x.at_most(ui.available_width());
 
-                        area = area.clone().horizontal_scroll_offset(
+                        area = area.horizontal_scroll_offset(
                             scroll_state.offset.x + scroll_state.offset_delta.x,
                         );
 
@@ -311,7 +314,7 @@ impl Tabs {
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
-                        scroll_state.offset_delta.x += -45.0;
+                        scroll_state.offset_delta.x += -SCROLL_INCREMENT;
                     }
                 });
             }
