@@ -6,8 +6,8 @@ use crate::{
 };
 
 // Fixed size icons for `⏴` and `⏵`
-const LEFT_FRAME_SIZE: f32 = 20.0;
-const RIGHT_FRAME_SIZE: f32 = 20.0;
+const LEFT_SCROLL_ARROW_SIZE: f32 = 20.0;
+const RIGHT_SCROLL_ARROW_SIZE: f32 = 20.0;
 
 /// Clicking the scroll buttons scrolls how much?
 const SCROLL_INCREMENT: f32 = 45.0;
@@ -25,19 +25,22 @@ pub struct Tabs {
 /// The current tab scrolling state
 #[derive(Clone, Copy, Debug, Default)]
 struct ScrollState {
-    /// The current horizontal (and vertical) offset
+    /// The current horizontal (and vertical) offset.
+    ///
+    /// Positive: scroll right.
+    /// Negatie: scroll left.
     pub offset: Vec2,
 
-    /// The size of all the buttons last frame.
+    /// The size of all the tabs last frame.
     pub content_size: Vec2,
 
-    /// The available size for the buttons.
+    /// The available size for the tabs.
     pub available: Vec2,
 
-    /// `true` if the previous frame had the left menu active
+    /// Did we show the left scroll-arrow last frame?
     pub prev_frame_left: bool,
 
-    /// `true` if the previous frame had the right menu active
+    /// Did we show the right scroll-arrow last frame?
     pub prev_frame_right: bool,
 }
 
@@ -52,33 +55,34 @@ impl ScrollState {
         if (self.offset.x + self.available.x - self.content_size.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
             if self.prev_frame_right {
-                self.offset.x += RIGHT_FRAME_SIZE;
+                self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
             }
 
             self.prev_frame_right = false;
-        } else if (self.offset.x + RIGHT_FRAME_SIZE + self.available.x - self.content_size.x).abs()
+        } else if (self.offset.x + RIGHT_SCROLL_ARROW_SIZE + self.available.x - self.content_size.x)
+            .abs()
             <= eps
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
             if self.prev_frame_right {
-                self.offset.x += RIGHT_FRAME_SIZE;
+                self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
             }
         } else {
             self.prev_frame_right = true;
         }
 
         // Determine scroll changes due to right button variability
-        if self.offset.x > LEFT_FRAME_SIZE {
+        if self.offset.x > LEFT_SCROLL_ARROW_SIZE {
             if !self.prev_frame_left {
-                self.offset.x += LEFT_FRAME_SIZE;
+                self.offset.x += LEFT_SCROLL_ARROW_SIZE;
             }
 
             self.prev_frame_left = true;
 
-            *scroll_area_width -= LEFT_FRAME_SIZE;
+            *scroll_area_width -= LEFT_SCROLL_ARROW_SIZE;
         } else if self.offset.x > 0.0 {
             if self.prev_frame_left {
-                self.offset.x -= LEFT_FRAME_SIZE;
+                self.offset.x -= LEFT_SCROLL_ARROW_SIZE;
             }
         } else {
             self.prev_frame_left = false;
@@ -203,12 +207,9 @@ impl Tabs {
                 .abs()
                 >= 1.0
             {
-                scroll_area_width -= RIGHT_FRAME_SIZE;
+                scroll_area_width -= RIGHT_SCROLL_ARROW_SIZE;
 
                 if ui.button("⏵").clicked() {
-                    // Integer value to move scroll by
-                    // positive is right
-                    // negative is left
                     scroll_state.offset.x += SCROLL_INCREMENT;
                 }
             }
@@ -291,7 +292,7 @@ impl Tabs {
                 },
             );
 
-            if scroll_state.offset.x > LEFT_FRAME_SIZE {
+            if scroll_state.offset.x > LEFT_SCROLL_ARROW_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
                         scroll_state.offset.x += -SCROLL_INCREMENT;
