@@ -38,10 +38,10 @@ struct ScrollState {
     pub available: Vec2,
 
     /// Did we show the left scroll-arrow last frame?
-    pub prev_frame_left: bool,
+    pub showed_left_arrow_prev: bool,
 
     /// Did we show the right scroll-arrow last frame?
-    pub prev_frame_right: bool,
+    pub showed_right_arrow_prev: bool,
 }
 
 impl ScrollState {
@@ -54,38 +54,38 @@ impl ScrollState {
         // element, and so determines if it can move further forward or not.
         if (self.offset.x + self.available.x - self.content_size.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
-            if self.prev_frame_right {
+            if self.showed_right_arrow_prev {
                 self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
             }
 
-            self.prev_frame_right = false;
+            self.showed_right_arrow_prev = false;
         } else if (self.offset.x + RIGHT_SCROLL_ARROW_SIZE + self.available.x - self.content_size.x)
             .abs()
             <= eps
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
-            if self.prev_frame_right {
+            if self.showed_right_arrow_prev {
                 self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
             }
         } else {
-            self.prev_frame_right = true;
+            self.showed_right_arrow_prev = true;
         }
 
         // Determine scroll changes due to right button variability
         if self.offset.x > LEFT_SCROLL_ARROW_SIZE {
-            if !self.prev_frame_left {
+            if !self.showed_left_arrow_prev {
                 self.offset.x += LEFT_SCROLL_ARROW_SIZE;
             }
 
-            self.prev_frame_left = true;
+            self.showed_left_arrow_prev = true;
 
             *scroll_area_width -= LEFT_SCROLL_ARROW_SIZE;
         } else if self.offset.x > 0.0 {
-            if self.prev_frame_left {
+            if self.showed_left_arrow_prev {
                 self.offset.x -= LEFT_SCROLL_ARROW_SIZE;
             }
         } else {
-            self.prev_frame_left = false;
+            self.showed_left_arrow_prev = false;
         }
     }
 }
