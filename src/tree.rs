@@ -13,7 +13,7 @@ use super::{
 ///
 /// See [the crate-level documentation](crate) for a complete example.
 ///
-/// ## How to constriuct a [`Tree`]
+/// ## How to construct a [`Tree`]
 /// ```
 /// use egui_tiles::{Tiles, TileId, Tree};
 ///
@@ -25,7 +25,8 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
     /// None = empty tree
     pub root: Option<TileId>,
@@ -53,7 +54,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             indent: usize,
             tile_id: TileId,
         ) -> std::fmt::Result {
-            write!(f, "{} {tile_id:?} ", "  ".repeat(indent))?;
+            write!(f, "{} {tile_id:?}: ", "  ".repeat(indent))?;
             if let Some(tile) = tiles.get(tile_id) {
                 match tile {
                     Tile::Pane(pane) => writeln!(f, "Pane {pane:?}"),
@@ -74,7 +75,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
                     }
                 }
             } else {
-                write!(f, "DANGLING {tile_id:?}")
+                writeln!(f, "DANGLING")
             }
         }
 
@@ -168,15 +169,9 @@ impl<Pane> Tree<Pane> {
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
     pub fn ui(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
-        let options = behavior.simplification_options();
-        self.simplify(&options);
-        if options.all_panes_must_have_tabs {
-            if let Some(root) = self.root {
-                self.tiles.make_all_panes_children_of_tabs(false, root);
-            }
-        }
+        self.simplify(&behavior.simplification_options());
 
-        self.tiles.gc_root(behavior, self.root);
+        self.gc(behavior);
 
         self.tiles.rects.clear();
 
@@ -254,9 +249,13 @@ impl<Pane> Tree<Pane> {
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
     ///
     /// This means making the matching tiles and its ancestors the active tab in any tab layout.
-    pub fn make_active(&mut self, should_activate: impl Fn(&Tile<Pane>) -> bool) {
+    ///
+    /// Returns `true` if a tab was made active.
+    pub fn make_active(&mut self, mut should_activate: impl FnMut(&Tile<Pane>) -> bool) -> bool {
         if let Some(root) = self.root {
-            self.tiles.make_active(root, &should_activate);
+            self.tiles.make_active(root, &mut should_activate)
+        } else {
+            false
         }
     }
 
@@ -277,13 +276,7 @@ impl<Pane> Tree<Pane> {
             .current_pos(mouse_pos)
             .interactable(false)
             .show(ui.ctx(), |ui| {
-                let mut frame = egui::Frame::popup(ui.style());
-                frame.fill = frame.fill.gamma_multiply(0.5); // Make see-through
-                frame.show(ui, |ui| {
-                    // TODO(emilk): preview contents?
-                    let text = behavior.tab_title_for_tile(&self.tiles, dragged_tile_id);
-                    ui.label(text);
-                });
+                behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
         if let Some(preview_rect) = drop_context.preview_rect {
@@ -312,13 +305,17 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             ui.memory_mut(|mem| mem.stop_dragging());
             if let Some(insertion_point) = drop_context.best_insertion {
+                behavior.on_edit();
                 self.move_tile(dragged_tile_id, insertion_point);
             }
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
         }
     }
 
-    fn simplify(&mut self, options: &SimplificationOptions) {
+    /// Simplify and normalize the tree using the given options.
+    ///
+    /// This is also called at the start of [`Self::ui`].
+    pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
             match self.tiles.simplify(options, root, None) {
                 SimplifyAction::Keep => {}
@@ -330,6 +327,19 @@ impl<Pane> Tree<Pane> {
                 }
             }
         }
+
+        if options.all_panes_must_have_tabs {
+            if let Some(root) = self.root {
+                self.tiles.make_all_panes_children_of_tabs(false, root);
+            }
+        }
+    }
+
+    /// Garbage-collect tiles that are no longer reachable from the root tile.
+    ///
+    /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
+    pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
+        self.tiles.gc_root(behavior, self.root);
     }
 
     /// Move the given tile to the given insertion point.

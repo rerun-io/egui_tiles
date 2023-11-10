@@ -18,7 +18,8 @@ use super::{
 ///
 /// let tree = Tree::new(root, tiles);
 /// ```
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tiles<Pane> {
     next_tile_id: u64,
 
@@ -28,7 +29,7 @@ pub struct Tiles<Pane> {
     invisible: ahash::HashSet<TileId>,
 
     /// Filled in by the layout step at the start of each frame.
-    #[serde(default, skip)]
+    #[cfg_attr(feature = "serde", serde(default, skip))]
     pub(super) rects: ahash::HashMap<TileId, Rect>,
 }
 
@@ -70,6 +71,17 @@ impl<Pane> Tiles<Pane> {
         let rect = self.try_rect(tile_id);
         debug_assert!(rect.is_some(), "Failed to find rect for {tile_id:?}");
         rect.unwrap_or(egui::Rect::from_min_max(Pos2::ZERO, Pos2::ZERO))
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tiles.is_empty()
+    }
+
+    /// The number of tiles, including invisible tiles.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.tiles.len()
     }
 
     pub fn get(&self, tile_id: TileId) -> Option<&Tile<Pane>> {
@@ -121,6 +133,10 @@ impl<Pane> Tiles<Pane> {
         } else {
             self.invisible.insert(tile_id);
         }
+    }
+
+    pub fn toggle_visibility(&mut self, tile_id: TileId) {
+        self.set_visible(tile_id, !self.is_visible(tile_id));
     }
 
     pub fn insert(&mut self, id: TileId, tile: Tile<Pane>) {
@@ -493,10 +509,11 @@ impl<Pane> Tiles<Pane> {
         self.tiles.insert(it, tile);
     }
 
+    /// Returns true if the active tile was found in this tree.
     pub(super) fn make_active(
         &mut self,
         it: TileId,
-        should_activate: &dyn Fn(&Tile<Pane>) -> bool,
+        should_activate: &mut dyn FnMut(&Tile<Pane>) -> bool,
     ) -> bool {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::warn!("Failed to find tile {it:?} during make_active");

@@ -9,7 +9,8 @@ use crate::{
 const SCROLL_ARROW_SIZE: Vec2 = Vec2::splat(20.0);
 
 /// A container with tabs. Only one tab is open (active) at a time.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tabs {
     /// The tabs, in order.
     pub children: Vec<TileId>,
@@ -265,6 +266,7 @@ impl Tabs {
                                 .on_hover_cursor(egui::CursorIcon::Grab)
                                 .drag_started()
                             {
+                                behavior.on_edit();
                                 ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
                             }
                         }
@@ -291,6 +293,7 @@ impl Tabs {
                             );
                             let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                             if response.clicked() {
+                                behavior.on_edit();
                                 next_active = Some(child_id);
                             }
 
@@ -299,6 +302,7 @@ impl Tabs {
                                     && response.rect.contains(mouse_pos)
                                 {
                                     // Expand this tab - maybe the user wants to drop something into it!
+                                    behavior.on_edit();
                                     next_active = Some(child_id);
                                 }
                             }

@@ -13,8 +13,8 @@ license = "MIT OR Apache-2.0"
 name = "egui_tiles"
 readme = "README.md"
 repository = "https://github.com/rerun-io/egui_tiles"
-rust-version = "1.69"
-version = "0.1.0"
+rust-version = "1.70"
+version = "0.3.1"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -25,17 +25,21 @@ ahash = { version = "0.8.1", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
   "std",
 ] }
-egui = { version = "0.22", default-features = false }
+egui = { version = "0.23", default-features = false }
 itertools = "0.11"
 log = { version = "0.4", features = ["std"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"], optional = true }
 
 
 # For the example:
 [dev-dependencies]
-eframe = { version = "0.22", default-features = false, features = [
+eframe = { version = "0.23", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
 ] }
 env_logger = "0.10"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "egui/serde"]

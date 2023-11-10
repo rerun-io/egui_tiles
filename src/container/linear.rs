@@ -13,7 +13,8 @@ use crate::{
 /// Used for [`Linear`] containers (horizontal and vertical).
 ///
 /// Also contains the shares for currently invisible tiles.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Shares {
     /// How large of a share each child has.
     ///
@@ -27,6 +28,10 @@ impl Shares {
         if let Some(share) = self.shares.remove(&remove) {
             self.shares.insert(new, share);
         }
+    }
+
+    pub fn set_share(&mut self, id: TileId, share: f32) {
+        self.shares.insert(id, share);
     }
 
     /// Split the given width based on the share of the children.
@@ -78,9 +83,8 @@ impl std::ops::IndexMut<TileId> for Shares {
 // ----------------------------------------------------------------------------
 
 /// The direction of a [`Linear`] container. Either horizontal or vertical.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum LinearDir {
     #[default]
     Horizontal,
@@ -88,7 +92,8 @@ pub enum LinearDir {
 }
 
 /// Horizontal or vertical container.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Linear {
     pub children: Vec<TileId>,
     pub dir: LinearDir,
@@ -374,12 +379,16 @@ fn resize_interaction<Pane>(
     tile_width: impl Fn(TileId) -> f32,
 ) -> ResizeState {
     if splitter_response.double_clicked() {
+        behavior.on_edit();
+
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
         shares[left] = mean;
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
+        behavior.on_edit();
+
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:
             shares[right] += shrink_shares(

@@ -7,19 +7,8 @@ use crate::{
 };
 
 /// How to lay out the children of a grid.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum GridLayout {
     /// Place children in a grid, with a dynamic number of columns and rows.
     /// Resizing the window may change the number of columns and rows.
@@ -32,7 +21,8 @@ pub enum GridLayout {
 }
 
 /// A grid of tiles.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Grid {
     /// The order of the children, row-major.
     ///
@@ -50,11 +40,11 @@ pub struct Grid {
     pub row_shares: Vec<f32>,
 
     /// ui point x ranges for each column, recomputed during layout
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     col_ranges: Vec<Rangef>,
 
     /// ui point y ranges for each row, recomputed during layout
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     row_ranges: Vec<Rangef>,
 }
 
@@ -88,6 +78,7 @@ impl Grid {
         self.children().count()
     }
 
+    /// Includes invisible children.
     pub fn children(&self) -> impl Iterator<Item = &TileId> {
         self.children.iter().filter_map(|c| c.as_ref())
     }
@@ -130,8 +121,7 @@ impl Grid {
         self.children.retain(|child| child.is_some());
     }
 
-    /// Keeps holes
-    pub fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
+    fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
         self.children
             .iter()
             .filter(|id| id.map_or(true, |id| tiles.is_visible(id)))
@@ -151,20 +141,26 @@ impl Grid {
             self.children.pop();
         }
 
-        let num_visible_children = self.visible_children(tiles).len();
-
         let gap = behavior.gap_width(style);
 
-        let num_cols = match self.layout {
-            GridLayout::Auto => behavior.grid_auto_column_count(num_visible_children, rect, gap),
-            GridLayout::Columns(num_columns) => num_columns.at_least(1),
-        };
-        let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+        let visible_children_and_holes = self.visible_children_and_holes(tiles);
 
-        if self.children.len() > num_cols * num_rows {
-            // Too many holes
-            self.collapse_holes();
-        }
+        // Calculate grid dimensions:
+        let (num_cols, num_rows) = {
+            let num_visible_children = visible_children_and_holes.len();
+
+            let num_cols = match self.layout {
+                GridLayout::Auto => {
+                    behavior.grid_auto_column_count(num_visible_children, rect, gap)
+                }
+                GridLayout::Columns(num_columns) => num_columns,
+            };
+            let num_cols = num_cols.at_least(1);
+            let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+            (num_cols, num_rows)
+        };
+
+        debug_assert!(visible_children_and_holes.len() <= num_cols * num_rows);
 
         // Figure out where each column and row goes:
         self.col_shares.resize(num_cols, 1.0);
@@ -172,6 +168,9 @@ impl Grid {
 
         let col_widths = sizes_from_shares(&self.col_shares, rect.width(), gap);
         let row_heights = sizes_from_shares(&self.row_shares, rect.height(), gap);
+
+        debug_assert_eq!(col_widths.len(), num_cols);
+        debug_assert_eq!(row_heights.len(), num_rows);
 
         {
             let mut x = rect.left();
@@ -190,13 +189,31 @@ impl Grid {
             }
         }
 
+        debug_assert_eq!(self.col_ranges.len(), num_cols);
+        debug_assert_eq!(self.row_ranges.len(), num_rows);
+
         // Layout each child:
-        for (i, &child) in self.visible_children(tiles).iter().enumerate() {
+        for (i, &child) in visible_children_and_holes.iter().enumerate() {
             if let Some(child) = child {
                 let col = i % num_cols;
                 let row = i / num_cols;
                 let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
                 tiles.layout_tile(style, behavior, child_rect, child);
+            }
+        }
+
+        // Check if we should collapse some holes:
+        {
+            let num_holes = visible_children_and_holes
+                .iter()
+                .filter(|c| c.is_none())
+                .count()
+                + (num_cols * num_rows - visible_children_and_holes.len());
+
+            if num_cols.min(num_rows) <= num_holes {
+                // More holes than there are columns or rows - let's collapse all holes
+                // so that we can shrink for next frame:
+                self.collapse_holes();
             }
         }
     }
@@ -370,12 +387,16 @@ fn resize_interaction<Pane>(
     let right = i + 1;
 
     if splitter_response.double_clicked() {
+        behavior.on_edit();
+
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
         shares[left] = mean;
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
+        behavior.on_edit();
+
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:
             shares[right] += shrink_shares(
@@ -459,5 +480,160 @@ fn sizes_from_shares(shares: &[f32], available_size: f32, gap_width: f32) -> Vec
             .iter()
             .map(|&share| share / total_share * available_size)
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Container, Tile};
+
+    use super::*;
+
+    #[test]
+    fn test_grid_with_chaos_monkey() {
+        #[derive(Debug)]
+        struct Pane {}
+
+        struct TestBehavior {}
+
+        impl Behavior<Pane> for TestBehavior {
+            fn pane_ui(
+                &mut self,
+                _ui: &mut egui::Ui,
+                _tile_id: TileId,
+                _pane: &mut Pane,
+            ) -> crate::UiResponse {
+                panic!()
+            }
+
+            fn tab_title_for_pane(&mut self, _pane: &Pane) -> egui::WidgetText {
+                panic!()
+            }
+        }
+
+        let mut tree = {
+            let mut tiles = Tiles::default();
+            let panes: Vec<TileId> = vec![tiles.insert_pane(Pane {}), tiles.insert_pane(Pane {})];
+            let root: TileId = tiles.insert_grid_tile(panes);
+            Tree::new(root, tiles)
+        };
+
+        let style = egui::Style::default();
+        let mut behavior = TestBehavior {};
+        let area = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(1024.0, 768.0));
+
+        // Go crazy on it to make sure we never crash:
+        let mut rng = Pcg64::new_seed(123_456_789_012);
+
+        for _ in 0..1000 {
+            let root = tree.root.unwrap();
+            tree.tiles.layout_tile(&style, &mut behavior, area, root);
+
+            // Add some tiles:
+            for _ in 0..rng.rand_u64() % 3 {
+                if tree.tiles.len() < 100 {
+                    let pane = tree.tiles.insert_pane(Pane {});
+                    if let Some(Tile::Container(Container::Grid(grid))) = tree.tiles.get_mut(root) {
+                        grid.add_child(pane);
+                    } else {
+                        panic!()
+                    }
+                }
+            }
+
+            // Move a random child to then end of the grid:
+            for _ in 0..rng.rand_u64() % 2 {
+                if let Some(Tile::Container(Container::Grid(grid))) = tree.tiles.get_mut(root) {
+                    if !grid.children.is_empty() {
+                        let child_idx = rng.rand_usize() % grid.children.len();
+                        let child = grid.children[child_idx].take();
+                        grid.children.push(child);
+                    }
+                } else {
+                    panic!()
+                }
+            }
+
+            // Flip some visibilities:
+            for _ in 0..rng.rand_u64() % 2 {
+                let children =
+                    if let Some(Tile::Container(Container::Grid(grid))) = tree.tiles.get(root) {
+                        grid.visible_children_and_holes(&tree.tiles)
+                            .iter()
+                            .copied()
+                            .flatten()
+                            .collect_vec()
+                    } else {
+                        panic!()
+                    };
+
+                if !children.is_empty() {
+                    let child_idx = rng.rand_usize() % children.len();
+                    tree.tiles.toggle_visibility(children[child_idx]);
+                }
+            }
+
+            // Remove some tiles:
+            for _ in 0..rng.rand_u64() % 2 {
+                let children =
+                    if let Some(Tile::Container(Container::Grid(grid))) = tree.tiles.get(root) {
+                        grid.visible_children_and_holes(&tree.tiles)
+                            .iter()
+                            .copied()
+                            .flatten()
+                            .collect_vec()
+                    } else {
+                        panic!()
+                    };
+
+                if !children.is_empty() {
+                    let child_id = children[rng.rand_usize() % children.len()];
+                    let (parent, _) = tree.remove_tile_id_from_parent(child_id).unwrap();
+                    assert_eq!(parent, root);
+                    tree.tiles.remove(child_id).unwrap();
+                }
+            }
+        }
+    }
+
+    // We want a simple RNG, but don't want to pull in any deps just for a test.
+    // Code from adapted from https://docs.rs/nanorand/latest/src/nanorand/rand/pcg64.rs.html#15-19
+    pub struct Pcg64 {
+        seed: u128,
+        state: u128,
+        inc: u128,
+    }
+
+    impl Pcg64 {
+        pub const fn new_seed(seed: u128) -> Self {
+            Self {
+                seed,
+                inc: 0,
+                state: 0,
+            }
+        }
+
+        fn step(&mut self) {
+            const PCG_DEFAULT_MULTIPLIER_128: u128 = 47026247687942121848144207491837523525;
+
+            self.state = self
+                .state
+                .wrapping_mul(PCG_DEFAULT_MULTIPLIER_128)
+                .wrapping_add(self.inc);
+        }
+
+        fn rand_u64(&mut self) -> u64 {
+            self.state = 0;
+            self.inc = self.seed.wrapping_shl(1) | 1;
+            self.step();
+            self.state = self.state.wrapping_add(self.seed);
+            self.step();
+            self.step();
+            self.state.wrapping_shr(64) as u64 ^ self.state as u64
+        }
+
+        fn rand_usize(&mut self) -> usize {
+            self.rand_u64() as usize
+        }
     }
 }
