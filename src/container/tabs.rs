@@ -24,11 +24,11 @@ pub struct Tabs {
 /// The current tab scrolling state
 #[derive(Clone, Copy, Debug, Default)]
 struct ScrollState {
-    /// The current horizontal (and vertical) offset.
+    /// The current horizontal scroll offset.
     ///
     /// Positive: scroll right.
     /// Negatie: scroll left.
-    pub offset: Vec2,
+    pub offset: f32,
 
     /// The size of all the tabs last frame.
     pub content_size: Vec2,
@@ -53,16 +53,16 @@ impl ScrollState {
     pub fn update(&mut self, scroll_area_width: &mut f32) {
         let margin = 1.0;
 
-        self.show_left_arrow = SCROLL_ARROW_SIZE < self.offset.x;
+        self.show_left_arrow = SCROLL_ARROW_SIZE < self.offset;
 
         if self.show_left_arrow {
             *scroll_area_width -= SCROLL_ARROW_SIZE;
         }
 
-        self.show_right_arrow = self.offset.x + *scroll_area_width + margin < self.content_size.x;
+        self.show_right_arrow = self.offset + *scroll_area_width + margin < self.content_size.x;
 
         // Compensate for showing/hiding of arrow:
-        self.offset.x += SCROLL_ARROW_SIZE
+        self.offset += SCROLL_ARROW_SIZE
             * ((self.show_left_arrow as i32 as f32) - (self.showed_left_arrow_prev as i32 as f32));
 
         if self.show_right_arrow {
@@ -178,7 +178,7 @@ impl Tabs {
             });
 
             // Show Right UI Menu (any size allowed)
-            behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset.x);
+            behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
 
             // We will subtract the button widths from this.
             let mut scroll_area_width = ui.available_width();
@@ -187,7 +187,7 @@ impl Tabs {
 
             // If consumed > available (by margin), show right scroll icon.
             if scroll_state.show_right_arrow && ui.button("⏵").clicked() {
-                scroll_state.offset.x += SCROLL_INCREMENT;
+                scroll_state.offset += SCROLL_INCREMENT;
             }
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
@@ -198,17 +198,16 @@ impl Tabs {
                 scroll_area_size,
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    scroll_state.offset.x = scroll_state
+                    scroll_state.offset = scroll_state
                         .offset
-                        .x
                         .at_most(scroll_state.content_size.x - ui.available_width());
-                    scroll_state.offset.x = scroll_state.offset.x.at_least(0.0);
+                    scroll_state.offset = scroll_state.offset.at_least(0.0);
 
                     let scroll_area = egui::ScrollArea::horizontal()
                         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                         .max_width(scroll_area_width)
                         .auto_shrink([false; 2])
-                        .horizontal_scroll_offset(scroll_state.offset.x);
+                        .horizontal_scroll_offset(scroll_state.offset);
 
                     let output = scroll_area.show_viewport(ui, |ui, _| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -267,7 +266,7 @@ impl Tabs {
                         });
                     });
 
-                    scroll_state.offset = output.state.offset;
+                    scroll_state.offset = output.state.offset.x;
                     scroll_state.content_size = output.content_size;
                     scroll_state.available = output.inner_rect.size();
                 },
@@ -276,7 +275,7 @@ impl Tabs {
             if scroll_state.show_left_arrow {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
-                        scroll_state.offset.x += -SCROLL_INCREMENT;
+                        scroll_state.offset += -SCROLL_INCREMENT;
                     }
                 });
             }
