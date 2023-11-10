@@ -16,7 +16,7 @@ pub struct Tabs {
 }
 
 /// The current tab scrolling state
-#[derive(Default, Debug, Clone)]
+#[derive(Clone, Copy, Debug, Default)]
 struct ScrollState {
     /// The horizontal (and vertical) offset
     pub offset: Vec2,
@@ -107,6 +107,7 @@ impl Tabs {
     }
 
     /// Returns the next active tab (e.g. the one clicked, or the current).
+    #[allow(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
         tree: &mut Tree<Pane>,
@@ -118,20 +119,11 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        // Reset current scroll state for the next frame.
-        let scroll_state: ScrollState = ScrollState {
-            prev_frame_left: false,
-            prev_frame_right: false,
-            ..ScrollState::default()
-        };
-
         let id = ui.make_persistent_id(tile_id);
 
-        ui.ctx().memory_mut(|m| {
-            if m.data.get_temp::<ScrollState>(id).is_none() {
-                m.data.insert_temp(id, scroll_state);
-            }
-        });
+        let mut scroll_state = ui
+            .ctx()
+            .memory_mut(|m| m.data.get_temp::<ScrollState>(id).unwrap_or_default());
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
@@ -146,11 +138,6 @@ impl Tabs {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
-
-            let mut scroll_state: ScrollState = ui
-                .ctx()
-                .memory_mut(|m| m.data.get_temp::<ScrollState>(id))
-                .unwrap_or_default();
 
             // Fixed size icons for `⏴` and `⏵`
             const LEFT_FRAME_SIZE: f32 = 20.0;
