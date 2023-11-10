@@ -109,10 +109,8 @@ pub trait Behavior<Pane> {
     ///
     /// The widgets will be added right-to-left.
     ///
-    /// The offset value represents the offset of the right bar UI component.
-    ///
-    /// `_scroll` is a mutable reference to the scroll value, adding or subtracting
-    /// from this value will alter the current horizontal scroll location.
+    /// `_scroll_offset` is a mutable reference to the tab scroll value.
+    /// Adding to this value will scroll the tabs to the right, subtracting to the left.
     fn top_bar_right_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
