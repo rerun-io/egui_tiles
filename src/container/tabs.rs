@@ -28,10 +28,10 @@ struct ScrollState {
     /// The current horizontal (and vertical) offset
     pub offset: Vec2,
 
-    /// The consumed width and height
-    pub consumed: Vec2,
+    /// The size of all the buttons last frame.
+    pub content_size: Vec2,
 
-    /// The available width and height
+    /// The available size for the buttons.
     pub available: Vec2,
 
     /// `true` if the previous frame had the left menu active
@@ -42,21 +42,21 @@ struct ScrollState {
 }
 
 impl ScrollState {
-    pub fn update(&mut self, consume: &mut f32) {
+    pub fn update(&mut self, scroll_area_width: &mut f32) {
         let eps = 1.0;
 
         // Determine scroll changes due to left button variability
         // We add the --[------] (used + visible)
         // to determine how far has been traveled by the rightmost
         // element, and so determines if it can move further forward or not.
-        if (self.offset.x + self.available.x - self.consumed.x).abs() <= eps {
+        if (self.offset.x + self.available.x - self.content_size.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
             if self.prev_frame_right {
                 self.offset.x += RIGHT_FRAME_SIZE;
             }
 
             self.prev_frame_right = false;
-        } else if (self.offset.x + RIGHT_FRAME_SIZE + self.available.x - self.consumed.x).abs()
+        } else if (self.offset.x + RIGHT_FRAME_SIZE + self.available.x - self.content_size.x).abs()
             <= eps
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
@@ -75,7 +75,7 @@ impl ScrollState {
 
             self.prev_frame_left = true;
 
-            *consume -= LEFT_FRAME_SIZE;
+            *scroll_area_width -= LEFT_FRAME_SIZE;
         } else if self.offset.x > 0.0 {
             if self.prev_frame_left {
                 self.offset.x -= LEFT_FRAME_SIZE;
@@ -193,16 +193,17 @@ impl Tabs {
             // Show Right UI Menu (any size allowed)
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset.x);
 
-            // Mutable consumable width
-            let mut consume = ui.available_width();
+            // We will subtract the button widths from this.
+            let mut scroll_area_width = ui.available_width();
 
-            scroll_state.update(&mut consume);
+            scroll_state.update(&mut scroll_area_width);
 
             // If consumed > available (by margin), show right scroll icon.
-            if (scroll_state.offset.x + scroll_state.available.x - scroll_state.consumed.x).abs()
+            if (scroll_state.offset.x + scroll_state.available.x - scroll_state.content_size.x)
+                .abs()
                 >= 1.0
             {
-                consume -= RIGHT_FRAME_SIZE;
+                scroll_area_width -= RIGHT_FRAME_SIZE;
 
                 if ui.button("⏵").clicked() {
                     // Integer value to move scroll by
@@ -214,25 +215,20 @@ impl Tabs {
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
 
-            let mut scroll_area_size = Vec2::ZERO;
-            scroll_area_size.x = consume; // Enforce currently consumable width (left scroll icon not yet placed)
-            scroll_area_size.y = ui.available_height();
+            let scroll_area_size = vec2(scroll_area_width, ui.available_height());
 
             ui.allocate_ui_with_layout(
                 scroll_area_size,
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    let mut area = egui::ScrollArea::horizontal()
+                    scroll_state.offset.x = scroll_state.offset.x.at_most(ui.available_width());
+
+                    let scroll_area = egui::ScrollArea::horizontal()
                         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
-                        .max_width(consume);
+                        .max_width(scroll_area_width)
+                        .horizontal_scroll_offset(scroll_state.offset.x);
 
-                    {
-                        scroll_state.offset.x = scroll_state.offset.x.at_most(ui.available_width());
-
-                        area = area.horizontal_scroll_offset(scroll_state.offset.x);
-                    }
-
-                    let output = area.show_viewport(ui, |ui, _| {
+                    let output = scroll_area.show_viewport(ui, |ui, _| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                             if !tree.is_root(tile_id) {
                                 // Make the background behind the buttons draggable (to drag the parent container tile):
@@ -290,7 +286,7 @@ impl Tabs {
                     });
 
                     scroll_state.offset = output.state.offset;
-                    scroll_state.consumed = output.content_size;
+                    scroll_state.content_size = output.content_size;
                     scroll_state.available = output.inner_rect.size();
                 },
             );
