@@ -225,7 +225,7 @@ impl Tabs {
             });
 
             // Allow user to add buttons such as "add new tab".
-            // They can als read and modify the scroll state if they want.
+            // They can also read and modify the scroll state if they want.
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
             // We will subtract the button widths from this.
             let mut scroll_area_width = ui.available_width();
