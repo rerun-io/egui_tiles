@@ -5,6 +5,10 @@ use crate::{
     TileId, Tiles, Tree,
 };
 
+// Fixed size icons for `⏴` and `⏵`
+const LEFT_FRAME_SIZE: f32 = 20.0;
+const RIGHT_FRAME_SIZE: f32 = 20.0;
+
 /// A container with tabs. Only one tab is open (active) at a time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Tabs {
@@ -35,6 +39,49 @@ struct ScrollState {
 
     /// `true` if the previous frame had the right menu active
     pub prev_frame_right: bool,
+}
+
+impl ScrollState {
+    pub fn update(&mut self, consume: &mut f32) {
+        // Determine scroll changes due to left button variability
+        // We add the --[------] (used + visible)
+        // to determine how far has been traveled by the rightmost
+        // element, and so determines if it can move further forward or not.
+        if (self.offset.x + self.available.x - self.consumed.x).abs() <= 1.0 {
+            // Move to the end to prevent re-caching (infinitely scrolling)
+            if self.prev_frame_right {
+                self.offset_delta.x += RIGHT_FRAME_SIZE;
+            }
+
+            self.prev_frame_right = false;
+        } else if (self.offset.x + RIGHT_FRAME_SIZE + self.available.x - self.consumed.x).abs()
+            <= 1.0
+        {
+            // Alter offset on approach to smooth connection and mitigate jarring motion
+            if self.prev_frame_right {
+                self.offset_delta.x += RIGHT_FRAME_SIZE;
+            }
+        } else {
+            self.prev_frame_right = true;
+        }
+
+        // Determine scroll changes due to right button variability
+        if self.offset.x > LEFT_FRAME_SIZE {
+            if !self.prev_frame_left {
+                self.offset_delta.x += LEFT_FRAME_SIZE;
+            }
+
+            self.prev_frame_left = true;
+
+            *consume -= LEFT_FRAME_SIZE;
+        } else if self.offset.x > 0.0 {
+            if self.prev_frame_left {
+                self.offset.x -= LEFT_FRAME_SIZE;
+            }
+        } else {
+            self.prev_frame_left = false;
+        }
+    }
 }
 
 impl Tabs {
@@ -119,11 +166,13 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        let id = ui.make_persistent_id(tile_id);
+        let scroll_state_id = ui.make_persistent_id(tile_id);
 
-        let mut scroll_state = ui
-            .ctx()
-            .memory_mut(|m| m.data.get_temp::<ScrollState>(id).unwrap_or_default());
+        let mut scroll_state = ui.ctx().memory_mut(|m| {
+            m.data
+                .get_temp::<ScrollState>(scroll_state_id)
+                .unwrap_or_default()
+        });
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
@@ -139,10 +188,6 @@ impl Tabs {
             // Add buttons such as "add new tab"
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
-            // Fixed size icons for `⏴` and `⏵`
-            const LEFT_FRAME_SIZE: f32 = 20.0;
-            const RIGHT_FRAME_SIZE: f32 = 20.0;
-
             // Show Right UI Menu (any size allowed)
             behavior.top_bar_right_ui(
                 &tree.tiles,
@@ -156,51 +201,10 @@ impl Tabs {
             // Mutable consumable width
             let mut consume = ui.available_width();
 
-            // Determine scroll changes due to left button variability
-            // We add the --[------] (used + visible)
-            // to determine how far has been traveled by the rightmost
-            // element, and so determines if it can move further forward or not.
-            if ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x).abs()
-                <= 1.0
-            {
-                // Move to the end to prevent re-caching (infinitely scrolling)
-                if scroll_state.prev_frame_right {
-                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
-                }
-
-                scroll_state.prev_frame_right = false;
-            } else if ((scroll_state.offset.x + RIGHT_FRAME_SIZE + scroll_state.available.x)
-                - scroll_state.consumed.x)
-                .abs()
-                <= 1.0
-            {
-                // Alter offset on approach to smooth connection and mitigate jarring motion
-                if scroll_state.prev_frame_right {
-                    scroll_state.offset_delta.x += RIGHT_FRAME_SIZE;
-                }
-            } else {
-                scroll_state.prev_frame_right = true;
-            }
-
-            // Determine scroll changes due to right button variability
-            if scroll_state.offset.x > LEFT_FRAME_SIZE {
-                if !scroll_state.prev_frame_left {
-                    scroll_state.offset_delta.x += LEFT_FRAME_SIZE;
-                }
-
-                scroll_state.prev_frame_left = true;
-
-                consume -= LEFT_FRAME_SIZE;
-            } else if scroll_state.offset.x > 0.0 {
-                if scroll_state.prev_frame_left {
-                    scroll_state.offset.x -= LEFT_FRAME_SIZE;
-                }
-            } else {
-                scroll_state.prev_frame_left = false;
-            }
+            scroll_state.update(&mut consume);
 
             // If consumed > available (by margin), show right scroll icon.
-            if ((scroll_state.offset.x + scroll_state.available.x) - scroll_state.consumed.x).abs()
+            if (scroll_state.offset.x + scroll_state.available.x - scroll_state.consumed.x).abs()
                 >= 1.0
             {
                 consume -= RIGHT_FRAME_SIZE;
@@ -313,7 +317,7 @@ impl Tabs {
             }
 
             ui.ctx()
-                .memory_mut(|m| m.data.insert_temp(id, scroll_state));
+                .memory_mut(|m| m.data.insert_temp(scroll_state_id, scroll_state));
         });
 
         // -----------
