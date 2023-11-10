@@ -34,9 +34,6 @@ struct ScrollState {
     /// The available width and height
     pub available: Vec2,
 
-    /// Change in the scrolling offset to be applied next frame.
-    pub offset_delta: Vec2,
-
     /// `true` if the previous frame had the left menu active
     pub prev_frame_left: bool,
 
@@ -55,7 +52,7 @@ impl ScrollState {
         if (self.offset.x + self.available.x - self.consumed.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
             if self.prev_frame_right {
-                self.offset_delta.x += RIGHT_FRAME_SIZE;
+                self.offset.x += RIGHT_FRAME_SIZE;
             }
 
             self.prev_frame_right = false;
@@ -64,7 +61,7 @@ impl ScrollState {
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
             if self.prev_frame_right {
-                self.offset_delta.x += RIGHT_FRAME_SIZE;
+                self.offset.x += RIGHT_FRAME_SIZE;
             }
         } else {
             self.prev_frame_right = true;
@@ -73,7 +70,7 @@ impl ScrollState {
         // Determine scroll changes due to right button variability
         if self.offset.x > LEFT_FRAME_SIZE {
             if !self.prev_frame_left {
-                self.offset_delta.x += LEFT_FRAME_SIZE;
+                self.offset.x += LEFT_FRAME_SIZE;
             }
 
             self.prev_frame_left = true;
@@ -194,14 +191,7 @@ impl Tabs {
             ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
             // Show Right UI Menu (any size allowed)
-            behavior.top_bar_right_ui(
-                &tree.tiles,
-                ui,
-                tile_id,
-                self,
-                scroll_state.offset.x,
-                &mut scroll_state.offset_delta.x,
-            );
+            behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset.x);
 
             // Mutable consumable width
             let mut consume = ui.available_width();
@@ -218,7 +208,7 @@ impl Tabs {
                     // Integer value to move scroll by
                     // positive is right
                     // negative is left
-                    scroll_state.offset_delta.x += SCROLL_INCREMENT;
+                    scroll_state.offset.x += SCROLL_INCREMENT;
                 }
             }
 
@@ -237,15 +227,9 @@ impl Tabs {
                         .max_width(consume);
 
                     {
-                        scroll_state.offset_delta.x =
-                            scroll_state.offset_delta.x.at_most(ui.available_width());
+                        scroll_state.offset.x = scroll_state.offset.x.at_most(ui.available_width());
 
-                        area = area.horizontal_scroll_offset(
-                            scroll_state.offset.x + scroll_state.offset_delta.x,
-                        );
-
-                        // Reset delta after use
-                        scroll_state.offset_delta = Vec2::ZERO;
+                        area = area.horizontal_scroll_offset(scroll_state.offset.x);
                     }
 
                     let output = area.show_viewport(ui, |ui, _| {
@@ -314,7 +298,7 @@ impl Tabs {
             if scroll_state.offset.x > LEFT_FRAME_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
-                        scroll_state.offset_delta.x += -SCROLL_INCREMENT;
+                        scroll_state.offset.x += -SCROLL_INCREMENT;
                     }
                 });
             }

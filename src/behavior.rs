@@ -119,8 +119,7 @@ pub trait Behavior<Pane> {
         _ui: &mut Ui,
         _tile_id: TileId,
         _tabs: &crate::Tabs,
-        _offset: f32,
-        _scroll: &mut f32,
+        _scroll_offset: &mut f32,
     ) {
         // if ui.button("➕").clicked() {
         // }
