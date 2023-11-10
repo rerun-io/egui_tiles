@@ -52,7 +52,10 @@ struct ScrollState {
 }
 
 impl ScrollState {
-    pub fn update(&mut self, ui: &egui::Ui, scroll_area_width: &mut f32) {
+    /// Returns the space left for the tabs after the scroll arrows.
+    pub fn update(&mut self, ui: &egui::Ui) -> f32 {
+        let mut scroll_area_width = ui.available_width();
+
         let button_and_spacing_width = SCROLL_ARROW_SIZE.x + ui.spacing().item_spacing.x;
 
         let margin = 0.1;
@@ -60,17 +63,17 @@ impl ScrollState {
         self.show_left_arrow = SCROLL_ARROW_SIZE.x < self.offset;
 
         if self.show_left_arrow {
-            *scroll_area_width -= button_and_spacing_width;
+            scroll_area_width -= button_and_spacing_width;
         }
 
-        self.show_right_arrow = self.offset + *scroll_area_width + margin < self.content_size.x;
+        self.show_right_arrow = self.offset + scroll_area_width + margin < self.content_size.x;
 
         // Compensate for showing/hiding of arrow:
         self.offset += button_and_spacing_width
             * ((self.show_left_arrow as i32 as f32) - (self.showed_left_arrow_prev as i32 as f32));
 
         if self.show_right_arrow {
-            *scroll_area_width -= button_and_spacing_width;
+            scroll_area_width -= button_and_spacing_width;
         }
 
         self.showed_left_arrow_prev = self.show_left_arrow;
@@ -91,6 +94,8 @@ impl ScrollState {
                 ui.ctx().request_repaint();
             }
         }
+
+        scroll_area_width
     }
 
     fn scroll_increment(&self) -> f32 {
@@ -227,10 +232,8 @@ impl Tabs {
             // Allow user to add buttons such as "add new tab".
             // They can also read and modify the scroll state if they want.
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
-            // We will subtract the button widths from this.
-            let mut scroll_area_width = ui.available_width();
 
-            scroll_state.update(ui, &mut scroll_area_width);
+            let scroll_area_width = scroll_state.update(ui);
 
             // We're in a right-to-left layout, so start with the right scroll-arrow:
             scroll_state.right_arrow(ui);
