@@ -150,7 +150,7 @@ impl Tabs {
             let mut scroll_state: ScrollState = ui
                 .ctx()
                 .memory_mut(|m| m.data.get_temp::<ScrollState>(id))
-                .unwrap();
+                .unwrap_or_default();
 
             // Fixed size icons for `⏴` and `⏵`
             const LEFT_FRAME_SIZE: f32 = 20.0;
