@@ -5,9 +5,8 @@ use crate::{
     TileId, Tiles, Tree,
 };
 
-// Fixed size icons for `⏴` and `⏵`
-const LEFT_SCROLL_ARROW_SIZE: f32 = 20.0;
-const RIGHT_SCROLL_ARROW_SIZE: f32 = 20.0;
+/// Fixed size icons for `⏴` and `⏵`
+const SCROLL_ARROW_SIZE: f32 = 20.0;
 
 /// Clicking the scroll buttons scrolls how much?
 const SCROLL_INCREMENT: f32 = 45.0;
@@ -55,34 +54,33 @@ impl ScrollState {
         if (self.offset.x + self.available.x - self.content_size.x).abs() <= eps {
             // Move to the end to prevent re-caching (infinitely scrolling)
             if self.showed_right_arrow_prev {
-                self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
+                self.offset.x += SCROLL_ARROW_SIZE;
             }
 
             self.showed_right_arrow_prev = false;
-        } else if (self.offset.x + RIGHT_SCROLL_ARROW_SIZE + self.available.x - self.content_size.x)
-            .abs()
+        } else if (self.offset.x + SCROLL_ARROW_SIZE + self.available.x - self.content_size.x).abs()
             <= eps
         {
             // Alter offset on approach to smooth connection and mitigate jarring motion
             if self.showed_right_arrow_prev {
-                self.offset.x += RIGHT_SCROLL_ARROW_SIZE;
+                self.offset.x += SCROLL_ARROW_SIZE;
             }
         } else {
             self.showed_right_arrow_prev = true;
         }
 
         // Determine scroll changes due to right button variability
-        if self.offset.x > LEFT_SCROLL_ARROW_SIZE {
+        if self.offset.x > SCROLL_ARROW_SIZE {
             if !self.showed_left_arrow_prev {
-                self.offset.x += LEFT_SCROLL_ARROW_SIZE;
+                self.offset.x += SCROLL_ARROW_SIZE;
             }
 
             self.showed_left_arrow_prev = true;
 
-            *scroll_area_width -= LEFT_SCROLL_ARROW_SIZE;
+            *scroll_area_width -= SCROLL_ARROW_SIZE;
         } else if self.offset.x > 0.0 {
             if self.showed_left_arrow_prev {
-                self.offset.x -= LEFT_SCROLL_ARROW_SIZE;
+                self.offset.x -= SCROLL_ARROW_SIZE;
             }
         } else {
             self.showed_left_arrow_prev = false;
@@ -207,7 +205,7 @@ impl Tabs {
                 .abs()
                 >= 1.0
             {
-                scroll_area_width -= RIGHT_SCROLL_ARROW_SIZE;
+                scroll_area_width -= SCROLL_ARROW_SIZE;
 
                 if ui.button("⏵").clicked() {
                     scroll_state.offset.x += SCROLL_INCREMENT;
@@ -292,7 +290,7 @@ impl Tabs {
                 },
             );
 
-            if scroll_state.offset.x > LEFT_SCROLL_ARROW_SIZE {
+            if scroll_state.offset.x > SCROLL_ARROW_SIZE {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
                         scroll_state.offset.x += -SCROLL_INCREMENT;
