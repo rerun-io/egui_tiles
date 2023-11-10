@@ -129,7 +129,7 @@ impl Tabs {
 
         ui.ctx().memory_mut(|m| {
             if m.data.get_temp::<ScrollState>(id).is_none() {
-                m.data.insert_temp(id, scroll_state)
+                m.data.insert_temp(id, scroll_state);
             }
         });
 
@@ -246,7 +246,7 @@ impl Tabs {
                             scroll_state.offset_delta.x = ui.available_width();
                         }
 
-                        area = area.to_owned().horizontal_scroll_offset(
+                        area = area.clone().horizontal_scroll_offset(
                             scroll_state.offset.x + scroll_state.offset_delta.x,
                         );
 
