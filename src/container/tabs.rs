@@ -9,7 +9,7 @@ use crate::{
 const SCROLL_ARROW_SIZE: f32 = 20.0;
 
 /// Clicking the scroll buttons scrolls how much?
-const SCROLL_INCREMENT: f32 = 45.0;
+const SCROLL_INCREMENT: f32 = 100.0; // TODO: scroll based on availbale width, e.g. 1/3 of that
 
 /// A container with tabs. Only one tab is open (active) at a time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -29,6 +29,10 @@ struct ScrollState {
     /// Positive: scroll right.
     /// Negatie: scroll left.
     pub offset: f32,
+
+    /// Outstanding offset to apply smoothly over the next few frames.
+    /// This is what the buttons update.
+    pub offset_debt: f32,
 
     /// The size of all the tabs last frame.
     pub content_size: Vec2,
@@ -50,8 +54,8 @@ struct ScrollState {
 }
 
 impl ScrollState {
-    pub fn update(&mut self, scroll_area_width: &mut f32) {
-        let margin = 1.0;
+    pub fn update(&mut self, ctx: &egui::Context, scroll_area_width: &mut f32) {
+        let margin = 0.1;
 
         self.show_left_arrow = SCROLL_ARROW_SIZE < self.offset;
 
@@ -71,6 +75,22 @@ impl ScrollState {
 
         self.showed_left_arrow_prev = self.show_left_arrow;
         self.showed_right_arrow_prev = self.show_right_arrow;
+
+        if self.offset_debt != 0.0 {
+            const SPEED: f32 = 500.0;
+
+            let dt = ctx.input(|i| i.stable_dt).min(0.1);
+            let max_movement = dt * SPEED;
+            if self.offset_debt.abs() <= max_movement {
+                self.offset += self.offset_debt;
+                self.offset_debt = 0.0;
+            } else {
+                let movement = self.offset_debt.signum() * max_movement;
+                self.offset += movement;
+                self.offset_debt -= movement;
+                ctx.request_repaint();
+            }
+        }
     }
 }
 
@@ -183,11 +203,11 @@ impl Tabs {
             // We will subtract the button widths from this.
             let mut scroll_area_width = ui.available_width();
 
-            scroll_state.update(&mut scroll_area_width);
+            scroll_state.update(ui.ctx(), &mut scroll_area_width);
 
             // If consumed > available (by margin), show right scroll icon.
             if scroll_state.show_right_arrow && ui.button("⏵").clicked() {
-                scroll_state.offset += SCROLL_INCREMENT;
+                scroll_state.offset_debt += SCROLL_INCREMENT;
             }
 
             ui.set_clip_rect(ui.available_rect_before_wrap()); // Don't cover the `rtl_ui` buttons.
@@ -275,7 +295,7 @@ impl Tabs {
             if scroll_state.show_left_arrow {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⏴").clicked() {
-                        scroll_state.offset += -SCROLL_INCREMENT;
+                        scroll_state.offset_debt -= SCROLL_INCREMENT;
                     }
                 });
             }
