@@ -241,7 +241,8 @@ impl<Pane> Tree<Pane> {
                 viewport_id,
                 ViewportBuilder::default()
                     .with_title(title.text())
-                    .with_position(screen_pos),
+                    .with_position(screen_pos)
+                    .with_inner_size([480.0, 320.0]),
                 |ctx, _class| {
                     egui::CentralPanel::default().show(ctx, |ui| {
                         self.tiles.layout_tile(
@@ -352,7 +353,6 @@ impl<Pane> Tree<Pane> {
         // Preview what is being dragged:
         let preview_size = egui::vec2(300.0, 200.0);
         let preview_id = egui::Id::new((dragged_tile_id, "preview"));
-        let mut external_viewport_preview_pos = None;
         if ui.ctx().screen_rect().contains(mouse_pos) {
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
             egui::Area::new(preview_id)
@@ -374,35 +374,16 @@ impl<Pane> Tree<Pane> {
                     mouse_pos
                 };
 
-            let title = behavior.tab_title_for_tile(&self.tiles, dragged_tile_id);
+            // Spawn the new viewport tile right away, to get a nice preview for it:
+            ui.memory_mut(|mem| mem.stop_dragging());
 
-            if true {
-                // spawn the new viewport tile right away, to get a nice preview for it!
-                ui.memory_mut(|mem| mem.stop_dragging());
-
-                behavior.on_edit();
-                self.remove_tile_id_from_parent(dragged_tile_id);
-                self.viewport_tiles.push(ViewportTile {
-                    root: dragged_tile_id,
-                    screen_pos,
-                    dragged: true,
-                });
-            } else {
-                external_viewport_preview_pos = Some(screen_pos);
-
-                ui.ctx().show_viewport_immediate(
-                    egui::ViewportId(preview_id),
-                    egui::ViewportBuilder::default()
-                        .with_title(title.text())
-                        .with_position(screen_pos)
-                        .with_inner_size(preview_size),
-                    |ctx, _class| {
-                        egui::CentralPanel::default().show(ctx, |ui| {
-                            behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
-                        });
-                    },
-                );
-            }
+            behavior.on_edit();
+            self.remove_tile_id_from_parent(dragged_tile_id);
+            self.viewport_tiles.push(ViewportTile {
+                root: dragged_tile_id,
+                screen_pos,
+                dragged: true,
+            });
         }
 
         if let Some(preview_rect) = drop_context.preview_rect {
@@ -431,15 +412,7 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             ui.memory_mut(|mem| mem.stop_dragging());
 
-            if let Some(external_viewport_preview_pos) = external_viewport_preview_pos {
-                behavior.on_edit();
-                self.remove_tile_id_from_parent(dragged_tile_id);
-                self.viewport_tiles.push(ViewportTile {
-                    root: dragged_tile_id,
-                    screen_pos: external_viewport_preview_pos,
-                    dragged: false,
-                });
-            } else if let Some(insertion_point) = drop_context.best_insertion {
+            if let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit();
                 self.move_tile(dragged_tile_id, insertion_point);
             }
