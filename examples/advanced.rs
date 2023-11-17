@@ -223,7 +223,11 @@ impl eframe::App for MyApp {
             ui.separator();
 
             if let Some(root) = self.tree.root() {
-                tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, root);
+                egui::ScrollArea::vertical()
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, root);
+                    });
             }
 
             if let Some(parent) = self.behavior.add_child_to.take() {
