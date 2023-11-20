@@ -234,7 +234,7 @@ impl<Pane> Tree<Pane> {
 
             if dragged {
                 ui.ctx()
-                    .send_viewport_command_to(viewport_id, egui::ViewportCommand::StartDrag);
+                    .send_viewport_cmd_to(viewport_id, egui::ViewportCommand::StartDrag);
             }
 
             let close_requested = ui.ctx().show_viewport_immediate(
@@ -256,7 +256,7 @@ impl<Pane> Tree<Pane> {
 
                     dragged &= !ui.input(|i| i.pointer.any_released());
 
-                    ctx.input(|i| i.raw.viewport.close_requested)
+                    ctx.input(|i| i.viewport().close_requested())
                 },
             );
 
@@ -264,7 +264,6 @@ impl<Pane> Tree<Pane> {
 
             if close_requested {
                 // Drop the whole tree
-                ui.ctx().request_repaint(); // TODO: should be automatic
             } else {
                 self.viewport_tiles.push(ViewportTile {
                     root,
@@ -365,14 +364,11 @@ impl<Pane> Tree<Pane> {
                     behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
                 });
         } else {
-            let screen_pos =
-                if let Some(inner_rect_px) = ui.ctx().input(|i| i.raw.viewport.inner_rect_px) {
-                    let top_left_px = inner_rect_px.min;
-                    let top_left = top_left_px.to_vec2() / ui.ctx().pixels_per_point();
-                    mouse_pos + top_left + egui::vec2(-0.5 * preview_size.x, -16.0)
-                } else {
-                    mouse_pos
-                };
+            let screen_pos = if let Some(inner_rect) = ui.ctx().input(|i| i.viewport().inner_rect) {
+                mouse_pos + inner_rect.min.to_vec2() + egui::vec2(-0.5 * preview_size.x, -16.0)
+            } else {
+                mouse_pos
+            };
 
             // Spawn the new viewport tile right away, to get a nice preview for it:
             ui.memory_mut(|mem| mem.stop_dragging());
