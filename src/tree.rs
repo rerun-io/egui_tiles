@@ -28,14 +28,14 @@ use super::{
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
+    /// The constant, globally unique id of this tree.
+    pub(crate) id: egui::Id,
+
     /// None = empty tree
     pub root: Option<TileId>,
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
-
-    /// The previous id used to draw the tree.
-    pub(crate) id: egui::Id,
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
