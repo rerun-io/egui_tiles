@@ -23,26 +23,19 @@ use super::{
 /// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
 /// let root: TileId = tiles.insert_tab_tile(tabs);
 ///
-/// let tree = Tree::new(root, tiles);
+/// let tree = Tree::new("my_tree", root, tiles);
 /// ```
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
+    /// The constant, globally unique id of this tree.
+    pub(crate) id: egui::Id,
+
     /// None = empty tree
     pub root: Option<TileId>,
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
-}
-
-impl<Pane> Default for Tree<Pane> {
-    // An empty tree
-    fn default() -> Self {
-        Self {
-            root: None,
-            tiles: Default::default(),
-        }
-    }
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -92,48 +85,81 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
 // ----------------------------------------------------------------------------
 
 impl<Pane> Tree<Pane> {
-    pub fn empty() -> Self {
-        Self::default()
+    /// Construct an empty tree.
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn empty(id: impl Into<egui::Id>) -> Self {
+        Self {
+            id: id.into(),
+            root: None,
+            tiles: Default::default(),
+        }
     }
 
     /// The most flexible constructor, allowing you to set up the tiles
     /// however you want.
-    pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new(id: impl Into<egui::Id>, root: TileId, tiles: Tiles<Pane>) -> Self {
         Self {
+            id: id.into(),
             root: Some(root),
             tiles,
         }
     }
 
     /// Create a top-level [`crate::Tabs`] container with the given panes.
-    pub fn new_tabs(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Tabs, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_tabs(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Tabs, panes)
     }
 
     /// Create a top-level horizontal [`crate::Linear`] container with the given panes.
-    pub fn new_horizontal(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Horizontal, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_horizontal(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Horizontal, panes)
     }
 
     /// Create a top-level vertical [`crate::Linear`] container with the given panes.
-    pub fn new_vertical(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Vertical, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_vertical(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Vertical, panes)
     }
 
     /// Create a top-level [`crate::Grid`] container with the given panes.
-    pub fn new_grid(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Grid, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_grid(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Grid, panes)
     }
 
     /// Create a top-level container with the given panes.
-    pub fn new_container(kind: ContainerKind, panes: Vec<Pane>) -> Self {
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_container(id: impl Into<egui::Id>, kind: ContainerKind, panes: Vec<Pane>) -> Self {
         let mut tiles = Tiles::default();
         let tile_ids = panes
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
         let root = tiles.insert_new(Tile::Container(Container::new(kind, tile_ids)));
-        Self::new(root, tiles)
+        Self::new(id, root, tiles)
+    }
+
+    /// The globally unique id used by this `Tree`.
+    #[inline]
+    pub fn id(&self) -> egui::Id {
+        self.id
     }
 
     /// Check if [`Self::root`] is [`None`].
@@ -147,6 +173,7 @@ impl<Pane> Tree<Pane> {
         self.root
     }
 
+    #[inline]
     pub fn is_root(&self, tile: TileId) -> bool {
         self.root == Some(tile)
     }
@@ -234,7 +261,7 @@ impl<Pane> Tree<Pane> {
         match &mut tile {
             Tile::Pane(pane) => {
                 if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
+                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id(self.id)));
                 }
             }
             Tile::Container(container) => {
@@ -411,7 +438,7 @@ impl<Pane> Tree<Pane> {
                 continue; // not allowed to drag root
             }
 
-            let id = tile_id.egui_id();
+            let id = tile_id.egui_id(self.id);
             let is_tile_being_dragged = ctx.memory(|mem| mem.is_being_dragged(id));
             if is_tile_being_dragged {
                 // Abort drags on escape:

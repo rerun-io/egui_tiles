@@ -270,7 +270,7 @@ impl Tabs {
                                 .drag_started()
                             {
                                 behavior.on_edit();
-                                ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
+                                ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id(tree.id)));
                             }
                         }
 
@@ -281,10 +281,10 @@ impl Tabs {
                                 continue;
                             }
 
-                            let is_being_dragged = is_being_dragged(ui.ctx(), child_id);
+                            let is_being_dragged = is_being_dragged(ui.ctx(), tree.id, child_id);
 
                             let selected = self.is_active(child_id);
-                            let id = child_id.egui_id();
+                            let id = child_id.egui_id(tree.id);
 
                             let response = behavior.tab_ui(
                                 &tree.tiles,

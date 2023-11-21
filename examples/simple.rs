@@ -76,5 +76,5 @@ fn create_tree() -> egui_tiles::Tree<Pane> {
 
     let root = tiles.insert_tab_tile(tabs);
 
-    egui_tiles::Tree::new(root, tiles)
+    egui_tiles::Tree::new("my_tree", root, tiles)
 }
