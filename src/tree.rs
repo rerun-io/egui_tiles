@@ -196,8 +196,6 @@ impl<Pane> Tree<Pane> {
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
     pub fn ui(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
-        self.id = ui.id();
-
         self.simplify(&behavior.simplification_options());
 
         self.gc(behavior);
