@@ -23,7 +23,7 @@ use super::{
 /// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
 /// let root: TileId = tiles.insert_tab_tile(tabs);
 ///
-/// let tree = Tree::new(root, tiles);
+/// let tree = Tree::new("my_tree", root, tiles);
 /// ```
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -95,6 +95,8 @@ impl<Pane> Tree<Pane> {
 
     /// The most flexible constructor, allowing you to set up the tiles
     /// however you want.
+    ///
+    /// The `id` must be _globally_ unique (!).
     pub fn new(id: impl Into<egui::Id>, root: TileId, tiles: Tiles<Pane>) -> Self {
         Self {
             root: Some(root),
