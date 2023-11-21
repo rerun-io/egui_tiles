@@ -11,7 +11,7 @@ impl TileId {
     }
 
     /// Corresponding [`egui::Id`], used for dragging.
-    pub fn egui_id(&self, tree_id: &egui::Id) -> egui::Id {
+    pub fn egui_id(&self, tree_id: egui::Id) -> egui::Id {
         tree_id.with(("tile", self))
     }
 }
