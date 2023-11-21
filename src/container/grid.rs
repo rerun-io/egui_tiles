@@ -515,7 +515,7 @@ mod tests {
             let mut tiles = Tiles::default();
             let panes: Vec<TileId> = vec![tiles.insert_pane(Pane {}), tiles.insert_pane(Pane {})];
             let root: TileId = tiles.insert_grid_tile(panes);
-            Tree::new("test-tree", root, tiles)
+            Tree::new("test_tree", root, tiles)
         };
 
         let style = egui::Style::default();

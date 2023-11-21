@@ -203,7 +203,7 @@ impl Default for MyApp {
 
         let root = tiles.insert_tab_tile(tabs);
 
-        let tree = egui_tiles::Tree::new("my_app_tree", root, tiles);
+        let tree = egui_tiles::Tree::new("my_tree", root, tiles);
 
         Self {
             tree,
