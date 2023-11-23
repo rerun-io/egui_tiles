@@ -236,11 +236,11 @@ impl<Pane> Tree<Pane> {
         // otherwise we could loose the tile when there is no rect.
         let Some(rect) = self.tiles.try_rect(tile_id) else {
             log::warn!("Failed to find rect for tile {tile_id:?} during ui");
-            return
+            return;
         };
         let Some(mut tile) = self.tiles.remove(tile_id) else {
             log::warn!("Failed to find tile {tile_id:?} during ui");
-            return
+            return;
         };
 
         let drop_context_was_enabled = drop_context.enabled;
@@ -293,7 +293,10 @@ impl<Pane> Tree<Pane> {
         ui: &mut Ui,
     ) {
         let (Some(mouse_pos), Some(dragged_tile_id)) =
-            (drop_context.mouse_pos, drop_context.dragged_tile_id) else { return; };
+            (drop_context.mouse_pos, drop_context.dragged_tile_id)
+        else {
+            return;
+        };
 
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 

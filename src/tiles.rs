@@ -340,7 +340,9 @@ impl<Pane> Tiles<Pane> {
         visited: &mut ahash::HashSet<TileId>,
         tile_id: TileId,
     ) -> GcAction {
-        let Some(mut tile) = self.tiles.remove(&tile_id) else { return GcAction::Remove; };
+        let Some(mut tile) = self.tiles.remove(&tile_id) else {
+            return GcAction::Remove;
+        };
         if !visited.insert(tile_id) {
             log::warn!("Cycle or duplication detected");
             return GcAction::Remove;
