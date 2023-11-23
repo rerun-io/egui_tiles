@@ -2,7 +2,10 @@
 
 
 ## [Unreleased](https://github.com/rerun-io/egui_tiles/compare/latest...HEAD)
-* Fix Id clash when using multiple Trees (#32)
+
+
+## [0.4.0]](https://github.com/rerun-io/egui_tiles/compare/0.3.1...0.4.0) - 2023-11-23
+* Fix Id clash when using multiple `Tree`s (#32)
 * Scrollable tab bar (#9)
 * `Behavior::on_tab_button` can now add context menus, on hover ui etc. (#23)
 * `serde` is now and optional dependency (#13)
