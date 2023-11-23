@@ -2,6 +2,12 @@
 
 
 ## [Unreleased](https://github.com/rerun-io/egui_tiles/compare/latest...HEAD)
+* Fix Id clash when using multiple Trees (#32)
+* Scrollable tab bar (#9)
+* `Behavior::on_tab_button` can now add context menus, on hover ui etc. (#23)
+* `serde` is now and optional dependency (#13)
+* Update to egui 0.24
+* Update MSRV to Rust 1.72
 
 
 ## [0.3.1]](https://github.com/rerun-io/egui_tiles/compare/0.3.0...0.3.1) - 2023-09-29
