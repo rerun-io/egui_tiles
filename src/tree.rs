@@ -278,7 +278,10 @@ impl<Pane> Tree<Pane> {
     /// This means making the matching tiles and its ancestors the active tab in any tab layout.
     ///
     /// Returns `true` if a tab was made active.
-    pub fn make_active(&mut self, mut should_activate: impl FnMut(&Tile<Pane>) -> bool) -> bool {
+    pub fn make_active(
+        &mut self,
+        mut should_activate: impl FnMut(TileId, &Tile<Pane>) -> bool,
+    ) -> bool {
         if let Some(root) = self.root {
             self.tiles.make_active(root, &mut should_activate)
         } else {

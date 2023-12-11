@@ -515,14 +515,14 @@ impl<Pane> Tiles<Pane> {
     pub(super) fn make_active(
         &mut self,
         it: TileId,
-        should_activate: &mut dyn FnMut(&Tile<Pane>) -> bool,
+        should_activate: &mut dyn FnMut(TileId, &Tile<Pane>) -> bool,
     ) -> bool {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::warn!("Failed to find tile {it:?} during make_active");
             return false;
         };
 
-        let mut activate = should_activate(&tile);
+        let mut activate = should_activate(it, &tile);
 
         if let Tile::Container(container) = &mut tile {
             let mut active_child = None;
