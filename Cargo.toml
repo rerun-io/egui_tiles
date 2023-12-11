@@ -26,7 +26,7 @@ ahash = { version = "0.8.1", default-features = false, features = [
   "std",
 ] }
 egui = { version = "0.24", default-features = false }
-itertools = "0.11"
+itertools = "0.12"
 log = { version = "0.4", features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
