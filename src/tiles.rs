@@ -427,7 +427,7 @@ impl<Pane> Tiles<Pane> {
                     }
                 }
             } else {
-                if options.join_nested_linear_containerss {
+                if options.join_nested_linear_containers {
                     if let Container::Linear(parent) = container {
                         let mut new_children = Vec::with_capacity(parent.children.len());
                         for child_id in parent.children.drain(..) {
