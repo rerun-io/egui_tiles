@@ -170,7 +170,7 @@ pub struct SimplificationOptions {
 
     /// If a horizontal container contain another horizontal container, join them?
     /// Same for vertical containers. Does NOT apply to grid container or tab containers.
-    pub join_nested_linear_containerss: bool,
+    pub join_nested_linear_containers: bool,
 }
 
 impl Default for SimplificationOptions {
@@ -181,7 +181,7 @@ impl Default for SimplificationOptions {
             prune_empty_containers: true,
             prune_single_child_containers: true,
             all_panes_must_have_tabs: false,
-            join_nested_linear_containerss: true,
+            join_nested_linear_containers: true,
         }
     }
 }

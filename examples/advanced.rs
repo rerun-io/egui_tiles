@@ -92,7 +92,7 @@ impl TreeBehavior {
 
                 ui.label("Join nested containers:");
                 ui.checkbox(
-                    &mut simplification_options.join_nested_linear_containerss,
+                    &mut simplification_options.join_nested_linear_containers,
                     "",
                 );
                 ui.end_row();
