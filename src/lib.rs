@@ -182,19 +182,17 @@ impl SimplificationOptions {
     /// # let mut tree: Tree<()> = Tree::empty("tree");
     /// tree.simplify(&SimplificationOptions {
     ///     prune_empty_tabs: true,
-    ///     ..SimplificationOptions::off()
+    ///     ..SimplificationOptions::OFF
     /// });
     ///
-    pub fn off() -> Self {
-        Self {
-            prune_empty_tabs: false,
-            prune_empty_containers: false,
-            prune_single_child_tabs: false,
-            prune_single_child_containers: false,
-            all_panes_must_have_tabs: false,
-            join_nested_linear_containers: false,
-        }
-    }
+    pub const OFF: Self = Self {
+        prune_empty_tabs: false,
+        prune_empty_containers: false,
+        prune_single_child_tabs: false,
+        prune_single_child_containers: false,
+        all_panes_must_have_tabs: false,
+        join_nested_linear_containers: false,
+    };
 }
 
 impl Default for SimplificationOptions {
