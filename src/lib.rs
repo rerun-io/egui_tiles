@@ -173,6 +173,28 @@ pub struct SimplificationOptions {
     pub join_nested_linear_containers: bool,
 }
 
+impl SimplificationOptions {
+    /// [`SimplificationOptions`] with all simplifications turned off.
+    ///
+    /// This makes it easy to run a single simplification type on a tree:
+    /// ```
+    /// # use egui_tiles::*;
+    /// # let mut tree: Tree<()> = Tree::empty("tree");
+    /// tree.simplify(&SimplificationOptions {
+    ///     prune_empty_tabs: true,
+    ///     ..SimplificationOptions::OFF
+    /// });
+    ///
+    pub const OFF: Self = Self {
+        prune_empty_tabs: false,
+        prune_empty_containers: false,
+        prune_single_child_tabs: false,
+        prune_single_child_containers: false,
+        all_panes_must_have_tabs: false,
+        join_nested_linear_containers: false,
+    };
+}
+
 impl Default for SimplificationOptions {
     fn default() -> Self {
         Self {
