@@ -174,7 +174,7 @@ pub struct SimplificationOptions {
 }
 
 impl SimplificationOptions {
-    /// Make a [`SimplificationOptions`] with all simplifications turned off.
+    /// [`SimplificationOptions`] with all simplifications turned off.
     ///
     /// This makes it easy to run a single simplification type on a tree:
     /// ```
