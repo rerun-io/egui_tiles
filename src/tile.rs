@@ -8,6 +8,7 @@ use crate::{Container, ContainerKind};
 pub struct TileId(pub u64);
 
 impl TileId {
+    #[inline]
     pub fn from_u64(n: u64) -> Self {
         Self(n)
     }

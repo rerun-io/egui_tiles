@@ -167,7 +167,7 @@ impl<Pane> Tiles<Pane> {
         }
     }
 
-    fn next_free_id(&mut self) -> TileId {
+    pub fn next_free_id(&mut self) -> TileId {
         let mut id = TileId::from_u64(self.next_tile_id);
 
         // Make sure it doesn't collide with an existing id
