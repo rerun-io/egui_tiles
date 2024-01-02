@@ -350,24 +350,21 @@ impl<Pane> Tree<Pane> {
     /// This is also called at the start of [`Self::ui`].
     pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
-            self.simplify_tile(root, options);
-        }
-    }
-
-    /// Simplify and normalize a tile and all its children using the given options.
-    pub fn simplify_tile(&mut self, tile_id: TileId, options: &SimplificationOptions) {
-        match self.tiles.simplify(options, tile_id, None) {
-            SimplifyAction::Keep => {}
-            SimplifyAction::Remove => {
-                self.root = None;
+            match self.tiles.simplify(options, root, None) {
+                SimplifyAction::Keep => {}
+                SimplifyAction::Remove => {
+                    self.root = None;
+                }
+                SimplifyAction::Replace(new_root) => {
+                    self.root = Some(new_root);
+                }
             }
-            SimplifyAction::Replace(new_root) => {
-                self.root = Some(new_root);
-            }
-        }
 
-        if options.all_panes_must_have_tabs {
-            self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+            if options.all_panes_must_have_tabs {
+                if let Some(tile_id) = self.root {
+                    self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                }
+            }
         }
     }
 
