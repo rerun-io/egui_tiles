@@ -151,6 +151,13 @@ impl<Pane> Tiles<Pane> {
     ///
     /// All removed tiles are returned in unspecified order.
     pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        // Remove the top tile_id from its parent
+        for tile in self.tiles.values_mut() {
+            if let Tile::Container(container) = tile {
+                container.remove_child(id);
+            }
+        }
+
         let mut removed_tiles = vec![];
         self.remove_recursively_impl(id, &mut removed_tiles);
         removed_tiles
