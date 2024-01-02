@@ -167,10 +167,24 @@ impl<Pane> Tiles<Pane> {
         }
     }
 
+    pub fn next_free_id(&mut self) -> TileId {
+        let mut id = TileId::from_u64(self.next_tile_id);
+
+        // Make sure it doesn't collide with an existing id
+        while self.tiles.get(&id).is_some() {
+            self.next_tile_id += 1;
+            id = TileId::from_u64(self.next_tile_id);
+        }
+
+        // Final increment the next_id
+        self.next_tile_id += 1;
+
+        id
+    }
+
     #[must_use]
     pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
-        let id = TileId::from_u64(self.next_tile_id);
-        self.next_tile_id += 1;
+        let id = self.next_free_id();
         self.tiles.insert(id, tile);
         id
     }

@@ -5,10 +5,11 @@ use crate::{Container, ContainerKind};
 /// This id is unique within the tree, but not across trees.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct TileId(u64);
+pub struct TileId(pub u64);
 
 impl TileId {
-    pub(crate) fn from_u64(n: u64) -> Self {
+    #[inline]
+    pub fn from_u64(n: u64) -> Self {
         Self(n)
     }
 
