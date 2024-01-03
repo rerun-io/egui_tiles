@@ -396,7 +396,7 @@ impl<Pane> Tree<Pane> {
         }
     }
 
-    /// Simplify all of the children of the given tile.
+    /// Simplify all of the children of the given container tile recursively.
     pub fn simplify_children_of_tile(&mut self, tile_id: TileId, options: &SimplificationOptions) {
         if let Some(Tile::Container(mut container)) = self.tiles.remove(tile_id) {
             let kind = container.kind();
