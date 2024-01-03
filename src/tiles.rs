@@ -139,6 +139,20 @@ impl<Pane> Tiles<Pane> {
         self.set_visible(tile_id, !self.is_visible(tile_id));
     }
 
+    /// This excludes all tiles that invisible or are inactive tabs, recursively.
+    pub(crate) fn collect_acticve_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
+        if !self.is_visible(tile_id) {
+            return;
+        }
+        tiles.push(tile_id);
+
+        if let Some(Tile::Container(container)) = self.get(tile_id) {
+            for &child_id in container.active_children() {
+                self.collect_acticve_tiles(child_id, tiles);
+            }
+        }
+    }
+
     pub fn insert(&mut self, id: TileId, tile: Tile<Pane>) {
         self.tiles.insert(id, tile);
     }
