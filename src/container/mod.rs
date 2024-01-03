@@ -112,10 +112,27 @@ impl Container {
         }
     }
 
+    /// All the childrens of this container.
     pub fn children(&self) -> impl Iterator<Item = &TileId> {
         match self {
             Self::Tabs(tabs) => itertools::Either::Left(tabs.children.iter()),
             Self::Linear(linear) => itertools::Either::Left(linear.children.iter()),
+            Self::Grid(grid) => itertools::Either::Right(grid.children()),
+        }
+    }
+
+    /// All the active childrens of this container.
+    ///
+    /// For tabs, this is just the active tab.
+    /// For other containers, it is all children.
+    pub fn active_children(&self) -> impl Iterator<Item = &TileId> {
+        match self {
+            Self::Tabs(tabs) => {
+                itertools::Either::Left(itertools::Either::Left(tabs.active.iter()))
+            }
+            Self::Linear(linear) => {
+                itertools::Either::Left(itertools::Either::Right(linear.children.iter()))
+            }
             Self::Grid(grid) => itertools::Either::Right(grid.children()),
         }
     }

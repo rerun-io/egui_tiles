@@ -165,9 +165,6 @@ struct MyApp {
 
     #[cfg_attr(feature = "serde", serde(skip))]
     behavior: TreeBehavior,
-
-    #[cfg_attr(feature = "serde", serde(skip))]
-    last_tree_debug: String,
 }
 
 impl Default for MyApp {
@@ -208,7 +205,6 @@ impl Default for MyApp {
         Self {
             tree,
             behavior: Default::default(),
-            last_tree_debug: Default::default(),
         }
     }
 }
@@ -220,6 +216,26 @@ impl eframe::App for MyApp {
                 *self = Default::default();
             }
             self.behavior.ui(ui);
+
+            ui.separator();
+
+            ui.collapsing("Tree", |ui| {
+                ui.style_mut().wrap = Some(false);
+                let tree_debug = format!("{:#?}", self.tree);
+                ui.monospace(&tree_debug);
+            });
+
+            ui.separator();
+
+            ui.collapsing("Active tiles", |ui| {
+                let active = self.tree.active_tiles();
+                for tile_id in active {
+                    use egui_tiles::Behavior as _;
+                    let name = self.behavior.tab_title_for_tile(&self.tree.tiles, tile_id);
+                    ui.label(format!("{} - {tile_id:?}", name.text()));
+                }
+            });
+
             ui.separator();
 
             if let Some(root) = self.tree.root() {
@@ -234,14 +250,6 @@ impl eframe::App for MyApp {
                     tabs.add_child(new_child);
                     tabs.set_active(new_child);
                 }
-            }
-
-            ui.separator();
-            ui.style_mut().wrap = Some(false);
-            let tree_debug = format!("{:#?}", self.tree);
-            ui.monospace(&tree_debug);
-            if self.last_tree_debug != tree_debug {
-                self.last_tree_debug = tree_debug;
             }
         });
 

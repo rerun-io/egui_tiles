@@ -220,6 +220,21 @@ impl<Pane> Tree<Pane> {
         self.tiles.set_visible(tile_id, visible);
     }
 
+    /// All visible tiles.
+    ///
+    /// This excludes all tiles that invisible or are inactive tabs, recursively.
+    ///
+    /// The order of the returned tiles is arbitrary.
+    pub fn active_tiles(&self) -> Vec<TileId> {
+        let mut tiles = vec![];
+        if let Some(root) = self.root {
+            if self.is_visible(root) {
+                self.tiles.collect_acticve_tiles(root, &mut tiles);
+            }
+        }
+        tiles
+    }
+
     /// Show the tree in the given [`Ui`].
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
