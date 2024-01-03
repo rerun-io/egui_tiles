@@ -143,28 +143,13 @@ impl<Pane> Tiles<Pane> {
         self.tiles.insert(id, tile);
     }
 
+    /// Remove the tile with the given id from the tiles container.
+    ///
+    /// Note that this does not actually remove the tile from the tree and may
+    /// leave dangling references. If you want to permanently remove the tile
+    /// consider calling [`crate::Tree::remove_recursively`].
     pub fn remove(&mut self, id: TileId) -> Option<Tile<Pane>> {
         self.tiles.remove(&id)
-    }
-
-    /// Remove the given tile and all child tiles, recursively.
-    ///
-    /// All removed tiles are returned in unspecified order.
-    pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
-        let mut removed_tiles = vec![];
-        self.remove_recursively_impl(id, &mut removed_tiles);
-        removed_tiles
-    }
-
-    fn remove_recursively_impl(&mut self, id: TileId, removed_tiles: &mut Vec<Tile<Pane>>) {
-        if let Some(tile) = self.remove(id) {
-            if let Tile::Container(container) = &tile {
-                for &child_id in container.children() {
-                    self.remove_recursively_impl(child_id, removed_tiles);
-                }
-            }
-            removed_tiles.push(tile);
-        }
     }
 
     pub fn next_free_id(&mut self) -> TileId {
@@ -401,9 +386,9 @@ impl<Pane> Tiles<Pane> {
     /// and/or merging single-child containers into their parent.
     ///
     /// Drag-dropping tiles can often leave containers empty, or with only a single child.
-    /// This is often undersired, so this function can be used to clean up the tree.
+    /// This is often undesired, so this function can be used to clean up the tree.
     ///
-    /// What simplifcations are allowed is controlled by the [`SimplificationOptions`].
+    /// What simplifications are allowed is controlled by the [`SimplificationOptions`].
     pub(super) fn simplify(
         &mut self,
         options: &SimplificationOptions,

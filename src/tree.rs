@@ -156,6 +156,34 @@ impl<Pane> Tree<Pane> {
         Self::new(id, root, tiles)
     }
 
+    /// Remove the given tile and all child tiles, recursively.
+    ///
+    /// This also removes the tile id from the parent's list of children.
+    ///
+    /// All removed tiles are returned in unspecified order.
+    pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        // Remove the top-most tile_id from its parent
+        self.remove_tile_id_from_parent(id);
+
+        let mut removed_tiles = vec![];
+        self.remove_recursively_impl(id, &mut removed_tiles);
+        removed_tiles
+    }
+
+    fn remove_recursively_impl(&mut self, id: TileId, removed_tiles: &mut Vec<Tile<Pane>>) {
+        // We can safely use the raw `tiles.remove` API here because either the parent was cleaned
+        // up explicitly from `remove_recursively` or the parent is also being removed so there's
+        // no reason to clean it up.
+        if let Some(tile) = self.tiles.remove(id) {
+            if let Tile::Container(container) = &tile {
+                for &child_id in container.children() {
+                    self.remove_recursively_impl(child_id, removed_tiles);
+                }
+            }
+            removed_tiles.push(tile);
+        }
+    }
+
     /// The globally unique id used by this `Tree`.
     #[inline]
     pub fn id(&self) -> egui::Id {
@@ -350,24 +378,30 @@ impl<Pane> Tree<Pane> {
     /// This is also called at the start of [`Self::ui`].
     pub fn simplify(&mut self, options: &SimplificationOptions) {
         if let Some(root) = self.root {
-            self.simplify_tile(root, options);
+            match self.tiles.simplify(options, root, None) {
+                SimplifyAction::Keep => {}
+                SimplifyAction::Remove => {
+                    self.root = None;
+                }
+                SimplifyAction::Replace(new_root) => {
+                    self.root = Some(new_root);
+                }
+            }
+
+            if options.all_panes_must_have_tabs {
+                if let Some(tile_id) = self.root {
+                    self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                }
+            }
         }
     }
 
-    /// Simplify and normalize a tile and all its children using the given options.
-    pub fn simplify_tile(&mut self, tile_id: TileId, options: &SimplificationOptions) {
-        match self.tiles.simplify(options, tile_id, None) {
-            SimplifyAction::Keep => {}
-            SimplifyAction::Remove => {
-                self.root = None;
-            }
-            SimplifyAction::Replace(new_root) => {
-                self.root = Some(new_root);
-            }
-        }
-
-        if options.all_panes_must_have_tabs {
-            self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+    /// Simplify all of the children of the given container tile recursively.
+    pub fn simplify_children_of_tile(&mut self, tile_id: TileId, options: &SimplificationOptions) {
+        if let Some(Tile::Container(mut container)) = self.tiles.remove(tile_id) {
+            let kind = container.kind();
+            container.simplify_children(|child| self.tiles.simplify(options, child, Some(kind)));
+            self.tiles.insert(tile_id, Tile::Container(container));
         }
     }
 
