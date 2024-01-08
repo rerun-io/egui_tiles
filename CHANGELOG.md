@@ -4,6 +4,10 @@
 ## [Unreleased](https://github.com/rerun-io/egui_tiles/compare/latest...HEAD)
 
 
+## [0.6.0](https://github.com/rerun-io/egui_tiles/compare/0.5.0...0.6.0) - 2024-01-08
+* Update to egui 0.25 (#43)
+
+
 ## [0.5.0](https://github.com/rerun-io/egui_tiles/compare/0.4.0...0.5.0) - 2024-01-04
 * Pass `TileId` to `make_active` closure (#35)
 * Add `SimplificationOptions::OFF` (#38)
