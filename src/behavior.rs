@@ -76,11 +76,11 @@ pub trait Behavior<Pane> {
             }
 
             let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, active);
-            ui.painter().galley_with_color(
+            ui.painter().galley(
                 egui::Align2::CENTER_CENTER
                     .align_size_within_rect(galley.size(), rect)
                     .min,
-                galley.galley,
+                galley,
                 text_color,
             );
         }
@@ -227,6 +227,9 @@ pub trait Behavior<Pane> {
     }
 
     /// The color of the title text of the tab.
+    ///
+    /// This is the fallback color used if [`Self::tab_title_for_tile`]
+    /// has no color.
     fn tab_text_color(
         &self,
         visuals: &Visuals,
