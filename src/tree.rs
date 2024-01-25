@@ -382,7 +382,7 @@ impl<Pane> Tree<Pane> {
             ui.memory_mut(|mem| mem.stop_dragging());
             if let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit();
-                self.move_tile(dragged_tile_id, insertion_point);
+                self.move_tile(dragged_tile_id, insertion_point, false);
             }
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
         }
@@ -430,11 +430,22 @@ impl<Pane> Tree<Pane> {
     /// Move a tile to a new container, at the specified insertion index.
     ///
     /// If the insertion index is greater than the current number of children, the tile is appended at the end.
+    ///
+    /// The grid layout needs a special treatment because it can have holes. When dragging a tile away from a grid, it
+    /// leaves behind it a hole. As a result, if the tile is dropped in the same grid, it there is no need to account
+    /// for an insertion index shift. However, if the tiles are reorder in a separate, linear representation of the grid
+    /// (such as the Rerun blueprint tree), the expectation is that the grid is reordered and thus the insertion index
+    /// must be shifted in case the tile is moved inside the same grid.
+    ///
+    /// TL;DR:
+    /// - when drag-and-dropping from a 2D representation of the grid, set `reflow_grid = false`
+    /// - when drag-and-dropping from a 1D representation of the grid, set `reflow_grid = true`
     pub fn move_tile_to_container(
         &mut self,
         moved_tile_id: TileId,
         destination_container: TileId,
         mut insertion_index: usize,
+        reflow_grid: bool,
     ) {
         // find target container
         if let Some(Tile::Container(target_container)) = self.tiles.get(destination_container) {
@@ -456,6 +467,7 @@ impl<Pane> Tree<Pane> {
                     parent_id: destination_container,
                     insertion: container_insertion,
                 },
+                reflow_grid,
             );
         } else {
             log::warn!("Failed to find destination container {destination_container:?} during `move_tile_to_container()`");
@@ -463,7 +475,14 @@ impl<Pane> Tree<Pane> {
     }
 
     /// Move the given tile to the given insertion point.
-    pub(super) fn move_tile(&mut self, moved_tile_id: TileId, insertion_point: InsertionPoint) {
+    ///
+    /// See [`Self::move_tile_to_container()`] for details on `reflow_grid`.
+    pub(super) fn move_tile(
+        &mut self,
+        moved_tile_id: TileId,
+        insertion_point: InsertionPoint,
+        reflow_grid: bool,
+    ) {
         log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
@@ -502,8 +521,12 @@ impl<Pane> Tree<Pane> {
                                 linear.children.insert(insertion_index, moved_tile_id);
                             }
                             Container::Grid(grid) => {
-                                // the grid allow holes in its children list, so don't use `adjusted_index`
-                                let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                let index = if reflow_grid {
+                                    adjusted_index
+                                } else {
+                                    dest_index
+                                };
+                                let dest_tile = grid.replace_at(index, moved_tile_id);
                                 if let Some(dest) = dest_tile {
                                     grid.insert_at(source_index, dest);
                                 }
