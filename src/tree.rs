@@ -432,10 +432,11 @@ impl<Pane> Tree<Pane> {
     /// If the insertion index is greater than the current number of children, the tile is appended at the end.
     ///
     /// The grid layout needs a special treatment because it can have holes. When dragging a tile away from a grid, it
-    /// leaves behind it a hole. As a result, if the tile is dropped in the same grid, it there is no need to account
-    /// for an insertion index shift. However, if the tiles are reorder in a separate, linear representation of the grid
-    /// (such as the Rerun blueprint tree), the expectation is that the grid is reordered and thus the insertion index
-    /// must be shifted in case the tile is moved inside the same grid.
+    /// leaves behind it a hole. As a result, if the tile is the dropped in the same grid, it there is no need to account
+    /// for an insertion index shift (the hole can still occupy the original place of the dragged tile). However, if the
+    /// tiles are reordered in a separate, linear representation of the grid (such as the Rerun blueprint tree), the
+    /// expectation is that the grid is properly reordered and thus the insertion index must be shifted in case the tile
+    /// is moved inside the same grid. The `reflow_grid` parameter controls this behavior.
     ///
     /// TL;DR:
     /// - when drag-and-dropping from a 2D representation of the grid, set `reflow_grid = false`
