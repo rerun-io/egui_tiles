@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Ui};
 
-use crate::{ContainerKind, UiResponse};
+use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
 use super::{
     is_possible_drag, Behavior, Container, DropContext, InsertionPoint, SimplificationOptions,
@@ -425,6 +425,41 @@ impl<Pane> Tree<Pane> {
     /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
     pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
         self.tiles.gc_root(behavior, self.root);
+    }
+
+    /// Move a tile to a new container, at the specified insertion index.
+    ///
+    /// If the insertion index is greater than the current number of children, the tile is appended at the end.
+    pub fn move_tile_to_container(
+        &mut self,
+        moved_tile_id: TileId,
+        destination_container: TileId,
+        mut insertion_index: usize,
+    ) {
+        // find target container
+        if let Some(Tile::Container(target_container)) = self.tiles.get(destination_container) {
+            let num_children = target_container.num_children();
+            if insertion_index > num_children {
+                insertion_index = num_children;
+            }
+
+            let container_insertion = match target_container.kind() {
+                ContainerKind::Tabs => ContainerInsertion::Tabs(insertion_index),
+                ContainerKind::Horizontal => ContainerInsertion::Horizontal(insertion_index),
+                ContainerKind::Vertical => ContainerInsertion::Vertical(insertion_index),
+                ContainerKind::Grid => ContainerInsertion::Grid(insertion_index),
+            };
+
+            self.move_tile(
+                moved_tile_id,
+                InsertionPoint {
+                    parent_id: destination_container,
+                    insertion: container_insertion,
+                },
+            );
+        } else {
+            log::warn!("Failed to find destination container {destination_container:?} during `move_tile_to_container()`");
+        }
     }
 
     /// Move the given tile to the given insertion point.
