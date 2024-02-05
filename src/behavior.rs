@@ -5,6 +5,21 @@ use egui::{
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
 
+/// The kind of edit that triggered the call to [`Behavior::on_edit`].
+pub enum EditAction {
+    /// A tile was resized by dragging or double-clicking a boundary.
+    TileResized,
+
+    /// A drag with a tile started.
+    TileDragged,
+
+    /// A tile was dropped and its position changed accordingly.
+    TileDropped,
+
+    /// A tab was selected by a click or by hovering a dragged tile over it.
+    TabSelected,
+}
+
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
 pub trait Behavior<Pane> {
     /// Show a pane tile in the given [`egui::Ui`].
@@ -298,7 +313,7 @@ pub trait Behavior<Pane> {
 
     /// Called if the user edits the tree somehow, e.g. changes the size of some container,
     /// clicks a tab, or drags a tile.
-    fn on_edit(&mut self) {}
+    fn on_edit(&mut self, _edit_kind: EditAction) {}
 }
 
 /// How many columns should we use to fit `n` children in a grid?
