@@ -1,5 +1,6 @@
 use egui::{NumExt as _, Rect, Ui};
 
+use crate::behavior::EditAction;
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
 use super::{
@@ -381,7 +382,7 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             ui.memory_mut(|mem| mem.stop_dragging());
             if let Some(insertion_point) = drop_context.best_insertion {
-                behavior.on_edit();
+                behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);

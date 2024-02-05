@@ -1,5 +1,6 @@
 use egui::{scroll_area::ScrollBarVisibility, vec2, NumExt, Rect, Vec2};
 
+use crate::behavior::EditAction;
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
     TileId, Tiles, Tree,
@@ -269,7 +270,7 @@ impl Tabs {
                                 .on_hover_cursor(egui::CursorIcon::Grab)
                                 .drag_started()
                             {
-                                behavior.on_edit();
+                                behavior.on_edit(EditAction::TileDragged);
                                 ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id(tree.id)));
                             }
                         }
@@ -296,7 +297,7 @@ impl Tabs {
                             );
                             let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                             if response.clicked() {
-                                behavior.on_edit();
+                                behavior.on_edit(EditAction::TabSelected);
                                 next_active = Some(child_id);
                             }
 
@@ -305,7 +306,7 @@ impl Tabs {
                                     && response.rect.contains(mouse_pos)
                                 {
                                     // Expand this tab - maybe the user wants to drop something into it!
-                                    behavior.on_edit();
+                                    behavior.on_edit(EditAction::TabSelected);
                                     next_active = Some(child_id);
                                 }
                             }

@@ -1,6 +1,7 @@
 use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
 use itertools::Itertools as _;
 
+use crate::behavior::EditAction;
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
     Tiles, Tree,
@@ -387,7 +388,7 @@ fn resize_interaction<Pane>(
     let right = i + 1;
 
     if splitter_response.double_clicked() {
-        behavior.on_edit();
+        behavior.on_edit(EditAction::TileResized);
 
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
@@ -395,7 +396,7 @@ fn resize_interaction<Pane>(
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
-        behavior.on_edit();
+        behavior.on_edit(EditAction::TileResized);
 
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:
