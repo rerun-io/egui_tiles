@@ -278,7 +278,7 @@ fn tree_ui(
 
     // Temporarily remove the tile to circumvent the borrowchecker
     let Some(mut tile) = tiles.remove(tile_id) else {
-        log::warn!("Missing tile {tile_id:?}");
+        log::debug!("Missing tile {tile_id:?}");
         return;
     };
 

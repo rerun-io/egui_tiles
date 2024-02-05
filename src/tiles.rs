@@ -246,7 +246,7 @@ impl<Pane> Tiles<Pane> {
         } = insertion_point;
 
         let Some(mut parent_tile) = self.tiles.remove(&parent_id) else {
-            log::warn!("Failed to insert: could not find parent {parent_id:?}");
+            log::debug!("Failed to insert: could not find parent {parent_id:?}");
             return;
         };
 
@@ -333,7 +333,7 @@ impl<Pane> Tiles<Pane> {
             // This should only happen if the user set up the tree in a bad state,
             // or if it was restored from a bad state via serde.
             // …or if there is a bug somewhere 😜
-            log::warn!(
+            log::debug!(
                 "GC collecting tiles: {:?}",
                 self.tiles
                     .keys()
@@ -384,7 +384,7 @@ impl<Pane> Tiles<Pane> {
         tile_id: TileId,
     ) {
         let Some(mut tile) = self.tiles.remove(&tile_id) else {
-            log::warn!("Failed to find tile {tile_id:?} during layout");
+            log::debug!("Failed to find tile {tile_id:?} during layout");
             return;
         };
         self.rects.insert(tile_id, rect);
@@ -410,7 +410,7 @@ impl<Pane> Tiles<Pane> {
         parent_kind: Option<ContainerKind>,
     ) -> SimplifyAction {
         let Some(mut tile) = self.tiles.remove(&it) else {
-            log::warn!("Failed to find tile {it:?} during simplify");
+            log::debug!("Failed to find tile {it:?} during simplify");
             return SimplifyAction::Remove;
         };
 
@@ -498,7 +498,7 @@ impl<Pane> Tiles<Pane> {
 
     pub(super) fn make_all_panes_children_of_tabs(&mut self, parent_is_tabs: bool, it: TileId) {
         let Some(mut tile) = self.tiles.remove(&it) else {
-            log::warn!("Failed to find tile {it:?} during make_all_panes_children_of_tabs");
+            log::debug!("Failed to find tile {it:?} during make_all_panes_children_of_tabs");
             return;
         };
 
@@ -531,7 +531,7 @@ impl<Pane> Tiles<Pane> {
         should_activate: &mut dyn FnMut(TileId, &Tile<Pane>) -> bool,
     ) -> bool {
         let Some(mut tile) = self.tiles.remove(&it) else {
-            log::warn!("Failed to find tile {it:?} during make_active");
+            log::debug!("Failed to find tile {it:?} during make_active");
             return false;
         };
 
