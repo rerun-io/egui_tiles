@@ -313,7 +313,7 @@ pub trait Behavior<Pane> {
 
     /// Called if the user edits the tree somehow, e.g. changes the size of some container,
     /// clicks a tab, or drags a tile.
-    fn on_edit(&mut self, _edit_kind: EditAction) {}
+    fn on_edit(&mut self, _edit_action: EditAction) {}
 }
 
 /// How many columns should we use to fit `n` children in a grid?
