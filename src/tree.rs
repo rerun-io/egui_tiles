@@ -278,11 +278,11 @@ impl<Pane> Tree<Pane> {
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
         let Some(rect) = self.tiles.try_rect(tile_id) else {
-            log::warn!("Failed to find rect for tile {tile_id:?} during ui");
+            log::debug!("Failed to find rect for tile {tile_id:?} during ui");
             return;
         };
         let Some(mut tile) = self.tiles.remove(tile_id) else {
-            log::warn!("Failed to find tile {tile_id:?} during ui");
+            log::debug!("Failed to find tile {tile_id:?} during ui");
             return;
         };
 
