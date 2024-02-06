@@ -1,6 +1,6 @@
 # Release Checklist
 
-* [ ] Update `CHANGELOG.md`
+* [ ] Update `CHANGELOG.md` using `./generate_changelog.py --commit-range 0.x..HEAD`
 * [ ] Bump version numbers
 * [ ] `git commit -m 'Release 0.x.0 - summary'`
 * [ ] `cargo publish`

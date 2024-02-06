@@ -1,6 +1,11 @@
 # `egui_tiles` Changelog
 
 
+## [0.7.1](https://github.com/rerun-io/egui_tiles/compare/0.7.0...0.7.1) - 2024-02-06
+* Make sure there is always an active tab [#50](https://github.com/rerun-io/egui_tiles/pull/50)
+* Derive `Clone, Debug, PartialEq, Eq` for `EditAction` [#51](https://github.com/rerun-io/egui_tiles/pull/51)
+
+
 ## [0.7.0](https://github.com/rerun-io/egui_tiles/compare/0.6.0...0.7.0) - 2024-02-06
 * Add an API to move an existing tile to an give container and position index [#44](https://github.com/rerun-io/egui_tiles/pull/44)
 * Properly handle grid layout with `Tree::move_tile_to_container()` [#45](https://github.com/rerun-io/egui_tiles/pull/45)
