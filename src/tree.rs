@@ -582,14 +582,30 @@ impl<Pane> Tree<Pane> {
         &mut self,
         remove_me: TileId,
     ) -> Option<(TileId, usize)> {
+        let mut result = None;
+
         for (parent_id, parent) in self.tiles.iter_mut() {
             if let Tile::Container(container) = parent {
                 if let Some(child_index) = container.remove_child(remove_me) {
-                    return Some((*parent_id, child_index));
+                    result = Some((*parent_id, child_index));
                 }
             }
         }
-        None
+
+        // Make sure that if we drag away the active some tabs,
+        // that the tab container gets assigned another active tab.
+        // If the tab is dragged to the same container, then it will become active again,
+        // since all tabs become active when dragged, wherever they end up.
+        if let Some((parent_id, _)) = result {
+            if let Some(mut tile) = self.tiles.remove(parent_id) {
+                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                    tabs.ensure_active(&self.tiles);
+                }
+                self.tiles.insert(parent_id, tile);
+            }
+        }
+
+        result
     }
 }
 

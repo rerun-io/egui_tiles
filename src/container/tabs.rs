@@ -155,6 +155,23 @@ impl Tabs {
         behavior: &mut dyn Behavior<Pane>,
         rect: Rect,
     ) {
+        let prev_active = self.active;
+        self.ensure_active(tiles);
+        if prev_active != self.active {
+            behavior.on_edit(EditAction::TabSelected);
+        }
+
+        let mut active_rect = rect;
+        active_rect.min.y += behavior.tab_bar_height(style);
+
+        if let Some(active) = self.active {
+            // Only lay out the active tab (saves CPU):
+            tiles.layout_tile(style, behavior, active_rect, active);
+        }
+    }
+
+    /// Make sure we have an active tab (or no visible tabs).
+    pub fn ensure_active<Pane>(&mut self, tiles: &Tiles<Pane>) {
         if let Some(active) = self.active {
             if !tiles.is_visible(active) {
                 self.active = None;
@@ -168,14 +185,6 @@ impl Tabs {
                 .iter()
                 .copied()
                 .find(|&child_id| tiles.is_visible(child_id));
-        }
-
-        let mut active_rect = rect;
-        active_rect.min.y += behavior.tab_bar_height(style);
-
-        if let Some(active) = self.active {
-            // Only lay out the active tab (saves CPU):
-            tiles.layout_tile(style, behavior, active_rect, active);
         }
     }
 

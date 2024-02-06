@@ -17,7 +17,8 @@ pub enum EditAction {
     /// A tile was dropped and its position changed accordingly.
     TileDropped,
 
-    /// A tab was selected by a click or by hovering a dragged tile over it.
+    /// A tab was selected by a click, or by hovering a dragged tile over it,
+    /// or there was no active tab and egui picked an arbitrary one.
     TabSelected,
 }
 
