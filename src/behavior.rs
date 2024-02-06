@@ -6,6 +6,7 @@ use egui::{
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
 
 /// The kind of edit that triggered the call to [`Behavior::on_edit`].
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EditAction {
     /// A tile was resized by dragging or double-clicking a boundary.
     TileResized,
