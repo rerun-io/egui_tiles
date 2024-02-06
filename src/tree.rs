@@ -594,6 +594,8 @@ impl<Pane> Tree<Pane> {
 
         // Make sure that if we drag away the active some tabs,
         // that the tab container gets assigned another active tab.
+        // If the tab is dragged to the same container, then it will become active again,
+        // since all tabs become active when dragged, wherever they end up.
         if let Some((parent_id, _)) = result {
             if let Some(mut tile) = self.tiles.remove(parent_id) {
                 if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
