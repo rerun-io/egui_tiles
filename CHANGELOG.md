@@ -1,6 +1,10 @@
 # `egui_tiles` Changelog
 
 
+## [0.7.2](https://github.com/rerun-io/egui_tiles/compare/0.7.1...0.7.2) - 2024-02-07
+* Fix `move_tile_to_container` behavior for grid-to-same-grid moves with reflow enabled [#53](https://github.com/rerun-io/egui_tiles/pull/53)
+
+
 ## [0.7.1](https://github.com/rerun-io/egui_tiles/compare/0.7.0...0.7.1) - 2024-02-06
 * Make sure there is always an active tab [#50](https://github.com/rerun-io/egui_tiles/pull/50)
 * Derive `Clone, Debug, PartialEq, Eq` for `EditAction` [#51](https://github.com/rerun-io/egui_tiles/pull/51)
