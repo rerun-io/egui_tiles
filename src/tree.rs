@@ -523,15 +523,14 @@ impl<Pane> Tree<Pane> {
                                 linear.children.insert(insertion_index, moved_tile_id);
                             }
                             Container::Grid(grid) => {
-                                let index = if reflow_grid {
-                                    adjusted_index
+                                if reflow_grid {
+                                    self.tiles.insert_at(insertion_point, moved_tile_id);
                                 } else {
-                                    dest_index
+                                    let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                    if let Some(dest) = dest_tile {
+                                        grid.insert_at(source_index, dest);
+                                    }
                                 };
-                                let dest_tile = grid.replace_at(index, moved_tile_id);
-                                if let Some(dest) = dest_tile {
-                                    grid.insert_at(source_index, dest);
-                                }
                             }
                         }
                         return; // done
