@@ -12,12 +12,12 @@ export RUSTFLAGS="--deny warnings"
 export RUSTDOCFLAGS="--deny warnings --deny rustdoc::missing_crate_level_docs"
 
 cargo fmt --all -- --check
-cargo cranky --all-targets --all-features -- --deny warnings
-cargo test --all-targets --all-features
-cargo test --doc --all-features # checks all doc-tests
+cargo cranky --quiet --all-targets --all-features -- --deny warnings
+cargo test --quiet --all-targets --all-features
+cargo test --quiet --doc --all-features # checks all doc-tests
 
-cargo doc --no-deps --all-features
-cargo doc --document-private-items --no-deps --all-features
+cargo doc --quiet --no-deps --all-features
+cargo doc --quiet --document-private-items --no-deps --all-features
 
 cargo deny --all-features --log-level error check
 
