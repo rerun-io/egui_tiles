@@ -280,7 +280,7 @@ impl Tabs {
                                 .drag_started()
                             {
                                 behavior.on_edit(EditAction::TileDragged);
-                                ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id(tree.id)));
+                                ui.ctx().set_dragged_id(tile_id.egui_id(tree.id));
                             }
                         }
 
@@ -334,7 +334,7 @@ impl Tabs {
             );
 
             ui.ctx()
-                .memory_mut(|m| m.data.insert_temp(scroll_state_id, scroll_state));
+                .data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
         });
 
         // -----------
