@@ -285,12 +285,9 @@ enum SimplifyAction {
     Replace(TileId),
 }
 
-fn is_possible_drag(ctx: &egui::Context) -> bool {
-    ctx.input(|input| input.pointer.is_decidedly_dragging())
-}
-
-fn is_being_dragged(ctx: &egui::Context, tree_id: egui::Id, tile_id: TileId) -> bool {
-    ctx.memory(|mem| mem.is_being_dragged(tile_id.egui_id(tree_id))) && is_possible_drag(ctx)
+pub(crate) fn is_being_dragged(ctx: &egui::Context, tree_id: egui::Id, tile_id: TileId) -> bool {
+    let dragged_id = ctx.dragged_id().or(ctx.drag_stopped_id());
+    dragged_id == Some(tile_id.egui_id(tree_id))
 }
 
 /// If this tile is currently being dragged, cover it with a semi-transparent overlay ([`Behavior::dragged_overlay_color`]).
