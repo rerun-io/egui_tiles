@@ -48,8 +48,8 @@ serde = ["dep:serde", "egui/serde"]
 [patch.crates-io]
 # Useful while developing:
 
-eframe = { git = "https://github.com/emilk/egui.git", branch = "emilk/hit-test" }
-egui = { git = "https://github.com/emilk/egui.git", branch = "emilk/hit-test" }
+eframe = { git = "https://github.com/emilk/egui.git", rev = "e8af6f38fcebcc889963e86c4a3ccebe97db1908" } # egui master 2024-02-27
+egui = { git = "https://github.com/emilk/egui.git", rev = "e8af6f38fcebcc889963e86c4a3ccebe97db1908" }   # egui master 2024-02-27
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }

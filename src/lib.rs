@@ -286,7 +286,7 @@ enum SimplifyAction {
 }
 
 pub(crate) fn is_being_dragged(ctx: &egui::Context, tree_id: egui::Id, tile_id: TileId) -> bool {
-    let dragged_id = ctx.dragged_id().or(ctx.drag_ended_id());
+    let dragged_id = ctx.dragged_id().or(ctx.drag_stopped_id());
     dragged_id == Some(tile_id.egui_id(tree_id))
 }
 
