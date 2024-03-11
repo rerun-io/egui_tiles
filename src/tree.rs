@@ -295,6 +295,7 @@ impl<Pane> Tree<Pane> {
         drop_context.on_tile(behavior, ui.style(), tile_id, rect, &tile);
 
         // Each tile gets its own `Ui`, nested inside each other, with proper clip rectangles.
+        let enabled = ui.is_enabled();
         let mut ui = egui::Ui::new(
             ui.ctx().clone(),
             ui.layer_id(),
@@ -302,6 +303,7 @@ impl<Pane> Tree<Pane> {
             rect,
             rect,
         );
+        ui.set_enabled(enabled);
         match &mut tile {
             Tile::Pane(pane) => {
                 if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
