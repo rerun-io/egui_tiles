@@ -449,8 +449,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "ecolor"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c416b34b29e8f6b2492b5c80319cf9792d339550f0d75a54b53ed070045bbdeb"
 dependencies = [
  "bytemuck",
  "serde",
@@ -458,8 +459,9 @@ dependencies = [
 
 [[package]]
 name = "eframe"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86811b20df847cfa73637020ee78de780407110f49785df2dea6741146ea5aac"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -493,8 +495,9 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8e20541e5d3da08cf817eb5c8a2bc4024f21aad7acf98de201442d6d76e0ecc"
 dependencies = [
  "accesskit",
  "ahash",
@@ -507,8 +510,9 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff4fc01bc3617dba9280475e9ab2382015e298f401d2318c2a1d78c419b6dffe"
 dependencies = [
  "arboard",
  "egui",
@@ -523,8 +527,9 @@ dependencies = [
 
 [[package]]
 name = "egui_glow"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "743380a1c0f1dbb7bfe29663ce62b10785adda51105c9bb4e544e2f9955b4958"
 dependencies = [
  "bytemuck",
  "egui",
@@ -556,8 +561,9 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
 name = "emath"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e87799f56edee11422267e1764dd0bf3fe1734888e8d2d0924a67b85f4998fbe"
 dependencies = [
  "bytemuck",
  "serde",
@@ -589,8 +595,9 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.26.2"
-source = "git+https://github.com/emilk/egui.git?rev=e8af6f38fcebcc889963e86c4a3ccebe97db1908#e8af6f38fcebcc889963e86c4a3ccebe97db1908"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "392eccd6d6b13fadccc268f4f61d9363775ec5711ffdece2a79006d676920bcf"
 dependencies = [
  "ab_glyph",
  "ahash",
