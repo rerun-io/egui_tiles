@@ -1,6 +1,12 @@
 # `egui_tiles` Changelog
 
 
+## [0.8.0](https://github.com/rerun-io/egui_tiles/compare/0.7.2...0.8.0) - 2024-03-26
+* Re-export `Shares` [#56](https://github.com/rerun-io/egui_tiles/pull/56) (thanks [@Gohla](https://github.com/Gohla)!)
+* Propagate `enabled` status for tile `Ui` [#55](https://github.com/rerun-io/egui_tiles/pull/55) (thanks [@Gohla](https://github.com/Gohla)!)
+* Update to egui 0.27.0 [#58](https://github.com/rerun-io/egui_tiles/pull/58)
+
+
 ## [0.7.2](https://github.com/rerun-io/egui_tiles/compare/0.7.1...0.7.2) - 2024-02-07
 * Fix `move_tile_to_container` behavior for grid-to-same-grid moves with reflow enabled [#53](https://github.com/rerun-io/egui_tiles/pull/53)
 
