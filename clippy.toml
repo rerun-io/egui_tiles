@@ -13,7 +13,7 @@ allow-unwrap-in-tests = true
 # We want suggestions, even if it changes public API.
 avoid-breaking-exported-api = false
 
-excessive-nesting-threshold = 8
+excessive-nesting-threshold = 10 # TODO(emilk): Lower this
 
 max-fn-params-bools = 1
 

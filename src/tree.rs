@@ -371,7 +371,9 @@ impl<Pane> Tree<Pane> {
                 // TODO(emilk): add support for previewing containers too.
                 if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
                     if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
-                        let _ = behavior.pane_ui(
+                        // Intentionally ignore the response, since the user cannot possibly
+                        // begin a drag on the preview pane.
+                        let _: UiResponse = behavior.pane_ui(
                             &mut ui.child_ui(preview_rect, *ui.layout()),
                             dragged_tile_id,
                             pane,

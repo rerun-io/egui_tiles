@@ -122,7 +122,10 @@ impl Linear {
     ///
     /// The `fraction` is the fraction of the total width that the first child should get.
     pub fn new_binary(dir: LinearDir, children: [TileId; 2], fraction: f32) -> Self {
-        debug_assert!((0.0..=1.0).contains(&fraction));
+        debug_assert!(
+            (0.0..=1.0).contains(&fraction),
+            "Fraction should be in 0.0..=1.0"
+        );
         let mut slf = Self {
             children: children.into(),
             dir,
