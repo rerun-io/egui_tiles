@@ -1,5 +1,10 @@
+# Mac stuff:
 .DS_Store
-/.vscode
-/target
-/target_ra
-/target_wasm
+
+# Rust compile target directories:
+target
+target_ra
+target_wasm
+
+# https://github.com/lycheeverse/lychee
+.lycheecache

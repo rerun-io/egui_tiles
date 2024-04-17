@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copied from https://github.com/rerun-io/rerun_template
 
 """
 Summarizes recent PRs based on their GitHub labels.
@@ -7,26 +8,31 @@ The result can be copy-pasted into CHANGELOG.md,
 though it often needs some manual editing too.
 """
 
+from __future__ import annotations
+
 import argparse
 import multiprocessing
 import os
 import re
 import sys
-from datetime import date
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import requests
 from git import Repo  # pip install GitPython
 from tqdm import tqdm
 
 OWNER = "rerun-io"
-REPO = "egui_tiles"
+REPO = "new_repo_name"
 INCLUDE_LABELS = False  # It adds quite a bit of visual noise
-OFFICIAL_DEVS = [
+OFFICIAL_RERUN_DEVS = [
     "abey79",
     "emilk",
+    "jleibs",
+    "jprochazk",
+    "nikolausWest",
     "teh-cmc",
+    "Wumpf",
 ]
 
 
@@ -34,7 +40,7 @@ OFFICIAL_DEVS = [
 class PrInfo:
     gh_user_name: str
     pr_title: str
-    labels: List[str]
+    labels: list[str]
 
 
 @dataclass
@@ -45,8 +51,6 @@ class CommitInfo:
 
 
 def get_github_token() -> str:
-    import os
-
     token = os.environ.get("GH_ACCESS_TOKEN", "")
     if token != "":
         return token
@@ -55,15 +59,13 @@ def get_github_token() -> str:
     token_file = os.path.join(home_dir, ".githubtoken")
 
     try:
-        with open(token_file, "r") as f:
+        with open(token_file, encoding="utf8") as f:
             token = f.read().strip()
         return token
     except Exception:
         pass
 
-    print(
-        "ERROR: expected a GitHub token in the environment variable GH_ACCESS_TOKEN or in ~/.githubtoken"
-    )
+    print("ERROR: expected a GitHub token in the environment variable GH_ACCESS_TOKEN or in ~/.githubtoken")
     sys.exit(1)
 
 
@@ -103,13 +105,13 @@ def get_commit_info(commit: Any) -> CommitInfo:
         return CommitInfo(hexsha=commit.hexsha, title=commit.summary, pr_number=None)
 
 
-def remove_prefix(text, prefix):
+def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
         return text[len(prefix) :]
     return text  # or whatever
 
 
-def print_section(crate: str, items: List[str]) -> None:
+def print_section(crate: str, items: list[str]) -> None:
     if 0 < len(items):
         print(f"#### {crate}")
         for line in items:
@@ -119,7 +121,7 @@ def print_section(crate: str, items: List[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a changelog.")
-    parser.add_argument("--commit-range", help="e.g. 0.24.0..HEAD", required=True)
+    parser.add_argument("--commit-range", help="e.g. 0.1.0..HEAD", required=True)
     args = parser.parse_args()
 
     repo = Repo(".")
@@ -167,7 +169,7 @@ def main() -> None:
 
             if pr_info is not None:
                 gh_user_name = pr_info.gh_user_name
-                if gh_user_name not in OFFICIAL_DEVS:
+                if gh_user_name not in OFFICIAL_RERUN_DEVS:
                     summary += f" (thanks [@{gh_user_name}](https://github.com/{gh_user_name})!)"
 
             prs.append(summary)
@@ -179,10 +181,11 @@ def main() -> None:
         prs[i] = line
 
     print()
-    print(f"Full diff at https://github.com/rerun-io/egui_tiles/compare/{args.commit_range}")
+    print(f"Full diff at https://github.com/rerun-io/{REPO}/compare/{args.commit_range}")
     print()
     print_section("PRs", prs)
     print_section("Unsorted commits", unsorted_commits)
+
 
 if __name__ == "__main__":
     main()
