@@ -161,7 +161,10 @@ impl Grid {
             (num_cols, num_rows)
         };
 
-        debug_assert!(visible_children_and_holes.len() <= num_cols * num_rows);
+        debug_assert!(
+            visible_children_and_holes.len() <= num_cols * num_rows,
+            "Bug in egui_tiles::Grid::layout"
+        );
 
         // Figure out where each column and row goes:
         self.col_shares.resize(num_cols, 1.0);
@@ -170,8 +173,16 @@ impl Grid {
         let col_widths = sizes_from_shares(&self.col_shares, rect.width(), gap);
         let row_heights = sizes_from_shares(&self.row_shares, rect.height(), gap);
 
-        debug_assert_eq!(col_widths.len(), num_cols);
-        debug_assert_eq!(row_heights.len(), num_rows);
+        debug_assert_eq!(
+            col_widths.len(),
+            num_cols,
+            "Bug in egui_tiles::Grid::layout"
+        );
+        debug_assert_eq!(
+            row_heights.len(),
+            num_rows,
+            "Bug in egui_tiles::Grid::layout"
+        );
 
         {
             let mut x = rect.left();
@@ -190,8 +201,16 @@ impl Grid {
             }
         }
 
-        debug_assert_eq!(self.col_ranges.len(), num_cols);
-        debug_assert_eq!(self.row_ranges.len(), num_rows);
+        debug_assert_eq!(
+            self.col_ranges.len(),
+            num_cols,
+            "Bug in egui_tiles::Grid::layout"
+        );
+        debug_assert_eq!(
+            self.row_ranges.len(),
+            num_rows,
+            "Bug in egui_tiles::Grid::layout"
+        );
 
         // Layout each child:
         for (i, &child) in visible_children_and_holes.iter().enumerate() {
@@ -380,7 +399,7 @@ fn resize_interaction<Pane>(
     dx: f32,
     i: usize,
 ) -> ResizeState {
-    assert_eq!(ranges.len(), shares.len());
+    assert_eq!(ranges.len(), shares.len(), "Bug in egui_tiles::Grid");
     let num = ranges.len();
     let tile_width = |i: usize| ranges[i].span();
 
