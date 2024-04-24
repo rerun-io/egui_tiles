@@ -21,48 +21,63 @@ import os
 import shutil
 import tempfile
 
-from git import Repo
+from git import Repo  # pip install GitPython
 
 OWNER = "rerun-io"
 
-# Files requires by C++, but not by both Python or Rust.
+# Don't overwrite these when updating existing repository from the template
+DO_NOT_OVERWRITE = {
+    "Cargo.lock",
+    "CHANGELOG.md",
+    "main.py",
+    "pixi.lock",
+    "README.md",
+    "requirements.txt",
+}
+
+# Files required by C++, but not by _both_ Python and Rust
 CPP_FILES = {
     ".clang-format",
     ".github/workflows/cpp.yml",
     "CMakeLists.txt",
-    "pixi.lock",  # Not needed by Rust
-    "pixi.toml",  # Not needed by Rust
-    "src/main.cpp",
+    "pixi.lock",  # Pixi is only C++ & Python - For Rust we only use cargo
+    "pixi.toml",  # Pixi is only C++ & Python - For Rust we only use cargo
     "src/",
+    "src/main.cpp",
 }
 
-# Files requires by Python, but not by both C++ or Rust
+# Files required by Python, but not by _both_ C++ and Rust
 PYTHON_FILES = {
     ".github/workflows/python.yml",
     ".mypy.ini",
     "main.py",
-    "pixi.lock",  # Not needed by Rust
-    "pixi.toml",  # Not needed by Rust
+    "pixi.lock",  # Pixi is only C++ & Python - For Rust we only use cargo
+    "pixi.toml",  # Pixi is only C++ & Python - For Rust we only use cargo
     "pyproject.toml",
     "requirements.txt",
 }
 
-# Files requires by Rust, but not by both C++ or Python
+# Files required by Rust, but not by _both_ C++ and Python
 RUST_FILES = {
     ".github/workflows/rust.yml",
     "bacon.toml",
     "Cargo.lock",
     "Cargo.toml",
+    "CHANGELOG.md",  # We only keep a changelog for Rust crates at the moment
     "clippy.toml",
     "Cranky.toml",
     "deny.toml",
     "rust-toolchain",
     "scripts/clippy_wasm/",
     "scripts/clippy_wasm/clippy.toml",
+    "scripts/generate_changelog.py",  # We only keep a changelog for Rust crates at the moment
+    "src/",
     "src/lib.rs",
     "src/main.rs",
-    "src/",
 }
+
+# Files we used to have, but have been removed in never version of rerun_template
+DEAD_FILES = ["bacon.toml", "Cranky.toml"]
 
 
 def parse_languages(lang_str: str) -> set[str]:
@@ -106,10 +121,12 @@ def delete_files_and_folder(paths: set[str], dry_run: bool) -> None:
 
 
 def update(languages: set[str], dry_run: bool) -> None:
-    # Don't overwrite these
-    ALWAYS_IGNORE_FILES = {"README.md", "pixi.lock", "Cargo.lock", "main.py", "requirements.txt"}
+    for file in DEAD_FILES:
+        print(f"Removing dead file {file}…")
+        if not dry_run:
+            os.remove(file)
 
-    files_to_ignore = calc_deny_set(languages) | ALWAYS_IGNORE_FILES
+    files_to_ignore = calc_deny_set(languages) | DO_NOT_OVERWRITE
     repo_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
     with tempfile.TemporaryDirectory() as temp_dir:

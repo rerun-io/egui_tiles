@@ -38,11 +38,6 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Install cargo-cranky
-        uses: baptiste0928/cargo-install@v1
-        with:
-          crate: cargo-cranky
-
       - name: check --all-features
         uses: actions-rs/cargo@v1
         with:
@@ -91,10 +86,10 @@ jobs:
           command: test
           args: --all-features
 
-      - name: Cranky
+      - name: clippy
         uses: actions-rs/cargo@v1
         with:
-          command: cranky
+          command: clippy
           args: --all-targets --all-features -- -D warnings
 
   # ---------------------------------------------------------------------------
@@ -116,21 +111,16 @@ jobs:
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-cranky
-        uses: baptiste0928/cargo-install@v1
-        with:
-          crate: cargo-cranky
-
       - name: Check wasm32
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --target wasm32-unknown-unknown
 
-      - name: Cranky wasm32
+      - name: clippy wasm32
         env:
           CLIPPY_CONF_DIR: "scripts/clippy_wasm" # Use scripts/clippy_wasm/clippy.toml
-        run: cargo cranky --target wasm32-unknown-unknown -- -D warnings
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
 
   # ---------------------------------------------------------------------------
 

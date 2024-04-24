@@ -7,12 +7,10 @@ cd "$script_path"
 set -x
 
 export RUSTFLAGS="--deny warnings"
-
-# https://github.com/ericseppanen/cargo-cranky/issues/8
-export RUSTDOCFLAGS="--deny warnings --deny rustdoc::missing_crate_level_docs"
+export RUSTDOCFLAGS="--deny warnings"
 
 cargo fmt --all -- --check
-cargo cranky --quiet --all-targets --all-features -- --deny warnings
+cargo clippy --quiet --all-targets --all-features -- --deny warnings
 cargo test --quiet --all-targets --all-features
 cargo test --quiet --doc --all-features # checks all doc-tests
 
