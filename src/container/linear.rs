@@ -1,3 +1,5 @@
+#![allow(clippy::tuple_array_conversions)]
+
 use egui::{pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
@@ -214,7 +216,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         tile_id: TileId,
     ) {
         match self.dir {
@@ -228,7 +230,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let visible_children = self.visible_children(&tree.tiles);
@@ -292,7 +294,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let visible_children = self.visible_children(&tree.tiles);

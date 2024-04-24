@@ -212,7 +212,7 @@ impl Tabs {
     #[allow(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
-        tree: &mut Tree<Pane>,
+        tree: &Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         ui: &mut egui::Ui,
         rect: Rect,

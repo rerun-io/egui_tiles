@@ -243,7 +243,7 @@ impl Grid {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         tile_id: TileId,
     ) {
         for &child in &self.children {
@@ -266,15 +266,15 @@ impl Grid {
             );
         }
 
-        self.resize_columns(&mut tree.tiles, behavior, ui, tile_id);
-        self.resize_rows(&mut tree.tiles, behavior, ui, tile_id);
+        self.resize_columns(&tree.tiles, behavior, ui, tile_id);
+        self.resize_rows(&tree.tiles, behavior, ui, tile_id);
     }
 
     fn resize_columns<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tiles: &Tiles<Pane>,
         behavior: &mut dyn Behavior<Pane>,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let parent_rect = tiles.rect(parent_id);
@@ -314,9 +314,9 @@ impl Grid {
 
     fn resize_rows<Pane>(
         &mut self,
-        tiles: &mut Tiles<Pane>,
+        tiles: &Tiles<Pane>,
         behavior: &mut dyn Behavior<Pane>,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let parent_rect = tiles.rect(parent_id);
