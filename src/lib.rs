@@ -294,7 +294,7 @@ pub(crate) fn is_being_dragged(ctx: &egui::Context, tree_id: egui::Id, tile_id: 
 fn cover_tile_if_dragged<Pane>(
     tree: &Tree<Pane>,
     behavior: &dyn Behavior<Pane>,
-    ui: &mut egui::Ui,
+    ui: &egui::Ui,
     tile_id: TileId,
 ) {
     if is_being_dragged(ui.ctx(), tree.id, tile_id) {
@@ -324,7 +324,7 @@ struct DropContext {
 impl DropContext {
     fn on_tile<Pane>(
         &mut self,
-        behavior: &mut dyn Behavior<Pane>,
+        behavior: &dyn Behavior<Pane>,
         style: &egui::Style,
         parent_id: TileId,
         rect: Rect,

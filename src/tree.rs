@@ -270,7 +270,7 @@ impl<Pane> Tree<Pane> {
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut Ui,
+        ui: &Ui,
         tile_id: TileId,
     ) {
         if !self.is_visible(tile_id) {
