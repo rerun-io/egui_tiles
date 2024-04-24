@@ -1,3 +1,5 @@
+#![allow(clippy::tuple_array_conversions)]
+
 use egui::{pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
