@@ -80,7 +80,7 @@ impl<Pane> Tiles<Pane> {
 
     /// Get the screen-space rectangle of where a tile is shown.
     ///
-    /// This is updated by [`Tree::ui`], so you need to call that first.
+    /// This is updated by [`crate::Tree::ui`], so you need to call that first.
     ///
     /// If the tile isn't visible, or is in an inactive tab, this return `None`.
     pub fn rect(&self, tile_id: TileId) -> Option<Rect> {
