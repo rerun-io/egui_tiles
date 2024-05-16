@@ -278,7 +278,7 @@ impl<Pane> Tree<Pane> {
         }
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
-        let Some(rect) = self.tiles.try_rect(tile_id) else {
+        let Some(rect) = self.tiles.rect(tile_id) else {
             log::debug!("Failed to find rect for tile {tile_id:?} during ui");
             return;
         };
@@ -363,7 +363,7 @@ impl<Pane> Tree<Pane> {
 
             let parent_rect = drop_context
                 .best_insertion
-                .and_then(|insertion_point| self.tiles.try_rect(insertion_point.parent_id));
+                .and_then(|insertion_point| self.tiles.rect(insertion_point.parent_id));
 
             behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
 

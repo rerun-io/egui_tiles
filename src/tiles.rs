@@ -59,20 +59,6 @@ impl<Pane> Default for Tiles<Pane> {
 // ----------------------------------------------------------------------------
 
 impl<Pane> Tiles<Pane> {
-    pub(super) fn try_rect(&self, tile_id: TileId) -> Option<Rect> {
-        if self.is_visible(tile_id) {
-            self.rects.get(&tile_id).copied()
-        } else {
-            None
-        }
-    }
-
-    pub(super) fn rect(&self, tile_id: TileId) -> Rect {
-        let rect = self.try_rect(tile_id);
-        debug_assert!(rect.is_some(), "Failed to find rect for {tile_id:?}");
-        rect.unwrap_or(egui::Rect::from_min_max(Pos2::ZERO, Pos2::ZERO))
-    }
-
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.tiles.is_empty()
@@ -90,6 +76,25 @@ impl<Pane> Tiles<Pane> {
 
     pub fn get_mut(&mut self, tile_id: TileId) -> Option<&mut Tile<Pane>> {
         self.tiles.get_mut(&tile_id)
+    }
+
+    /// Get the screen-space rectangle of where a tile is shown.
+    ///
+    /// This is updated by [`Tree::ui`], so you need to call that first.
+    ///
+    /// If the tile isn't visible, or is in an inactive tab, this return `None`.
+    pub fn rect(&self, tile_id: TileId) -> Option<Rect> {
+        if self.is_visible(tile_id) {
+            self.rects.get(&tile_id).copied()
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn rect_or_die(&self, tile_id: TileId) -> Rect {
+        let rect = self.rect(tile_id);
+        debug_assert!(rect.is_some(), "Failed to find rect for {tile_id:?}");
+        rect.unwrap_or(egui::Rect::from_min_max(Pos2::ZERO, Pos2::ZERO))
     }
 
     /// All tiles, in arbitrary order
