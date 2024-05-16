@@ -315,6 +315,8 @@ impl<Pane> Tree<Pane> {
             }
         };
 
+        behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
+
         self.tiles.insert(tile_id, tile);
         drop_context.enabled = drop_context_was_enabled;
     }

@@ -183,6 +183,16 @@ pub trait Behavior<Pane> {
         SimplificationOptions::default()
     }
 
+    /// Add some custom painting on top of a tile (container or pane), e.g. draw an outline on top of it.
+    fn paint_on_top_of_tile(
+        &self,
+        _painter: &egui::Painter,
+        _style: &egui::Style,
+        _tile_id: TileId,
+        _rect: Rect,
+    ) {
+    }
+
     /// The stroke used for the lines in horizontal, vertical, and grid layouts.
     fn resize_stroke(&self, style: &egui::Style, resize_state: ResizeState) -> Stroke {
         match resize_state {
