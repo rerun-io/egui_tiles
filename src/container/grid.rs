@@ -277,7 +277,7 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
-        let parent_rect = tiles.rect(parent_id);
+        let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize_col", i));
 
@@ -319,7 +319,7 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
-        let parent_rect = tiles.rect(parent_id);
+        let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = egui::Id::new((parent_id, "resize_row", i));
 
