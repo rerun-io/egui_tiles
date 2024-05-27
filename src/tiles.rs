@@ -1,9 +1,12 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use egui::{Pos2, Rect};
 
 use super::{
     Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
 };
+
+static NEXT_TILE_ID: AtomicU64 = AtomicU64::new(1u64);
 
 /// Contains all tile state, but no root.
 ///
@@ -21,8 +24,6 @@ use super::{
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tiles<Pane> {
-    next_tile_id: u64,
-
     tiles: ahash::HashMap<TileId, Tile<Pane>>,
 
     /// Tiles are visible by default, so we only store the invisible ones.
@@ -36,7 +37,6 @@ pub struct Tiles<Pane> {
 impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
     fn eq(&self, other: &Tiles<Pane>) -> bool {
         let Self {
-            next_tile_id: _, // ignored
             tiles,
             invisible,
             rects: _, // ignore transient state
@@ -48,7 +48,6 @@ impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
 impl<Pane> Default for Tiles<Pane> {
     fn default() -> Self {
         Self {
-            next_tile_id: 1,
             tiles: Default::default(),
             invisible: Default::default(),
             rects: Default::default(),
@@ -172,16 +171,12 @@ impl<Pane> Tiles<Pane> {
     }
 
     pub fn next_free_id(&mut self) -> TileId {
-        let mut id = TileId::from_u64(self.next_tile_id);
+        let mut id = TileId::from_u64(NEXT_TILE_ID.fetch_add(1, Ordering::Relaxed));
 
         // Make sure it doesn't collide with an existing id
         while self.tiles.get(&id).is_some() {
-            self.next_tile_id += 1;
-            id = TileId::from_u64(self.next_tile_id);
+            id = TileId::from_u64(NEXT_TILE_ID.fetch_add(1, Ordering::Relaxed));
         }
-
-        // Final increment the next_id
-        self.next_tile_id += 1;
 
         id
     }
