@@ -27,6 +27,10 @@ pub struct Shares {
 }
 
 impl Shares {
+    pub fn iter(&self) -> impl Iterator<Item = (&TileId, &f32)> {
+        self.shares.iter()
+    }
+
     pub fn replace_with(&mut self, remove: TileId, new: TileId) {
         if let Some(share) = self.shares.remove(&remove) {
             self.shares.insert(new, share);

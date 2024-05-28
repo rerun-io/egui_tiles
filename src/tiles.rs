@@ -230,6 +230,7 @@ impl<Pane> Tiles<Pane> {
     }
 
     pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
+        #[allow(clippy::iter_over_hash_type)] // Each tile can only have one parent
         for (tile_id, tile) in &self.tiles {
             if let Tile::Container(container) = tile {
                 if container.has_child(child_id) {
