@@ -36,7 +36,10 @@ ignore = []
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
-deny = []
+deny = [
+  { name = "openssl", reason = "Use rustls" },
+  { name = "openssl-sys", reason = "Use rustls" },
+]
 skip = []
 skip-tree = [
   { name = "eframe" }, # dev-dependency

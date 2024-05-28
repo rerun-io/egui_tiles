@@ -50,8 +50,8 @@ impl<Pane> Tile<Pane> {
     #[inline]
     pub fn kind(&self) -> Option<ContainerKind> {
         match self {
-            Tile::Pane(_) => None,
-            Tile::Container(container) => Some(container.kind()),
+            Self::Pane(_) => None,
+            Self::Container(container) => Some(container.kind()),
         }
     }
 

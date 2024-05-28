@@ -105,6 +105,13 @@ def init(languages: set[str], dry_run: bool) -> None:
     delete_files_and_folder(files_to_delete, dry_run)
 
 
+def remove_file(filepath: str):
+    try:
+        os.remove(filepath)
+    except FileNotFoundError:
+        pass
+
+
 def delete_files_and_folder(paths: set[str], dry_run: bool) -> None:
     repo_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     for path in paths:
@@ -113,7 +120,7 @@ def delete_files_and_folder(paths: set[str], dry_run: bool) -> None:
             if os.path.isfile(full_path):
                 print(f"Removing file {full_path}…")
                 if not dry_run:
-                    os.remove(full_path)
+                    remove_file(full_path)
             elif os.path.isdir(full_path):
                 print(f"Removing folder {full_path}…")
                 if not dry_run:
@@ -124,7 +131,7 @@ def update(languages: set[str], dry_run: bool) -> None:
     for file in DEAD_FILES:
         print(f"Removing dead file {file}…")
         if not dry_run:
-            os.remove(file)
+            remove_file(file)
 
     files_to_ignore = calc_deny_set(languages) | DO_NOT_OVERWRITE
     repo_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))

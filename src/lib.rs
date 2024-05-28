@@ -237,19 +237,19 @@ impl ContainerInsertion {
     /// Where in the parent (in what order among its children).
     fn index(self) -> usize {
         match self {
-            ContainerInsertion::Tabs(index)
-            | ContainerInsertion::Horizontal(index)
-            | ContainerInsertion::Vertical(index)
-            | ContainerInsertion::Grid(index) => index,
+            Self::Tabs(index)
+            | Self::Horizontal(index)
+            | Self::Vertical(index)
+            | Self::Grid(index) => index,
         }
     }
 
     fn kind(self) -> ContainerKind {
         match self {
-            ContainerInsertion::Tabs(_) => ContainerKind::Tabs,
-            ContainerInsertion::Horizontal(_) => ContainerKind::Horizontal,
-            ContainerInsertion::Vertical(_) => ContainerKind::Vertical,
-            ContainerInsertion::Grid(_) => ContainerKind::Grid,
+            Self::Tabs(_) => ContainerKind::Tabs,
+            Self::Horizontal(_) => ContainerKind::Horizontal,
+            Self::Vertical(_) => ContainerKind::Vertical,
+            Self::Grid(_) => ContainerKind::Grid,
         }
     }
 }
