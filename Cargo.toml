@@ -49,8 +49,8 @@ env_logger = "0.10"
 [patch.crates-io]
 # Useful while developing:
 
-# eframe = { git = "https://github.com/emilk/egui.git", rev = "e8af6f38fcebcc889963e86c4a3ccebe97db1908" } # egui master 2024-02-27
-# egui = { git = "https://github.com/emilk/egui.git", rev = "e8af6f38fcebcc889963e86c4a3ccebe97db1908" }   # egui master 2024-02-27
+eframe = { git = "https://github.com/emilk/egui.git", rev = "54429e0549e829c64b8de1b66f846fdf1a7ee37c" } # egui master 2024-05-28
+egui = { git = "https://github.com/emilk/egui.git", rev = "54429e0549e829c64b8de1b66f846fdf1a7ee37c" }   # egui master 2024-05-28
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }

@@ -220,7 +220,7 @@ impl eframe::App for MyApp {
             ui.separator();
 
             ui.collapsing("Tree", |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                 let tree_debug = format!("{:#?}", self.tree);
                 ui.monospace(&tree_debug);
             });
