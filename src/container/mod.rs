@@ -106,9 +106,9 @@ impl Container {
 
     pub fn num_children(&self) -> usize {
         match self {
-            Container::Tabs(tabs) => tabs.children.len(),
-            Container::Linear(linear) => linear.children.len(),
-            Container::Grid(grid) => grid.num_children(),
+            Self::Tabs(tabs) => tabs.children.len(),
+            Self::Linear(linear) => linear.children.len(),
+            Self::Grid(grid) => grid.num_children(),
         }
     }
 
@@ -178,9 +178,9 @@ impl Container {
     /// Returns child index, if found.
     pub fn remove_child(&mut self, child: TileId) -> Option<usize> {
         match self {
-            Container::Tabs(tabs) => tabs.remove_child(child),
-            Container::Linear(linear) => linear.remove_child(child),
-            Container::Grid(grid) => grid.remove_child(child),
+            Self::Tabs(tabs) => tabs.remove_child(child),
+            Self::Linear(linear) => linear.remove_child(child),
+            Self::Grid(grid) => grid.remove_child(child),
         }
     }
 
@@ -232,11 +232,11 @@ impl Container {
         }
 
         match self {
-            Container::Tabs(tabs) => tabs.layout(tiles, style, behavior, rect),
-            Container::Linear(linear) => {
+            Self::Tabs(tabs) => tabs.layout(tiles, style, behavior, rect),
+            Self::Linear(linear) => {
                 linear.layout(tiles, style, behavior, rect);
             }
-            Container::Grid(grid) => grid.layout(tiles, style, behavior, rect),
+            Self::Grid(grid) => grid.layout(tiles, style, behavior, rect),
         }
     }
 
@@ -250,13 +250,13 @@ impl Container {
         tile_id: TileId,
     ) {
         match self {
-            Container::Tabs(tabs) => {
+            Self::Tabs(tabs) => {
                 tabs.ui(tree, behavior, drop_context, ui, rect, tile_id);
             }
-            Container::Linear(linear) => {
+            Self::Linear(linear) => {
                 linear.ui(tree, behavior, drop_context, ui, tile_id);
             }
-            Container::Grid(grid) => {
+            Self::Grid(grid) => {
                 grid.ui(tree, behavior, drop_context, ui, tile_id);
             }
         }

@@ -34,7 +34,7 @@ pub struct Tiles<Pane> {
 }
 
 impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
-    fn eq(&self, other: &Tiles<Pane>) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         let Self {
             next_tile_id: _, // ignored
             tiles,
