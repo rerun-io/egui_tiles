@@ -20,6 +20,11 @@ version = "0.8.0"
 all-features = true
 
 
+[features]
+default = ["serde"]
+serde = ["dep:serde", "egui/serde"]
+
+
 [dependencies]
 ahash = { version = "0.8.1", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
@@ -39,10 +44,6 @@ eframe = { version = "0.27", default-features = false, features = [
   "persistence",
 ] }
 env_logger = "0.10"
-
-[features]
-default = ["serde"]
-serde = ["dep:serde", "egui/serde"]
 
 
 [patch.crates-io]
