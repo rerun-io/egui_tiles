@@ -285,7 +285,7 @@ fn tree_ui(
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
         ui.ctx(),
-        egui::Id::new((tile_id, "tree")),
+        ui.id().with((tile_id, "tree")),
         default_open,
     )
     .show_header(ui, |ui| {
