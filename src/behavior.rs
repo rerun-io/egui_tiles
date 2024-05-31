@@ -1,5 +1,5 @@
 use egui::{
-    vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
+    vec2, Color32, Id, Pos2, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
     WidgetText,
 };
 
@@ -22,16 +22,36 @@ pub enum EditAction {
     TabSelected,
 }
 
+/// The state of a tab, used to inform the rendering of the tab.
+#[derive(Clone, Debug, Default)]
+pub struct TabState {
+    pub active: bool,
+    pub is_being_dragged: bool,
+    pub closable: bool,
+}
+
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
 pub trait Behavior<Pane> {
     /// Show a pane tile in the given [`egui::Ui`].
     ///
     /// You can make the pane draggable by returning [`UiResponse::DragStarted`]
     /// when the user drags some handle.
-    fn pane_ui(&mut self, _ui: &mut Ui, _tile_id: TileId, _pane: &mut Pane) -> UiResponse;
+    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut Pane) -> UiResponse;
 
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
+
+    /// Should the tab be closable?
+    fn closable(&self) -> bool {
+        false
+    }
+
+    /// If `closable()` returns true, hat should be done when the close button is pressed?
+    ///
+    /// Return `true` if the tab should be closed, `false` otherwise.
+    fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
+        false
+    }
 
     /// The title of a general tab.
     ///
@@ -48,6 +68,18 @@ pub trait Behavior<Pane> {
         }
     }
 
+    /// Get the pane instance for a given [`TileId`]
+    fn pane<'a>(&'a mut self, tiles: &'a Tiles<Pane>, tile_id: TileId) -> Option<&'a Pane> {
+        if let Some(tile) = tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(pane) => Some(pane),
+                Tile::Container(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
     /// Show the ui for the a tab of some tile.
     ///
     /// The default implementation shows a clickable button with the title for that tile,
@@ -59,50 +91,108 @@ pub trait Behavior<Pane> {
     #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
-        tiles: &Tiles<Pane>,
+        tiles: &mut Tiles<Pane>,
         ui: &mut Ui,
         id: Id,
         tile_id: TileId,
-        active: bool,
-        is_being_dragged: bool,
+        state: TabState,
     ) -> Response {
         let text = self.tab_title_for_tile(tiles, tile_id);
+        let close_btn_size = Vec2::splat(ui.spacing().icon_width);
+        let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
         let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
 
         let x_margin = self.tab_title_spacing(ui.visuals());
-        let (_, rect) = ui.allocate_space(vec2(
-            galley.size().x + 2.0 * x_margin,
-            ui.available_height(),
-        ));
-        let response = ui.interact(rect, id, Sense::click_and_drag());
+        let (_, tab_rect) = match state.closable {
+            true => ui.allocate_space(vec2(
+                galley.size().x + close_btn_size.x + close_btn_left_padding + (2.0 * x_margin),
+                ui.available_height(),
+            )),
+            false => ui.allocate_space(vec2(
+                galley.size().x + (2.0 * x_margin),
+                ui.available_height(),
+            )),
+        };
+
+        let tab_response = ui.interact(tab_rect, id, Sense::click_and_drag());
 
         // Show a gap when dragged
-        if ui.is_rect_visible(rect) && !is_being_dragged {
-            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, active);
-            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, active);
-            ui.painter().rect(rect.shrink(0.5), 0.0, bg_color, stroke);
+        if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
+            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state.active);
+            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state.active);
+            ui.painter()
+                .rect(tab_rect.shrink(0.5), 0.0, bg_color, stroke);
 
-            if active {
+            if state.active {
                 // Make the tab name area connect with the tab ui area:
                 ui.painter().hline(
-                    rect.x_range(),
-                    rect.bottom(),
+                    tab_rect.x_range(),
+                    tab_rect.bottom(),
                     Stroke::new(stroke.width + 1.0, bg_color),
                 );
             }
 
-            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, active);
-            ui.painter().galley(
-                egui::Align2::CENTER_CENTER
-                    .align_size_within_rect(galley.size(), rect)
-                    .min,
-                galley,
-                text_color,
-            );
+            // Prepare title's text for rendering
+            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, state.active);
+            let mut text_position = egui::Align2::LEFT_CENTER
+                .align_size_within_rect(galley.size(), tab_rect)
+                .min;
+
+            // Respect the left margin
+            text_position.x += x_margin;
+
+            // Render the title
+            ui.painter().galley(text_position, galley, text_color);
+
+            // Conditionally render the close button
+            if state.closable {
+                let close_btn_pad = (tab_rect.height() - close_btn_size.y) / 2.0;
+                let close_btn_rect = Rect::from_min_size(
+                    Pos2::from([
+                        tab_rect.right() - close_btn_pad - close_btn_size.x,
+                        tab_rect.center().y - 0.5 * close_btn_size.y,
+                    ]),
+                    close_btn_size,
+                );
+
+                // Allocate
+                let close_btn_id = ui.auto_id_with("tab_close_btn");
+                let close_btn_response = ui.interact(close_btn_rect, close_btn_id, Sense::click());
+
+                // Update the current UI's rect to include the close button
+                ui.expand_to_include_rect(close_btn_response.rect);
+
+                let visuals = ui.style().interact(&close_btn_response);
+
+                // Scale based on the interaction visuals
+                let rect = close_btn_rect.shrink(2.0).expand(visuals.expansion);
+                let stroke = visuals.fg_stroke;
+
+                // paint the crossed lines
+                ui.painter() // paints \
+                    .line_segment([rect.left_top(), rect.right_bottom()], stroke);
+                ui.painter() // paints /
+                    .line_segment([rect.right_top(), rect.left_bottom()], stroke);
+
+                // Give the user a chance to react to the close button being clicked
+                // Only close if the user returns true (handled)
+                if close_btn_response.clicked() {
+                    log::debug!("Tab close requested for tile: {tile_id:?}");
+
+                    // Close the tab if the implementation wants to
+                    if self.on_tab_close(tiles, tile_id) {
+                        log::debug!("Implementation confirmed close request for tile: {tile_id:?}");
+
+                        tiles.remove(tile_id);
+                    } else {
+                        log::debug!("Implementation denied close request for tile: {tile_id:?}");
+                    }
+                }
+            }
         }
 
-        self.on_tab_button(tiles, tile_id, response)
+        self.on_tab_button(tiles, tile_id, tab_response)
     }
 
     /// Show the ui for the tab being dragged.

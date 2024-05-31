@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use egui_tiles::{Tile, TileId, Tiles};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -156,6 +157,36 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
         self.simplification_options
+    }
+
+    fn closable(&self) -> bool {
+        true
+    }
+
+    fn on_tab_close(&mut self, tiles: &mut Tiles<Pane>, tile_id: TileId) -> bool {
+        if let Some(tile) = tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(pane) => {
+                    // Single pane removal
+                    let tab_title = self.tab_title_for_pane(pane);
+                    log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                }
+                Tile::Container(container) => {
+                    // Container removal
+                    log::debug!("Closing container: {:?}", container.kind());
+                    let children_ids = container.children();
+                    for child_id in children_ids {
+                        if let Some(Tile::Pane(pane)) = tiles.get(*child_id) {
+                            let tab_title = self.tab_title_for_pane(pane);
+                            log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Proceed to removing the tab
+        true
     }
 }
 

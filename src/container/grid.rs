@@ -529,6 +529,14 @@ mod tests {
             fn tab_title_for_pane(&mut self, _pane: &Pane) -> egui::WidgetText {
                 panic!()
             }
+
+            fn closable(&self) -> bool {
+                panic!()
+            }
+
+            fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
+                panic!()
+            }
         }
 
         let mut tree = {
