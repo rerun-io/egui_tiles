@@ -302,6 +302,7 @@ impl<Pane> Tree<Pane> {
             ui.id().with(tile_id),
             rect,
             rect,
+            egui::UiStackInfo::default(),
         );
         ui.set_enabled(enabled);
         match &mut tile {
@@ -376,7 +377,7 @@ impl<Pane> Tree<Pane> {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
                         let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout()),
+                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
                             dragged_tile_id,
                             pane,
                         );

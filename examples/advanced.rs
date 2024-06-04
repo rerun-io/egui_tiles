@@ -20,7 +20,7 @@ fn main() -> Result<(), eframe::Error> {
                     app = state;
                 }
             }
-            Box::new(app)
+            Ok(Box::new(app))
         }),
     )
 }
