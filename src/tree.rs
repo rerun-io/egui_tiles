@@ -266,7 +266,8 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
-        // resizes the window to fit the ui.
+
+        // Allocate the used space in the parent Ui:
         ui.advance_cursor_after_rect(rect);
     }
 
