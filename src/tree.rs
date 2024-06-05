@@ -259,8 +259,7 @@ impl<Pane> Tree<Pane> {
         let rect = ui.available_rect_before_wrap();
 
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, rect, root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
