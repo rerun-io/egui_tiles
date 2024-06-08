@@ -117,7 +117,7 @@ impl<Pane> Tree<Pane> {
             root: Some(root),
             tiles,
             width: None,
-            height: None
+            height: None,
         }
     }
 
@@ -274,8 +274,7 @@ impl<Pane> Tree<Pane> {
             rect.set_width(self.width.unwrap_or(1.0));
         }
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, rect, root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
@@ -290,7 +289,6 @@ impl<Pane> Tree<Pane> {
         } else {
             self.height = None;
         }
-
     }
 
     pub fn set_width(&mut self, width: f32) {
@@ -300,7 +298,6 @@ impl<Pane> Tree<Pane> {
             self.width = None;
         }
     }
-
 
     pub(super) fn tile_ui(
         &mut self,
