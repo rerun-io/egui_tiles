@@ -37,6 +37,12 @@ pub struct Tree<Pane> {
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
+
+    /// Maximum height
+    height: Option<f32>,
+
+    /// Maximum width
+    width: Option<f32>,
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -95,6 +101,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: None,
             tiles: Default::default(),
+            width: None,
+            height: None,
         }
     }
 
@@ -108,6 +116,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: Some(root),
             tiles,
+            width: None,
+            height: None
         }
     }
 
@@ -256,15 +266,41 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
+        let mut rect = ui.available_rect_before_wrap();
+        if self.height.is_some() {
+            rect.set_height(self.height.unwrap_or(1.0));
+        }
+        if self.width.is_some() {
+            rect.set_width(self.width.unwrap_or(1.0));
+        }
         if let Some(root) = self.root {
             self.tiles
-                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
+                .layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+        ui.allocate_space(rect.size());
     }
+
+    pub fn set_height(&mut self, height: f32) {
+        if height.is_sign_positive() {
+            self.height = Some(height);
+        } else {
+            self.height = None;
+        }
+
+    }
+
+    pub fn set_width(&mut self, width: f32) {
+        if width.is_sign_positive() {
+            self.width = Some(width);
+        } else {
+            self.width = None;
+        }
+    }
+
 
     pub(super) fn tile_ui(
         &mut self,
