@@ -264,6 +264,7 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+        ui.allocate_space(ui.available_size());
     }
 
     pub(super) fn tile_ui(
