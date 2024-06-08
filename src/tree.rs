@@ -39,10 +39,10 @@ pub struct Tree<Pane> {
     pub tiles: Tiles<Pane>,
 
     /// Maximum height
-    height: Option<f32>,
+    height: f32,
 
     /// Maximum width
-    width: Option<f32>,
+    width: f32,
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -101,8 +101,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: None,
             tiles: Default::default(),
-            width: None,
-            height: None,
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -116,8 +116,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: Some(root),
             tiles,
-            width: None,
-            height: None,
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -267,11 +267,11 @@ impl<Pane> Tree<Pane> {
         };
 
         let mut rect = ui.available_rect_before_wrap();
-        if self.height.is_some() {
-            rect.set_height(self.height.unwrap_or(1.0));
+        if self.height.is_finite() {
+            rect.set_height(self.height);
         }
-        if self.width.is_some() {
-            rect.set_width(self.width.unwrap_or(1.0));
+        if self.width.is_finite() {
+            rect.set_width(self.width);
         }
         if let Some(root) = self.root {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
@@ -284,18 +284,18 @@ impl<Pane> Tree<Pane> {
     }
 
     pub fn set_height(&mut self, height: f32) {
-        if height.is_sign_positive() {
-            self.height = Some(height);
+        if height.is_sign_positive() && height.is_finite() {
+            self.height = height;
         } else {
-            self.height = None;
+            self.height = f32::INFINITY;
         }
     }
 
     pub fn set_width(&mut self, width: f32) {
         if width.is_sign_positive() {
-            self.width = Some(width);
+            self.width = width;
         } else {
-            self.width = None;
+            self.width = f32::INFINITY;
         }
     }
 
