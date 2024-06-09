@@ -292,7 +292,7 @@ impl<Pane> Tree<Pane> {
     }
 
     pub fn set_width(&mut self, width: f32) {
-        if width.is_sign_positive() && width.is_finite(){
+        if width.is_sign_positive() && width.is_finite() {
             self.width = width;
         } else {
             self.width = f32::INFINITY;
