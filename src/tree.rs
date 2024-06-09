@@ -37,6 +37,12 @@ pub struct Tree<Pane> {
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
+
+    /// Maximum height
+    height: f32,
+
+    /// Maximum width
+    width: f32,
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -95,6 +101,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: None,
             tiles: Default::default(),
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -108,6 +116,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: Some(root),
             tiles,
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -256,14 +266,37 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
+        let mut rect = ui.available_rect_before_wrap();
+        if self.height.is_finite() {
+            rect.set_height(self.height);
+        }
+        if self.width.is_finite() {
+            rect.set_width(self.width);
+        }
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+        ui.allocate_space(rect.size());
+    }
+
+    pub fn set_height(&mut self, height: f32) {
+        if height.is_sign_positive() && height.is_finite() {
+            self.height = height;
+        } else {
+            self.height = f32::INFINITY;
+        }
+    }
+
+    pub fn set_width(&mut self, width: f32) {
+        if width.is_sign_positive() && width.is_finite() {
+            self.width = width;
+        } else {
+            self.width = f32::INFINITY;
+        }
     }
 
     pub(super) fn tile_ui(
