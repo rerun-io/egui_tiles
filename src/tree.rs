@@ -256,14 +256,18 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
+        let rect = ui.available_rect_before_wrap();
+
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+
+        // Allocate the used space in the parent Ui:
+        ui.advance_cursor_after_rect(rect);
     }
 
     pub(super) fn tile_ui(
