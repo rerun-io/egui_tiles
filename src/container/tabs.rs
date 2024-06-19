@@ -295,18 +295,14 @@ impl Tabs {
 
                             let selected = self.is_active(child_id);
                             let id = child_id.egui_id(tree.id);
+                            let tab_state = TabState {
+                                active: selected,
+                                is_being_dragged,
+                                closable: behavior.is_tab_closable(&tree.tiles, child_id),
+                            };
 
-                            let response = behavior.tab_ui(
-                                &mut tree.tiles,
-                                ui,
-                                id,
-                                child_id,
-                                TabState {
-                                    active: selected,
-                                    is_being_dragged,
-                                    closable: behavior.closable(),
-                                },
-                            );
+                            let response =
+                                behavior.tab_ui(&mut tree.tiles, ui, id, child_id, tab_state);
                             let response = response.on_hover_cursor(egui::CursorIcon::Grab);
                             if response.clicked() {
                                 behavior.on_edit(EditAction::TabSelected);

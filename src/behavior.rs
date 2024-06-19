@@ -25,8 +25,11 @@ pub enum EditAction {
 /// The state of a tab, used to inform the rendering of the tab.
 #[derive(Clone, Debug, Default)]
 pub struct TabState {
+    /// Is the tab currenctly selected?
     pub active: bool,
+    /// Is the tab currently being dragged?
     pub is_being_dragged: bool,
+    /// Should the tab have a close button?
     pub closable: bool,
 }
 
@@ -41,16 +44,12 @@ pub trait Behavior<Pane> {
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
 
-    /// Should tabs have a close-button?
-    ///
-    /// If `true` and the button is clicked, [`Self::on_tab_close`] is called.
-    fn closable(&self) -> bool {
+    /// Should the tab have a close-button?
+    fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
         false
     }
 
-    /// If [`Self::closable`] returns true, hat should be done when the close button is pressed?
-    ///
-    /// Return `true` if the tab should be closed, `false` otherwise.
+    /// Has the user confirmed that a tab should be closed?
     fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
         false
     }
@@ -67,18 +66,6 @@ pub trait Behavior<Pane> {
             }
         } else {
             "MISSING TILE".into()
-        }
-    }
-
-    /// Get the pane instance for a given [`TileId`]
-    fn pane<'a>(&'a mut self, tiles: &'a Tiles<Pane>, tile_id: TileId) -> Option<&'a Pane> {
-        if let Some(tile) = tiles.get(tile_id) {
-            match tile {
-                Tile::Pane(pane) => Some(pane),
-                Tile::Container(_) => None,
-            }
-        } else {
-            None
         }
     }
 

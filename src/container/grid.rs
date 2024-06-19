@@ -530,7 +530,7 @@ mod tests {
                 panic!()
             }
 
-            fn closable(&self) -> bool {
+            fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
                 panic!()
             }
 

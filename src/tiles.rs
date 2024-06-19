@@ -122,6 +122,18 @@ impl<Pane> Tiles<Pane> {
         self.tiles.values_mut()
     }
 
+    /// Get the pane instance for a given [`TileId`]
+    fn pane(&self, tile_id: &TileId) -> Option<&Pane> {
+        if let Some(tile) = self.tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(pane) => Some(pane),
+                Tile::Container(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
