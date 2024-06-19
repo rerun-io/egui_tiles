@@ -38,10 +38,10 @@ pub struct Tree<Pane> {
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
 
-    /// Maximum height
+    /// When finite, this values contains the exact height of this tree
     height: f32,
 
-    /// Maximum width
+    /// When finite, this values contains the exact width of this tree
     width: f32,
 }
 
@@ -283,6 +283,9 @@ impl<Pane> Tree<Pane> {
         ui.allocate_space(rect.size());
     }
 
+    /// Sets the exact height that can be used by the tree.
+    ///
+    /// determines the height that will be used by the tree component, by default, the tree occupies all the available space in the parent container
     pub fn set_height(&mut self, height: f32) {
         if height.is_sign_positive() && height.is_finite() {
             self.height = height;
@@ -291,6 +294,9 @@ impl<Pane> Tree<Pane> {
         }
     }
 
+    /// Sets the exact width that can be used by the tree.
+    ///
+    /// determines the width that will be used by the tree component, by default, the tree occupies all the available space in the parent container
     pub fn set_width(&mut self, width: f32) {
         if width.is_sign_positive() && width.is_finite() {
             self.width = width;
