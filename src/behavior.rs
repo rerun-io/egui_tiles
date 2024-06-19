@@ -54,6 +54,11 @@ pub trait Behavior<Pane> {
         false
     }
 
+    /// The size of the close button in the tab
+    fn close_button_size(&self) -> f32 {
+        12.0
+    }
+
     /// The title of a general tab.
     ///
     /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
@@ -87,29 +92,30 @@ pub trait Behavior<Pane> {
         state: TabState,
     ) -> Response {
         let text = self.tab_title_for_tile(tiles, tile_id);
-        let close_btn_size = Vec2::splat(ui.spacing().icon_width);
+        let close_btn_size = Vec2::splat(self.close_button_size());
         let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
         let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
 
         let x_margin = self.tab_title_spacing(ui.visuals());
-        let (_, tab_rect) = match state.closable {
-            true => ui.allocate_space(vec2(
+        let (_, tab_rect) = if state.closable {
+            ui.allocate_space(vec2(
                 galley.size().x + close_btn_size.x + close_btn_left_padding + (2.0 * x_margin),
                 ui.available_height(),
-            )),
-            false => ui.allocate_space(vec2(
+            ))
+        } else {
+            ui.allocate_space(vec2(
                 galley.size().x + (2.0 * x_margin),
                 ui.available_height(),
-            )),
+            ))
         };
 
         let tab_response = ui.interact(tab_rect, id, Sense::click_and_drag());
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
-            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state.active);
-            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state.active);
+            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, &state);
+            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, &state);
             ui.painter()
                 .rect(tab_rect.shrink(0.5), 0.0, bg_color, stroke);
 
@@ -303,9 +309,9 @@ pub trait Behavior<Pane> {
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Color32 {
-        if active {
+        if state.active {
             visuals.panel_fill // same as the tab contents
         } else {
             Color32::TRANSPARENT // fade into background
@@ -318,9 +324,9 @@ pub trait Behavior<Pane> {
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Stroke {
-        if active {
+        if state.active {
             Stroke::new(1.0, visuals.widgets.active.bg_fill)
         } else {
             Stroke::NONE

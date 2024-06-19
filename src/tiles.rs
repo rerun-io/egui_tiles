@@ -123,6 +123,7 @@ impl<Pane> Tiles<Pane> {
     }
 
     /// Get the pane instance for a given [`TileId`]
+    #[allow(dead_code)]
     fn pane(&self, tile_id: &TileId) -> Option<&Pane> {
         if let Some(tile) = self.tiles.get(tile_id) {
             match tile {
