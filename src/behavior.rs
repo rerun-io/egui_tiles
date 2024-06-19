@@ -25,7 +25,7 @@ pub enum EditAction {
 /// The state of a tab, used to inform the rendering of the tab.
 #[derive(Clone, Debug, Default)]
 pub struct TabState {
-    /// Is the tab currenctly selected?
+    /// Is the tab currently selected?
     pub active: bool,
     /// Is the tab currently being dragged?
     pub is_being_dragged: bool,
