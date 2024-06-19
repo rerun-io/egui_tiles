@@ -1,5 +1,5 @@
 use egui::{
-    vec2, Color32, Id, Pos2, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
+    vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
     WidgetText,
 };
 
@@ -49,9 +49,11 @@ pub trait Behavior<Pane> {
         false
     }
 
-    /// Has the user confirmed that a tab should be closed?
+    /// Called when the close-button on a tab is pressed.
+    ///
+    /// Return `false` to abort the closing of a tab (e.g. after showing a message box).
     fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
-        false
+        true
     }
 
     /// The size of the close button in the tab
@@ -96,19 +98,12 @@ pub trait Behavior<Pane> {
         let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
         let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
-
         let x_margin = self.tab_title_spacing(ui.visuals());
-        let (_, tab_rect) = if state.closable {
-            ui.allocate_space(vec2(
-                galley.size().x + close_btn_size.x + close_btn_left_padding + (2.0 * x_margin),
-                ui.available_height(),
-            ))
-        } else {
-            ui.allocate_space(vec2(
-                galley.size().x + (2.0 * x_margin),
-                ui.available_height(),
-            ))
-        };
+
+        let button_width = galley.size().x
+            + 2.0 * x_margin
+            + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
+        let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
 
         let tab_response = ui.interact(tab_rect, id, Sense::click_and_drag());
 
@@ -130,38 +125,26 @@ pub trait Behavior<Pane> {
 
             // Prepare title's text for rendering
             let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, state.active);
-            let mut text_position = egui::Align2::LEFT_CENTER
-                .align_size_within_rect(galley.size(), tab_rect)
+            let text_position = egui::Align2::LEFT_CENTER
+                .align_size_within_rect(galley.size(), tab_rect.shrink(x_margin))
                 .min;
-
-            // Respect the left margin
-            text_position.x += x_margin;
 
             // Render the title
             ui.painter().galley(text_position, galley, text_color);
 
             // Conditionally render the close button
             if state.closable {
-                let close_btn_pad = (tab_rect.height() - close_btn_size.y) / 2.0;
-                let close_btn_rect = Rect::from_min_size(
-                    Pos2::from([
-                        tab_rect.right() - close_btn_pad - close_btn_size.x,
-                        tab_rect.center().y - 0.5 * close_btn_size.y,
-                    ]),
-                    close_btn_size,
-                );
+                let close_btn_rect = egui::Align2::RIGHT_CENTER
+                    .align_size_within_rect(close_btn_size, tab_rect.shrink(x_margin));
 
                 // Allocate
                 let close_btn_id = ui.auto_id_with("tab_close_btn");
                 let close_btn_response = ui.interact(close_btn_rect, close_btn_id, Sense::click());
 
-                // Update the current UI's rect to include the close button
-                ui.expand_to_include_rect(close_btn_response.rect);
-
                 let visuals = ui.style().interact(&close_btn_response);
 
                 // Scale based on the interaction visuals
-                let rect = close_btn_rect.shrink(2.0).expand(visuals.expansion);
+                let rect = close_btn_rect.expand(visuals.expansion);
                 let stroke = visuals.fg_stroke;
 
                 // paint the crossed lines

@@ -74,6 +74,15 @@ impl<Pane> Tiles<Pane> {
         self.tiles.get(&tile_id)
     }
 
+    /// Get the pane instance for a given [`TileId`]
+    #[allow(dead_code)]
+    pub fn get_pane(&self, tile_id: &TileId) -> Option<&Pane> {
+        match self.tiles.get(tile_id)? {
+            Tile::Pane(pane) => Some(pane),
+            Tile::Container(_) => None,
+        }
+    }
+
     pub fn get_mut(&mut self, tile_id: TileId) -> Option<&mut Tile<Pane>> {
         self.tiles.get_mut(&tile_id)
     }
@@ -120,19 +129,6 @@ impl<Pane> Tiles<Pane> {
     /// All [`Tile`]s in arbitrary order
     pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<Pane>> + '_ {
         self.tiles.values_mut()
-    }
-
-    /// Get the pane instance for a given [`TileId`]
-    #[allow(dead_code)]
-    fn pane(&self, tile_id: &TileId) -> Option<&Pane> {
-        if let Some(tile) = self.tiles.get(tile_id) {
-            match tile {
-                Tile::Pane(pane) => Some(pane),
-                Tile::Container(_) => None,
-            }
-        } else {
-            None
-        }
     }
 
     /// Tiles are visible by default.
