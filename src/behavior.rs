@@ -48,7 +48,7 @@ pub trait Behavior<Pane> {
         false
     }
 
-    /// If `closable()` returns true, hat should be done when the close button is pressed?
+    /// If [`Self::closable`] returns true, hat should be done when the close button is pressed?
     ///
     /// Return `true` if the tab should be closed, `false` otherwise.
     fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
