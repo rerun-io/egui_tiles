@@ -41,7 +41,9 @@ pub trait Behavior<Pane> {
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
 
-    /// Should the tab be closable?
+    /// Should tabs have a close-button?
+    ///
+    /// If `true` and the button is clicked, [`Self::on_tab_close`] is called.
     fn closable(&self) -> bool {
         false
     }
