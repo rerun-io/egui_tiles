@@ -27,8 +27,10 @@ pub enum EditAction {
 pub struct TabState {
     /// Is the tab currently selected?
     pub active: bool,
+    
     /// Is the tab currently being dragged?
     pub is_being_dragged: bool,
+    
     /// Should the tab have a close button?
     pub closable: bool,
 }
