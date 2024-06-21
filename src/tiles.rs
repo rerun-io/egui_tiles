@@ -75,7 +75,6 @@ impl<Pane> Tiles<Pane> {
     }
 
     /// Get the pane instance for a given [`TileId`]
-    #[allow(dead_code)]
     pub fn get_pane(&self, tile_id: &TileId) -> Option<&Pane> {
         match self.tiles.get(tile_id)? {
             Tile::Pane(pane) => Some(pane),
