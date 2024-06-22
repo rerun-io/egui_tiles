@@ -27,10 +27,10 @@ pub enum EditAction {
 pub struct TabState {
     /// Is the tab currently selected?
     pub active: bool,
-    
+
     /// Is the tab currently being dragged?
     pub is_being_dragged: bool,
-    
+
     /// Should the tab have a close button?
     pub closable: bool,
 }
@@ -61,6 +61,12 @@ pub trait Behavior<Pane> {
     /// The size of the close button in the tab
     fn close_button_size(&self) -> f32 {
         12.0
+    }
+
+    /// How much smaller the visual part of the close-button will be
+    /// compared to [`Self::close_button_outer_size`].
+    fn close_button_inner_margin(&self) -> f32 {
+        2.0
     }
 
     /// The title of a general tab.
@@ -146,7 +152,9 @@ pub trait Behavior<Pane> {
                 let visuals = ui.style().interact(&close_btn_response);
 
                 // Scale based on the interaction visuals
-                let rect = close_btn_rect.expand(visuals.expansion);
+                let rect = close_btn_rect
+                    .shrink(self.close_button_inner_margin())
+                    .expand(visuals.expansion);
                 let stroke = visuals.fg_stroke;
 
                 // paint the crossed lines
