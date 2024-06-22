@@ -82,6 +82,14 @@ impl<Pane> Tiles<Pane> {
         }
     }
 
+    /// Get the container instance for a given [`TileId`]
+    pub fn get_container(&self, tile_id: TileId) -> Option<&Container> {
+        match self.tiles.get(&tile_id)? {
+            Tile::Container(container) => Some(container),
+            Tile::Pane(_) => None,
+        }
+    }
+
     pub fn get_mut(&mut self, tile_id: TileId) -> Option<&mut Tile<Pane>> {
         self.tiles.get_mut(&tile_id)
     }
