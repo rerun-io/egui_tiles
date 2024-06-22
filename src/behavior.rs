@@ -58,7 +58,7 @@ pub trait Behavior<Pane> {
         true
     }
 
-    /// The size of the close button in the tab
+    /// The size of the close button in the tab.
     fn close_button_size(&self) -> f32 {
         12.0
     }
@@ -67,6 +67,11 @@ pub trait Behavior<Pane> {
     /// compared to [`Self::close_button_outer_size`].
     fn close_button_inner_margin(&self) -> f32 {
         2.0
+    }
+
+    /// The mouse cursor to show when hovering the close button.
+    fn close_button_hover_cursor(&self) -> egui::CursorIcon {
+        egui::CursorIcon::Default
     }
 
     /// The title of a general tab.
@@ -113,7 +118,9 @@ pub trait Behavior<Pane> {
             + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
         let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
 
-        let tab_response = ui.interact(tab_rect, id, Sense::click_and_drag());
+        let tab_response = ui
+            .interact(tab_rect, id, Sense::click_and_drag())
+            .on_hover_cursor(egui::CursorIcon::Grab);
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
@@ -147,7 +154,9 @@ pub trait Behavior<Pane> {
 
                 // Allocate
                 let close_btn_id = ui.auto_id_with("tab_close_btn");
-                let close_btn_response = ui.interact(close_btn_rect, close_btn_id, Sense::click());
+                let close_btn_response = ui
+                    .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
+                    .on_hover_cursor(self.close_button_hover_cursor());
 
                 let visuals = ui.style().interact(&close_btn_response);
 
