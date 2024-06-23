@@ -303,7 +303,7 @@ impl Tabs {
 
                             let response =
                                 behavior.tab_ui(&mut tree.tiles, ui, id, child_id, tab_state);
-                            let response = response.on_hover_cursor(egui::CursorIcon::Grab);
+
                             if response.clicked() {
                                 behavior.on_edit(EditAction::TabSelected);
                                 next_active = Some(child_id);
