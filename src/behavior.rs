@@ -59,12 +59,12 @@ pub trait Behavior<Pane> {
     }
 
     /// The size of the close button in the tab.
-    fn close_button_size(&self) -> f32 {
+    fn close_button_outer_size(&self) -> f32 {
         12.0
     }
 
     /// How much smaller the visual part of the close-button will be
-    /// compared to [`Self::close_button_size`].
+    /// compared to [`Self::close_button_outer_size`].
     fn close_button_inner_margin(&self) -> f32 {
         2.0
     }
@@ -107,7 +107,7 @@ pub trait Behavior<Pane> {
         state: TabState,
     ) -> Response {
         let text = self.tab_title_for_tile(tiles, tile_id);
-        let close_btn_size = Vec2::splat(self.close_button_size());
+        let close_btn_size = Vec2::splat(self.close_button_outer_size());
         let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
         let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
