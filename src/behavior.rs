@@ -64,7 +64,7 @@ pub trait Behavior<Pane> {
     }
 
     /// How much smaller the visual part of the close-button will be
-    /// compared to [`Self::close_button_outer_size`].
+    /// compared to [`Self::close_button_size`].
     fn close_button_inner_margin(&self) -> f32 {
         2.0
     }
