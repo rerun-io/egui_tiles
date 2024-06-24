@@ -356,7 +356,7 @@ impl<Pane> Tree<Pane> {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
         // Preview what is being dragged:
-        egui::Area::new(egui::Id::new((dragged_tile_id, "preview")))
+        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
