@@ -69,11 +69,6 @@ pub trait Behavior<Pane> {
         2.0
     }
 
-    /// The mouse cursor to show when hovering the close button.
-    fn close_button_hover_cursor(&self) -> egui::CursorIcon {
-        egui::CursorIcon::Default
-    }
-
     /// The title of a general tab.
     ///
     /// The default implementation calls [`Self::tab_title_for_pane`] for panes and
@@ -156,7 +151,7 @@ pub trait Behavior<Pane> {
                 let close_btn_id = ui.auto_id_with("tab_close_btn");
                 let close_btn_response = ui
                     .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
-                    .on_hover_cursor(self.close_button_hover_cursor());
+                    .on_hover_cursor(egui::CursorIcon::Default);
 
                 let visuals = ui.style().interact(&close_btn_response);
 
