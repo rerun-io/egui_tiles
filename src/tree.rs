@@ -256,14 +256,18 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
+        let rect = ui.available_rect_before_wrap();
+
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+
+        // Allocate the used space in the parent Ui:
+        ui.advance_cursor_after_rect(rect);
     }
 
     pub(super) fn tile_ui(
@@ -355,7 +359,7 @@ impl<Pane> Tree<Pane> {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
         // Preview what is being dragged:
-        egui::Area::new(egui::Id::new((dragged_tile_id, "preview")))
+        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)

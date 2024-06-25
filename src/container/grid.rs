@@ -279,7 +279,7 @@ impl Grid {
     ) {
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize_col", i));
+            let resize_id = ui.id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
 
@@ -321,7 +321,7 @@ impl Grid {
     ) {
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize_row", i));
+            let resize_id = ui.id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
 
@@ -527,6 +527,14 @@ mod tests {
             }
 
             fn tab_title_for_pane(&mut self, _pane: &Pane) -> egui::WidgetText {
+                panic!()
+            }
+
+            fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+                panic!()
+            }
+
+            fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
                 panic!()
             }
         }

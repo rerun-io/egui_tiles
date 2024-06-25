@@ -1,6 +1,6 @@
 use egui::{scroll_area::ScrollBarVisibility, vec2, NumExt, Rect, Vec2};
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, TabState};
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
     TileId, Tiles, Tree,
@@ -212,7 +212,7 @@ impl Tabs {
     #[allow(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
-        tree: &Tree<Pane>,
+        tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         ui: &mut egui::Ui,
         rect: Rect,
@@ -295,16 +295,15 @@ impl Tabs {
 
                             let selected = self.is_active(child_id);
                             let id = child_id.egui_id(tree.id);
-
-                            let response = behavior.tab_ui(
-                                &tree.tiles,
-                                ui,
-                                id,
-                                child_id,
-                                selected,
+                            let tab_state = TabState {
+                                active: selected,
                                 is_being_dragged,
-                            );
-                            let response = response.on_hover_cursor(egui::CursorIcon::Grab);
+                                closable: behavior.is_tab_closable(&tree.tiles, child_id),
+                            };
+
+                            let response =
+                                behavior.tab_ui(&mut tree.tiles, ui, id, child_id, tab_state);
+
                             if response.clicked() {
                                 behavior.on_edit(EditAction::TabSelected);
                                 next_active = Some(child_id);

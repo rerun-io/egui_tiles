@@ -256,7 +256,7 @@ impl Linear {
 
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
             let left_rect = tree.tiles.rect_or_die(left);
             let right_rect = tree.tiles.rect_or_die(right);
@@ -320,7 +320,7 @@ impl Linear {
 
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
             let top_rect = tree.tiles.rect_or_die(top);
             let bottom_rect = tree.tiles.rect_or_die(bottom);
