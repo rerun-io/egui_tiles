@@ -122,7 +122,7 @@ mod tile;
 mod tiles;
 mod tree;
 
-pub use behavior::{Behavior, EditAction};
+pub use behavior::{Behavior, EditAction, TabState};
 pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Shares, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
