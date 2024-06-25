@@ -302,7 +302,7 @@ impl Tabs {
                             };
 
                             let response =
-                                behavior.tab_ui(&mut tree.tiles, ui, id, child_id, tab_state);
+                                behavior.tab_ui(&mut tree.tiles, ui, id, child_id, &tab_state);
 
                             if response.clicked() {
                                 behavior.on_edit(EditAction::TabSelected);
