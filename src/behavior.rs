@@ -99,7 +99,7 @@ pub trait Behavior<Pane> {
         ui: &mut Ui,
         id: Id,
         tile_id: TileId,
-        state: TabState,
+        state: &TabState,
     ) -> Response {
         let text = self.tab_title_for_tile(tiles, tile_id);
         let close_btn_size = Vec2::splat(self.close_button_outer_size());
@@ -120,8 +120,8 @@ pub trait Behavior<Pane> {
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
-            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, &state);
-            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, &state);
+            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
+            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state);
             ui.painter()
                 .rect(tab_rect.shrink(0.5), 0.0, bg_color, stroke);
 
@@ -135,7 +135,7 @@ pub trait Behavior<Pane> {
             }
 
             // Prepare title's text for rendering
-            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, state.active);
+            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, state);
             let text_position = egui::Align2::LEFT_CENTER
                 .align_size_within_rect(galley.size(), tab_rect.shrink(x_margin))
                 .min;
@@ -345,9 +345,9 @@ pub trait Behavior<Pane> {
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Color32 {
-        if active {
+        if state.active {
             visuals.widgets.active.text_color()
         } else {
             visuals.widgets.noninteractive.text_color()
