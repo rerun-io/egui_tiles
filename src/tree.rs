@@ -250,7 +250,7 @@ impl<Pane> Tree<Pane> {
         let mut drop_context = DropContext {
             enabled: true,
             dragged_tile_id: self.dragged_id(ui.ctx()),
-            mouse_pos: ui.input(|i| i.pointer.hover_pos()),
+            mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
             preview_rect: None,
