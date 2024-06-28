@@ -263,15 +263,17 @@ impl Linear {
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(x, parent_rect.center().y),
-                    vec2(
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                        parent_rect.height(),
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(x, parent_rect.center().y),
+                vec2(
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                    parent_rect.height(),
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
@@ -327,15 +329,17 @@ impl Linear {
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(parent_rect.center().x, y),
-                    vec2(
-                        parent_rect.width(),
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(parent_rect.center().x, y),
+                vec2(
+                    parent_rect.width(),
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
