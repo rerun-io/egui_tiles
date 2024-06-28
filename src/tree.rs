@@ -306,23 +306,26 @@ impl<Pane> Tree<Pane> {
             ui.id().with(tile_id),
             rect,
             rect,
+            egui::UiStackInfo::default(),
         );
-        ui.set_enabled(enabled);
-        match &mut tile {
-            Tile::Pane(pane) => {
-                if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+
+        ui.add_enabled_ui(enabled, |ui| {
+            match &mut tile {
+                Tile::Pane(pane) => {
+                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                    }
                 }
-            }
-            Tile::Container(container) => {
-                container.ui(self, behavior, drop_context, &mut ui, rect, tile_id);
-            }
-        };
+                Tile::Container(container) => {
+                    container.ui(self, behavior, drop_context, ui, rect, tile_id);
+                }
+            };
 
-        behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
+            behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
 
-        self.tiles.insert(tile_id, tile);
-        drop_context.enabled = drop_context_was_enabled;
+            self.tiles.insert(tile_id, tile);
+            drop_context.enabled = drop_context_was_enabled;
+        });
     }
 
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
@@ -380,7 +383,7 @@ impl<Pane> Tree<Pane> {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
                         let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout()),
+                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
                             dragged_tile_id,
                             pane,
                         );

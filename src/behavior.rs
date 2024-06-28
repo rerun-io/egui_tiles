@@ -105,7 +105,8 @@ pub trait Behavior<Pane> {
         let close_btn_size = Vec2::splat(self.close_button_outer_size());
         let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
-        let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
+        let galley = text.into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, font_id);
+
         let x_margin = self.tab_title_spacing(ui.visuals());
 
         let button_width = galley.size().x
