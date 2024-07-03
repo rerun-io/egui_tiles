@@ -21,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
                     app = state;
                 }
             }
-            Box::new(app)
+            Ok(Box::new(app))
         }),
     )
 }
@@ -101,17 +101,13 @@ impl TreeBehavior {
                 ui.label("Tab bar height:");
                 ui.add(
                     egui::DragValue::new(tab_bar_height)
-                        .clamp_range(0.0..=100.0)
+                        .range(0.0..=100.0)
                         .speed(1.0),
                 );
                 ui.end_row();
 
                 ui.label("Gap width:");
-                ui.add(
-                    egui::DragValue::new(gap_width)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1.0),
-                );
+                ui.add(egui::DragValue::new(gap_width).range(0.0..=20.0).speed(1.0));
                 ui.end_row();
             });
     }
@@ -251,7 +247,7 @@ impl eframe::App for MyApp {
             ui.separator();
 
             ui.collapsing("Tree", |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                 let tree_debug = format!("{:#?}", self.tree);
                 ui.monospace(&tree_debug);
             });
