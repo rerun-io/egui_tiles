@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use egui_tiles::{Tile, TileId, Tiles};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -20,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
                     app = state;
                 }
             }
-            Box::new(app)
+            Ok(Box::new(app))
         }),
     )
 }
@@ -100,17 +101,13 @@ impl TreeBehavior {
                 ui.label("Tab bar height:");
                 ui.add(
                     egui::DragValue::new(tab_bar_height)
-                        .clamp_range(0.0..=100.0)
+                        .range(0.0..=100.0)
                         .speed(1.0),
                 );
                 ui.end_row();
 
                 ui.label("Gap width:");
-                ui.add(
-                    egui::DragValue::new(gap_width)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1.0),
-                );
+                ui.add(egui::DragValue::new(gap_width).range(0.0..=20.0).speed(1.0));
                 ui.end_row();
             });
     }
@@ -156,6 +153,36 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
         self.simplification_options
+    }
+
+    fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    fn on_tab_close(&mut self, tiles: &mut Tiles<Pane>, tile_id: TileId) -> bool {
+        if let Some(tile) = tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(pane) => {
+                    // Single pane removal
+                    let tab_title = self.tab_title_for_pane(pane);
+                    log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                }
+                Tile::Container(container) => {
+                    // Container removal
+                    log::debug!("Closing container: {:?}", container.kind());
+                    let children_ids = container.children();
+                    for child_id in children_ids {
+                        if let Some(Tile::Pane(pane)) = tiles.get(*child_id) {
+                            let tab_title = self.tab_title_for_pane(pane);
+                            log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Proceed to removing the tab
+        true
     }
 }
 
@@ -220,7 +247,7 @@ impl eframe::App for MyApp {
             ui.separator();
 
             ui.collapsing("Tree", |ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                 let tree_debug = format!("{:#?}", self.tree);
                 ui.monospace(&tree_debug);
             });
@@ -285,7 +312,7 @@ fn tree_ui(
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
         ui.ctx(),
-        egui::Id::new((tile_id, "tree")),
+        ui.id().with((tile_id, "tree")),
         default_open,
     )
     .show_header(ui, |ui| {

@@ -1,6 +1,25 @@
 # `egui_tiles` Changelog
 
 
+## [0.9.0](https://github.com/rerun-io/egui_tiles/compare/0.8.0...0.9.0) - 2024-07-03 - egui 0.28 and tab close buttons
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.8.0..HEAD
+
+* Update to egui 0.28.0 [#67](https://github.com/rerun-io/egui_tiles/pull/67)
+* Update to Rust 1.76 [#60](https://github.com/rerun-io/egui_tiles/pull/60) [#66](https://github.com/rerun-io/egui_tiles/pull/66)
+* Optional close-buttons on tabs [#70](https://github.com/rerun-io/egui_tiles/pull/70) (thanks [@voidburn](https://github.com/voidburn)!)
+* Add `Tiles::rect` to read where a tile is [#61](https://github.com/rerun-io/egui_tiles/pull/61)
+* Add `Behavior::paint_on_top_of_tile` [#62](https://github.com/rerun-io/egui_tiles/pull/62)
+* Fix: make sure `Tree::ui` allocates the space it uses in parent `Ui` [#71](https://github.com/rerun-io/egui_tiles/pull/71) (thanks [@rydb](https://github.com/rydb)!)
+* Fix bugs when having multiple `Tree`s visible at the same time [#68](https://github.com/rerun-io/egui_tiles/pull/68) (thanks [@GuillaumeSchmid](https://github.com/GuillaumeSchmid)!)
+* Fix drag-and-drop of tiles on touchscreen devices [#74](https://github.com/rerun-io/egui_tiles/pull/74) (thanks [@mcoroz](https://github.com/mcoroz)!)
+* Fix container resize drag for touchscreens [#75](https://github.com/rerun-io/egui_tiles/pull/75) (thanks [@mcoroz](https://github.com/mcoroz)!)
+* Update release instructions [62ecb4c](https://github.com/rerun-io/egui_tiles/commit/62ecb4ccd52bdabd11e688e4e6e29e4d1a3783ab)
+* Add clippy lint `match_bool` [fadf41a](https://github.com/rerun-io/egui_tiles/commit/fadf41ab42af5527e8a17af436a5608dd7dbd7bf)
+* Add a PR template [87110a9](https://github.com/rerun-io/egui_tiles/commit/87110a98a280f73c77b80507367290691f75d33b)
+* Expose `egui_tiles::TabState` [6e88ea9](https://github.com/rerun-io/egui_tiles/commit/6e88ea9774d63b0a7a8a67af9a90c13a4b3efb10)
+* Pass `&TabState` to all relevant functions in Behavior [ee1286a](https://github.com/rerun-io/egui_tiles/commit/ee1286a975239ffa34258313a11d2bf03ec4cea9)
+
+
 ## [0.8.0](https://github.com/rerun-io/egui_tiles/compare/0.7.2...0.8.0) - 2024-03-26
 * Update to egui 0.27.0 [#58](https://github.com/rerun-io/egui_tiles/pull/58)
 * Re-export `Shares` [#56](https://github.com/rerun-io/egui_tiles/pull/56) (thanks [@Gohla](https://github.com/Gohla)!)
@@ -40,7 +59,7 @@
 ## [0.4.0](https://github.com/rerun-io/egui_tiles/compare/0.3.1...0.4.0) - 2023-11-23
 * Fix Id clash when using multiple `Tree`s [#32](https://github.com/rerun-io/egui_tiles/pull/32)
 * Scrollable tab bar [#9](https://github.com/rerun-io/egui_tiles/pull/9)
-* `Behavior::on_tab_button` can now add context menus, on hover ui etc. [#23](https://github.com/rerun-io/egui_tiles/pull/23)
+* `Behavior::on_tab_button` can now add context menus, on hover ui etc [#23](https://github.com/rerun-io/egui_tiles/pull/23)
 * `serde` is now and optional dependency [#13](https://github.com/rerun-io/egui_tiles/pull/13)
 * Update to egui 0.24
 * Update MSRV to Rust 1.72

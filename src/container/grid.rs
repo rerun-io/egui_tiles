@@ -279,20 +279,22 @@ impl Grid {
     ) {
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize_col", i));
+            let resize_id = ui.id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(x, parent_rect.center().y),
-                    vec2(
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                        parent_rect.height(),
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(x, parent_rect.center().y),
+                vec2(
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                    parent_rect.height(),
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.col_ranges,
@@ -321,20 +323,22 @@ impl Grid {
     ) {
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize_row", i));
+            let resize_id = ui.id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(parent_rect.center().x, y),
-                    vec2(
-                        parent_rect.width(),
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(parent_rect.center().x, y),
+                vec2(
+                    parent_rect.width(),
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.row_ranges,
@@ -527,6 +531,14 @@ mod tests {
             }
 
             fn tab_title_for_pane(&mut self, _pane: &Pane) -> egui::WidgetText {
+                panic!()
+            }
+
+            fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+                panic!()
+            }
+
+            fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
                 panic!()
             }
         }

@@ -256,22 +256,24 @@ impl Linear {
 
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
             let left_rect = tree.tiles.rect_or_die(left);
             let right_rect = tree.tiles.rect_or_die(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(x, parent_rect.center().y),
-                    vec2(
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                        parent_rect.height(),
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(x, parent_rect.center().y),
+                vec2(
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                    parent_rect.height(),
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
@@ -320,22 +322,24 @@ impl Linear {
 
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
             let top_rect = tree.tiles.rect_or_die(top);
             let bottom_rect = tree.tiles.rect_or_die(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(parent_rect.center().x, y),
-                    vec2(
-                        parent_rect.width(),
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(parent_rect.center().x, y),
+                vec2(
+                    parent_rect.width(),
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,

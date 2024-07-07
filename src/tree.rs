@@ -260,7 +260,7 @@ impl<Pane> Tree<Pane> {
         let mut drop_context = DropContext {
             enabled: true,
             dragged_tile_id: self.dragged_id(ui.ctx()),
-            mouse_pos: ui.input(|i| i.pointer.hover_pos()),
+            mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
             preview_rect: None,
@@ -341,23 +341,26 @@ impl<Pane> Tree<Pane> {
             ui.id().with(tile_id),
             rect,
             rect,
+            egui::UiStackInfo::default(),
         );
-        ui.set_enabled(enabled);
-        match &mut tile {
-            Tile::Pane(pane) => {
-                if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+
+        ui.add_enabled_ui(enabled, |ui| {
+            match &mut tile {
+                Tile::Pane(pane) => {
+                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                    }
                 }
-            }
-            Tile::Container(container) => {
-                container.ui(self, behavior, drop_context, &mut ui, rect, tile_id);
-            }
-        };
+                Tile::Container(container) => {
+                    container.ui(self, behavior, drop_context, ui, rect, tile_id);
+                }
+            };
 
-        behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
+            behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
 
-        self.tiles.insert(tile_id, tile);
-        drop_context.enabled = drop_context_was_enabled;
+            self.tiles.insert(tile_id, tile);
+            drop_context.enabled = drop_context_was_enabled;
+        });
     }
 
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
@@ -391,7 +394,7 @@ impl<Pane> Tree<Pane> {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
         // Preview what is being dragged:
-        egui::Area::new(egui::Id::new((dragged_tile_id, "preview")))
+        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
@@ -415,7 +418,7 @@ impl<Pane> Tree<Pane> {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
                         let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout()),
+                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
                             dragged_tile_id,
                             pane,
                         );
