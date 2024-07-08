@@ -285,7 +285,8 @@ impl<Pane> Tree<Pane> {
 
     /// Sets the exact height that can be used by the tree.
     ///
-    /// determines the height that will be used by the tree component, by default, the tree occupies all the available space in the parent container
+    /// Determines the height that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
     pub fn set_height(&mut self, height: f32) {
         if height.is_sign_positive() && height.is_finite() {
             self.height = height;
