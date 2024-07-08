@@ -297,7 +297,8 @@ impl<Pane> Tree<Pane> {
 
     /// Sets the exact width that can be used by the tree.
     ///
-    /// determines the width that will be used by the tree component, by default, the tree occupies all the available space in the parent container
+    /// Determines the width that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
     pub fn set_width(&mut self, width: f32) {
         if width.is_sign_positive() && width.is_finite() {
             self.width = width;
