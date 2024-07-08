@@ -37,6 +37,12 @@ pub struct Tree<Pane> {
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
+
+    /// When finite, this values contains the exact height of this tree
+    height: f32,
+
+    /// When finite, this values contains the exact width of this tree
+    width: f32,
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -95,6 +101,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: None,
             tiles: Default::default(),
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -108,6 +116,8 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: Some(root),
             tiles,
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
@@ -256,8 +266,13 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
-        let rect = ui.available_rect_before_wrap();
-
+        let mut rect = ui.available_rect_before_wrap();
+        if self.height.is_finite() {
+            rect.set_height(self.height);
+        }
+        if self.width.is_finite() {
+            rect.set_width(self.width);
+        }
         if let Some(root) = self.root {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
@@ -265,9 +280,31 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
-
-        // Allocate the used space in the parent Ui:
         ui.advance_cursor_after_rect(rect);
+    }
+
+    /// Sets the exact height that can be used by the tree.
+    ///
+    /// Determines the height that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
+    pub fn set_height(&mut self, height: f32) {
+        if height.is_sign_positive() && height.is_finite() {
+            self.height = height;
+        } else {
+            self.height = f32::INFINITY;
+        }
+    }
+
+    /// Sets the exact width that can be used by the tree.
+    ///
+    /// Determines the width that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
+    pub fn set_width(&mut self, width: f32) {
+        if width.is_sign_positive() && width.is_finite() {
+            self.width = width;
+        } else {
+            self.width = f32::INFINITY;
+        }
     }
 
     pub(super) fn tile_ui(
