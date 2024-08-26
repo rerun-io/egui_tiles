@@ -341,9 +341,7 @@ impl<Pane> Tree<Pane> {
             ui.ctx().clone(),
             ui.layer_id(),
             ui.id().with(tile_id),
-            rect,
-            rect,
-            egui::UiStackInfo::default(),
+            egui::UiBuilder::new().max_rect(rect),
         );
 
         ui.add_enabled_ui(enabled, |ui| {
