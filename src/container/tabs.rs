@@ -223,7 +223,7 @@ impl Tabs {
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
-        let mut ui = ui.child_ui(tab_bar_rect, *ui.layout(), None);
+        let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(tab_bar_rect));
 
         let mut button_rects = ahash::HashMap::default();
         let mut dragged_index = None;

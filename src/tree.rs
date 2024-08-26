@@ -418,7 +418,7 @@ impl<Pane> Tree<Pane> {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
                         let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
+                            &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
                             dragged_tile_id,
                             pane,
                         );
