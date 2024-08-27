@@ -269,13 +269,11 @@ impl Tabs {
 
                     let output = scroll_area.show(ui, |ui| {
                         if !tree.is_root(tile_id) {
-                            // Make the background behind the buttons draggable (to drag the parent container tile):
+                            // Make the background behind the buttons draggable (to drag the parent container tile).
+                            // We also sense clicks to avoid eager-dragging on mouse-down.
+                            let sense = egui::Sense::click_and_drag();
                             if ui
-                                .interact(
-                                    ui.max_rect(),
-                                    ui.id().with("background"),
-                                    egui::Sense::drag(),
-                                )
+                                .interact(ui.max_rect(), ui.id().with("background"), sense)
                                 .on_hover_cursor(egui::CursorIcon::Grab)
                                 .drag_started()
                             {
