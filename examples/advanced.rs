@@ -46,7 +46,7 @@ impl Pane {
         let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
         let dragged = ui
-            .allocate_rect(ui.max_rect(), egui::Sense::drag())
+            .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
             .on_hover_cursor(egui::CursorIcon::Grab)
             .dragged();
         if dragged {
