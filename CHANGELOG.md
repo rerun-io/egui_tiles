@@ -1,6 +1,11 @@
 # `egui_tiles` Changelog
 
 
+## [0.9.1](https://github.com/rerun-io/egui_tiles/compare/0.9.0...0.9.1) - 2024-08-27
+* Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
+* Fix for eagerly starting a drag when clicking tab background [#80](https://github.com/rerun-io/egui_tiles/pull/80)
+
+
 ## [0.9.0](https://github.com/rerun-io/egui_tiles/compare/0.8.0...0.9.0) - 2024-07-03 - egui 0.28 and tab close buttons
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.8.0..HEAD
 
