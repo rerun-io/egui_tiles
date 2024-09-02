@@ -1,0 +1,34 @@
+# Copied from https://github.com/rerun-io/rerun_template
+
+# https://github.com/marketplace/actions/require-labels
+# Check for existence of labels
+# See all our labels at https://github.com/rerun-io/rerun/issues/labels
+
+name: PR Labels
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for a "do-not-merge" label
+        uses: mheap/github-action-required-labels@v3
+        with:
+          mode: exactly
+          count: 0
+          labels: "do-not-merge"
+
+      - name: Require label "include in changelog" or "exclude from changelog"
+        uses: mheap/github-action-required-labels@v3
+        with:
+          mode: minimum
+          count: 1
+          labels: "exclude from changelog, include in changelog"

@@ -1,0 +1,79 @@
+# Copied from https://github.com/rerun-io/rerun_template
+#
+# There is also a scripts/clippy_wasm/clippy.toml which forbids some methods that are not available in wasm.
+
+# -----------------------------------------------------------------------------
+# Section identical to scripts/clippy_wasm/clippy.toml:
+
+msrv = "1.76"
+
+allow-unwrap-in-tests = true
+
+# https://doc.rust-lang.org/nightly/clippy/lint_configuration.html#avoid-breaking-exported-api
+# We want suggestions, even if it changes public API.
+avoid-breaking-exported-api = false
+
+excessive-nesting-threshold = 8
+
+max-fn-params-bools = 1
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#/large_include_file
+max-include-file-size = 1000000
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#/large_stack_frames
+stack-size-threshold = 512000
+
+too-many-lines-threshold = 200
+
+# -----------------------------------------------------------------------------
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_macros
+disallowed-macros = ['dbg']
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_methods
+disallowed-methods = [
+  { path = "egui_extras::TableBody::row", reason = "`row` doesn't scale. Use `rows` instead." },
+  { path = "glam::Vec2::normalize", reason = "normalize() can create NaNs. Use try_normalize or normalize_or_zero" },
+  { path = "glam::Vec3::normalize", reason = "normalize() can create NaNs. Use try_normalize or normalize_or_zero" },
+  { path = "sha1::Digest::new", reason = "SHA1 is cryptographically broken" },
+  { path = "std::env::temp_dir", reason = "Use the tempdir crate instead" },
+  { path = "std::panic::catch_unwind", reason = "We compile with `panic = 'abort'`" },
+  { path = "std::thread::spawn", reason = "Use `std::thread::Builder` and name the thread" },
+
+  # There are many things that aren't allowed on wasm,
+  # but we cannot disable them all here (because of e.g. https://github.com/rust-lang/rust-clippy/issues/10406)
+  # so we do that in `scripts/clippy_wasm/clippy.toml` instead.
+]
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_names
+disallowed-names = []
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = [
+  { path = "ring::digest::SHA1_FOR_LEGACY_USE_ONLY", reason = "SHA1 is cryptographically broken" },
+
+  { path = "std::sync::Condvar", reason = "Use parking_lot instead" },
+  { path = "std::sync::Mutex", reason = "Use parking_lot instead" },
+  { path = "std::sync::RwLock", reason = "Use parking_lot instead" },
+
+  # "std::sync::Once",  # enabled for now as the `log_once` macro uses it internally
+]
+
+# Allow-list of words for markdown in docstrings https://rust-lang.github.io/rust-clippy/master/index.html#doc_markdown
+doc-valid-idents = [
+  # You must also update the same list in `scripts/clippy_wasm/clippy.toml`!
+  "GitHub",
+  "GLB",
+  "GLTF",
+  "iOS",
+  "macOS",
+  "NaN",
+  "OBJ",
+  "OpenGL",
+  "PyPI",
+  "sRGB",
+  "sRGBA",
+  "WebGL",
+  "WebSocket",
+  "WebSockets",
+]

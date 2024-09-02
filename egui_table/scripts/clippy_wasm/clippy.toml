@@ -1,0 +1,75 @@
+# Copied from https://github.com/rerun-io/rerun_template
+
+# This is used by the CI so we can forbid some methods that are not available in wasm.
+#
+# We cannot forbid all these methods in the main `clippy.toml` because of
+# https://github.com/rust-lang/rust-clippy/issues/10406
+
+# -----------------------------------------------------------------------------
+# Section identical to the main clippy.toml:
+
+msrv = "1.76"
+
+allow-unwrap-in-tests = true
+
+# https://doc.rust-lang.org/nightly/clippy/lint_configuration.html#avoid-breaking-exported-api
+# We want suggestions, even if it changes public API.
+avoid-breaking-exported-api = false
+
+excessive-nesting-threshold = 8
+
+max-fn-params-bools = 1
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#/large_include_file
+max-include-file-size = 1000000
+
+too-many-lines-threshold = 200
+
+# -----------------------------------------------------------------------------
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_methods
+disallowed-methods = [
+  { path = "crossbeam::channel::Receiver::into_iter", reason = "Cannot block on Web" },
+  { path = "crossbeam::channel::Receiver::iter", reason = "Cannot block on Web" },
+  { path = "crossbeam::channel::Receiver::recv_timeout", reason = "Cannot block on Web" },
+  { path = "crossbeam::channel::Receiver::recv", reason = "Cannot block on Web" },
+  { path = "poll_promise::Promise::block_and_take", reason = "Cannot block on Web" },
+  { path = "poll_promise::Promise::block_until_ready_mut", reason = "Cannot block on Web" },
+  { path = "poll_promise::Promise::block_until_ready", reason = "Cannot block on Web" },
+  { path = "rayon::spawn", reason = "Cannot spawn threads on wasm" },
+  { path = "std::sync::mpsc::Receiver::into_iter", reason = "Cannot block on Web" },
+  { path = "std::sync::mpsc::Receiver::iter", reason = "Cannot block on Web" },
+  { path = "std::sync::mpsc::Receiver::recv_timeout", reason = "Cannot block on Web" },
+  { path = "std::sync::mpsc::Receiver::recv", reason = "Cannot block on Web" },
+  { path = "std::thread::spawn", reason = "Cannot spawn threads on wasm" },
+  { path = "std::time::Duration::elapsed", reason = "use `web-time` crate instead for wasm/web compatibility" },
+  { path = "std::time::Instant::now", reason = "use `web-time` crate instead for wasm/web compatibility" },
+  { path = "std::time::SystemTime::now", reason = "use `web-time` or `time` crates instead for wasm/web compatibility" },
+]
+
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = [
+  { path = "instant::SystemTime", reason = "Known bugs. Use web-time." },
+  { path = "std::thread::Builder", reason = "Cannot spawn threads on wasm" },
+  # { path = "std::path::PathBuf", reason = "Can't read/write files on web" }, // Used in build.rs files (which is fine).
+]
+
+# Allow-list of words for markdown in docstrings https://rust-lang.github.io/rust-clippy/master/index.html#doc_markdown
+doc-valid-idents = [
+  # You must also update the same list in the root `clippy.toml`!
+  "..",
+  "GitHub",
+  "GLB",
+  "GLTF",
+  "iOS",
+  "macOS",
+  "NaN",
+  "OBJ",
+  "OpenGL",
+  "PyPI",
+  "sRGB",
+  "sRGBA",
+  "WebGL",
+  "WebSocket",
+  "WebSockets",
+]
