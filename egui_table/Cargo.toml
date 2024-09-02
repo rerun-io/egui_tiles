@@ -1,39 +1,44 @@
-[package]
-authors = ["rerun.io <opensource@rerun.io>"]
-categories = ["gui"]
-description = "Table viewer for egui"
+[workspace]
+resolver = "2"
+members = ["egui_table", "demo"]
+
+
+[workspace.package]
 edition = "2021"
-homepage = "https://github.com/rerun-io/egui_table"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
-keywords = ["table", "egui", "gui", "dataframe"]
 license = "MIT OR Apache-2.0"
-name = "egui_table"
-publish = true
-readme = "README.md"
-repository = "https://github.com/rerun-io/egui_table"
 rust-version = "1.76"
-version = "0.1.0"
-
-[package.metadata.docs.rs]
-all-features = true
-targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+version = "0.28.1"
 
 
-[features]
-default = []
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+[profile.dev.package."*"]
+# Optimize all dependencies even in debug builds (does not affect workspace packages):
+opt-level = 2
 
 
-[dependencies]
+[workspace.dependencies]
+egui_table = { version = "0.28.1", path = "egui_table", default-features = false }
 
-
-[dev-dependencies]
+document-features = " 0.2.10"
+eframe = { version = "0.28.1", default-features = false }
+egui = { version = "0.28.1", default-features = false }
+egui_extras = { version = "0.28.1", default-features = false }
+emath = { version = "0.28.1", default-features = false }
+serde = { version = "1", features = ["derive"] }
 
 
 [patch.crates-io]
+# If you want to use the bleeding edge version of egui and eframe:
+eframe = { git = "https://github.com/emilk/egui", rev = "edea5a40b9ed9531734e6e3b0f6c3b413b820381" }  # egui master 2024-09-01
+egui = { git = "https://github.com/emilk/egui", rev = "edea5a40b9ed9531734e6e3b0f6c3b413b820381" }  # egui master 2024-09-01
+egui_extras = { git = "https://github.com/emilk/egui", rev = "edea5a40b9ed9531734e6e3b0f6c3b413b820381" }  # egui master 2024-09-01
 
-
-[lints]
-workspace = true
+# If you fork https://github.com/emilk/egui you can test with:
+# egui = { path = "../egui/crates/egui" }
+# egui_extras = { path = "../egui/crates/egui_extras" }
+# eframe = { path = "../egui/crates/eframe" }
 
 
 [workspace.lints.rust]
@@ -156,6 +161,7 @@ rc_mutex = "warn"
 readonly_write_lock = "warn"
 redundant_type_annotations = "warn"
 ref_option_ref = "warn"
+ref_patterns = "warn"
 rest_pat_in_fully_bound_structs = "warn"
 same_functions_in_if_condition = "warn"
 semicolon_if_nothing_returned = "warn"
@@ -197,4 +203,3 @@ wildcard_imports = "warn"
 zero_sized_map_values = "warn"
 
 manual_range_contains = "allow" # this one is just worse imho
-ref_patterns = "allow"          # It's nice to avoid ref pattern, but there are some situations that are hard (impossible?) to express without.

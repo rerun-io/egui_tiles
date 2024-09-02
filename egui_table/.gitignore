@@ -1,8 +1,8 @@
 # Mac stuff:
 .DS_Store
 
-# C++ build directory
-build
+# trunk output folder
+demo/dist
 
 # Rust compile target directories:
 target
@@ -11,12 +11,3 @@ target_wasm
 
 # https://github.com/lycheeverse/lychee
 .lycheecache
-
-# Pixi environment
-.pixi
-
-# Python stuff:
-__pycache__
-.mypy_cache
-.ruff_cache
-venv

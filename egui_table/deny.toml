@@ -37,11 +37,13 @@ ignore = []
 multiple-versions = "deny"
 wildcards = "deny"
 deny = [
-  { name = "openssl", reason = "Use rustls" },
+  { name = "cmake", reason = "It has hurt me too much" },
   { name = "openssl-sys", reason = "Use rustls" },
+  { name = "openssl", reason = "Use rustls" },
 ]
+
 skip = []
-skip-tree = []
+skip-tree = [{ name = "eframe", reason = "Dev-dependency" }]
 
 
 [licenses]

@@ -48,9 +48,6 @@ exclude_path = [
 
 # Exclude URLs and mail addresses from checking (supports regex).
 exclude = [
-  # Skip speculative links
-  '.*?speculative-link',
-
   # Strings with replacements.
   '/__VIEWER_VERSION__/', # Replacement variable __VIEWER_VERSION__.
   '/\$',                  # Replacement variable $.
@@ -73,10 +70,7 @@ exclude = [
   'https://tel.rerun.io/',         # Analytics endpoint.
 
   # Avoid rate limiting.
-  'https://crates.io/crates/.*',                  # Avoid crates.io rate-limiting
-  'https://github.com/rerun-io/rerun/commit/\.*', # Ignore links to our own commits (typically in changelog).
-  'https://github.com/rerun-io/rerun/pull/\.*',   # Ignore links to our own pull requests (typically in changelog).
-
-  # Used in rerun_template repo until the user search-replaces `egui_table`
-  'https://github.com/rerun-io/egui_table',
+  'https://crates.io/crates/.*',                       # Avoid crates.io rate-limiting
+  'https://github.com/rerun-io/egui_table/commit/\.*', # Ignore links to our own commits (typically in changelog).
+  'https://github.com/rerun-io/egui_table/pull/\.*',   # Ignore links to our own pull requests (typically in changelog).
 ]
