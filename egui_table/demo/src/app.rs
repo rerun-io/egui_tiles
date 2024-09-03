@@ -1,7 +1,7 @@
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DemoApp {
-    demo: crate::plot_demo::PlotDemo,
+    demo: crate::split_scroll_demo::SplitScrollDemo,
 }
 
 impl DemoApp {
