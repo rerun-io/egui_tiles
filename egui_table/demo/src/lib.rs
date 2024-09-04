@@ -6,6 +6,7 @@
 
 mod app;
 mod split_scroll_demo;
+mod table_demo;
 
 pub use app::DemoApp;
 

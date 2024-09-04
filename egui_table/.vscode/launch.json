@@ -4,33 +4,26 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // Python
-        {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
-        },
         // Rust:
         {
-            "name": "Debug 'PROJ_NAME'",
+            "name": "Debug 'demo'",
             "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
-                    "build"
+                    "build",
+                    "--package=demo",
                 ],
                 "filter": {
-                    "name": "PROJ_NAME",
+                    "name": "demo",
                     "kind": "bin"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}",
             "env": {
+                "RUST_BACKTRACE": "1",
                 "RUST_LOG": "debug"
-            }
+            },
+            "args": [],
         },
         {
             "name": "Launch Rust tests",

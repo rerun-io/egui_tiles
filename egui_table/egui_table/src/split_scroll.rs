@@ -39,6 +39,8 @@ pub struct SplitScroll {
 
 /// The contents of a [`SplitScroll`].
 pub trait SplitScrollDelegate {
+    // TODO: add method for prefetching the visible viewport.
+
     /// The fixed portion of the top left corner.
     fn left_top_ui(&mut self, ui: &mut Ui);
 
@@ -72,6 +74,8 @@ impl SplitScroll {
             let bottom_right_rect = Rect::from_min_max(rect.min + fixed_size, rect.max);
 
             let scroll_offset = {
+                // RIGHT BOTTOM: fully scrollable.
+
                 // Entire thing is a scroll region.
                 // PROBLEM: scroll bars show up at the full rect, instead of just the bottom-right.
                 // We could add something like `ScrollArea::with_scroll_bar_rect(bottom_right_rect)`
@@ -92,16 +96,17 @@ impl SplitScroll {
             };
 
             {
-                // Fixed
+                // LEFT TOP: Fixed
                 let left_top_rect = rect
                     .with_max_x(rect.left() + fixed_size.x)
                     .with_max_y(rect.top() + fixed_size.y);
                 let mut left_top_ui = ui.new_child(UiBuilder::new().max_rect(left_top_rect));
+                left_top_ui.set_clip_rect(full_clip_rect.intersect(left_top_rect));
                 delegate.left_top_ui(&mut left_top_ui);
             }
 
             {
-                // Horizontally scrollable
+                // RIGHT TOP: Horizontally scrollable
                 let right_top_outer_rect = rect
                     .with_min_x(rect.left() + fixed_size.x)
                     .with_max_y(rect.top() + fixed_size.y);
@@ -116,7 +121,7 @@ impl SplitScroll {
             }
 
             {
-                // Vertically scrollable
+                // LEFT BOTTOM: Vertically scrollable
                 let left_bottom_outer_rect = rect
                     .with_max_x(rect.left() + fixed_size.x)
                     .with_min_y(rect.top() + fixed_size.y);

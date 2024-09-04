@@ -26,7 +26,8 @@ eframe = { version = "0.28.1", default-features = false }
 egui = { version = "0.28.1", default-features = false }
 egui_extras = { version = "0.28.1", default-features = false }
 emath = { version = "0.28.1", default-features = false }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+vec1 = { version = "1.12.1", default-features = false }
 
 
 [patch.crates-io]

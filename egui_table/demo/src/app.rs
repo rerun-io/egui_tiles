@@ -1,7 +1,17 @@
+#[derive(Default, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+enum Demo {
+    #[default]
+    Table,
+    Scroll,
+}
+
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DemoApp {
-    demo: crate::split_scroll_demo::SplitScrollDemo,
+    demo: Demo,
+
+    table_demo: crate::table_demo::TableDemo,
+    scroll_demo: crate::split_scroll_demo::SplitScrollDemo,
 }
 
 impl DemoApp {
@@ -28,6 +38,13 @@ impl eframe::App for DemoApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_buttons(ui);
+                ui.add_space(16.0);
+
+                ui.horizontal(|ui| {
+                    ui.label("Demo:");
+                    ui.radio_value(&mut self.demo, Demo::Table, "Table");
+                    ui.radio_value(&mut self.demo, Demo::Scroll, "Scroll");
+                });
 
                 ui.add_space(16.0);
 
@@ -39,8 +56,9 @@ impl eframe::App for DemoApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.demo.ui(ui);
+        egui::CentralPanel::default().show(ctx, |ui| match self.demo {
+            Demo::Table => self.table_demo.ui(ui),
+            Demo::Scroll => self.scroll_demo.ui(ui),
         });
     }
 }

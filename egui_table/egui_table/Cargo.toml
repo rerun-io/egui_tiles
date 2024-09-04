@@ -31,4 +31,6 @@ default = []
 
 
 [dependencies]
-egui = { workspace = true, default-features = false }
+egui = { workspace = true, default-features = false, features = ["serde"] }
+serde.workspace = true
+vec1.workspace = true
