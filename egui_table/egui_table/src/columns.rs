@@ -32,7 +32,7 @@ impl Default for Column {
     fn default() -> Self {
         Self {
             current: 100.0,
-            range: Rangef::new(0.0, f32::INFINITY),
+            range: Rangef::new(4.0, f32::INFINITY),
             id: None,
             resizable: true,
             auto_size_this_frame: false,

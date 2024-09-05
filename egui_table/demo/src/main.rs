@@ -13,7 +13,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "eframe template",
+        "egui_table demo",
         native_options,
         Box::new(|cc| Ok(Box::new(demo::DemoApp::new(cc)))),
     )

@@ -6,4 +6,4 @@ mod table;
 
 pub use columns::Column;
 pub use split_scroll::{SplitScroll, SplitScrollDelegate};
-pub use table::{AutoSizeMode, Table, TableDelegate, TableState};
+pub use table::{AutoSizeMode, CellInfo, Table, TableDelegate, TableState};

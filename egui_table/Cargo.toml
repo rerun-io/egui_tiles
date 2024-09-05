@@ -24,7 +24,6 @@ egui_table = { version = "0.28.1", path = "egui_table", default-features = false
 document-features = " 0.2.10"
 eframe = { version = "0.28.1", default-features = false }
 egui = { version = "0.28.1", default-features = false }
-egui_extras = { version = "0.28.1", default-features = false }
 emath = { version = "0.28.1", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 vec1 = { version = "1.12.1", default-features = false }
@@ -32,14 +31,12 @@ vec1 = { version = "1.12.1", default-features = false }
 
 [patch.crates-io]
 # If you want to use the bleeding edge version of egui and eframe:
-eframe = { git = "https://github.com/emilk/egui", rev = "7bac528d4d32f22fc0e2578198945a0ff3d876e2" }  # egui master 2024-09-02
-egui = { git = "https://github.com/emilk/egui", rev = "7bac528d4d32f22fc0e2578198945a0ff3d876e2" }  # egui master 2024-09-02
-egui_extras = { git = "https://github.com/emilk/egui", rev = "7bac528d4d32f22fc0e2578198945a0ff3d876e2" }  # egui master 2024-09-02
+eframe = { git = "https://github.com/emilk/egui", rev = "2be93aca5d0db973ab163267fb4162363786ffba" }  # egui master 2024-09-05
+egui = { git = "https://github.com/emilk/egui", rev = "2be93aca5d0db973ab163267fb4162363786ffba" }  # egui master 2024-09-05
 
 # If you fork https://github.com/emilk/egui you can test with:
-# egui = { path = "../egui/crates/egui" }
-# egui_extras = { path = "../egui/crates/egui_extras" }
-# eframe = { path = "../egui/crates/eframe" }
+# egui = { path = "../../egui/crates/egui" }
+# eframe = { path = "../../egui/crates/eframe" }
 
 
 [workspace.lints.rust]
