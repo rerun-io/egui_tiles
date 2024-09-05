@@ -15,3 +15,4 @@ Work-in-progress. Pre-release.
 * Locally: `cargo run -p demo`
 * Web locally: `(cd demo && trunk serve)`
 * Web: <https://rerun-io.github.io/egui_table/>
+* Check for off-by-one errors, especially with zero rows
