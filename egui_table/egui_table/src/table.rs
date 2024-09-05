@@ -231,8 +231,6 @@ impl Table {
 
             let num_columns = self.columns.len();
 
-            table_delegate.prefetch_rows(0..self.headers.len() as u64);
-
             for (col_nr, column) in self.columns.iter_mut().enumerate() {
                 if column.resizable {
                     let column_resize_id = id.with(column.id(col_nr)).with("resize");

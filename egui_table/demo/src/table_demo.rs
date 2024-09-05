@@ -143,14 +143,11 @@ impl TableDemo {
 
             ui.label("Rows");
             let speed = 1.0 + 0.05 * self.num_rows as f32;
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::DragValue::new(&mut self.num_rows)
-                        .speed(speed)
-                        .range(0..=10_000),
-                );
-                ui.weak("(includes header row)");
-            });
+            ui.add(
+                egui::DragValue::new(&mut self.num_rows)
+                    .speed(speed)
+                    .range(0..=10_000),
+            );
             ui.end_row();
 
             ui.label("Height of top row");
