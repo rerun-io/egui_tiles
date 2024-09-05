@@ -13,10 +13,6 @@ version = "0.28.1"
 [profile.release]
 opt-level = 2 # fast and small wasm
 
-[profile.dev.package."*"]
-# Optimize all dependencies even in debug builds (does not affect workspace packages):
-opt-level = 2
-
 
 [workspace.dependencies]
 egui_table = { version = "0.28.1", path = "egui_table", default-features = false }
@@ -31,8 +27,8 @@ vec1 = { version = "1.12.1", default-features = false }
 
 [patch.crates-io]
 # If you want to use the bleeding edge version of egui and eframe:
-eframe = { git = "https://github.com/emilk/egui", rev = "2be93aca5d0db973ab163267fb4162363786ffba" }  # egui master 2024-09-05
-egui = { git = "https://github.com/emilk/egui", rev = "2be93aca5d0db973ab163267fb4162363786ffba" }  # egui master 2024-09-05
+eframe = { git = "https://github.com/emilk/egui", rev = "7cb61f8031d2d7ccfa8cfb2442a52a2a31ec923c" }  # egui master 2024-09-05
+egui = { git = "https://github.com/emilk/egui", rev = "7cb61f8031d2d7ccfa8cfb2442a52a2a31ec923c" }  # egui master 2024-09-05
 
 # If you fork https://github.com/emilk/egui you can test with:
 # egui = { path = "../../egui/crates/egui" }

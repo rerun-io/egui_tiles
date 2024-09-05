@@ -62,7 +62,7 @@ impl TableState {
 ///
 /// ## Batteries not included
 /// * You need to specify its size beforehand
-/// * Does not add any margins to cells. Add it yourself.
+/// * Does not add any margins to cells. Add it yourself with [`egui::Frame`].
 /// * Does not clip cells, or wrap them in scroll areas. Do that yourself.
 /// * Doesn't paint any guide-lines for the rows. Paint them yourself.
 /// * There is not special header rows. Use sticky rows for that.
@@ -128,7 +128,10 @@ impl Table {
         let num_scroll_rows = self.num_rows - self.sticky_row_heights.len() as u64;
 
         let id = TableState::id(ui, self.id_salt);
-        let mut state: TableState = TableState::load(ui.ctx(), id).unwrap_or_default();
+        let state = TableState::load(ui.ctx(), id);
+        let is_new = state.is_none();
+        let do_full_sizing_pass = is_new;
+        let mut state = state.unwrap_or_default();
 
         for (i, column) in self.columns.iter_mut().enumerate() {
             let column_id = column.id(i);
@@ -136,6 +139,10 @@ impl Table {
                 column.current = *existing_width;
             }
             column.current = column.range.clamp(column.current);
+
+            if do_full_sizing_pass {
+                column.auto_size_this_frame = true;
+            }
         }
 
         let parent_width = ui.available_width();
@@ -177,7 +184,11 @@ impl Table {
             self.sticky_row_heights.iter().sum(),
         );
 
-        ui.scope(|ui| {
+        let mut ui_builder = UiBuilder::new();
+        if do_full_sizing_pass {
+            ui_builder = ui_builder.sizing_pass().invisible();
+        }
+        ui.scope_builder(ui_builder, |ui| {
             // Don't wrap text in the table cells.
             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend); // TODO: I think this is default for horizontal layouts anyway?
 
@@ -319,6 +330,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
                 };
 
                 let mut cell_rect = self.cell_rect(col_nr, row_nr).translate(-offset);
+                let clip_rect = cell_rect; // Note: we shrink the cell rect when auto-sizing, but not the clip rect! This is to avoid flicker.
                 if column.auto_size_this_frame {
                     cell_rect.max.x = cell_rect.min.x + column.range.min;
                 }
@@ -331,7 +343,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
                     ui_builder = ui_builder.sizing_pass();
                 }
                 let mut cell_ui = ui.new_child(ui_builder);
-                cell_ui.shrink_clip_rect(cell_rect);
+                cell_ui.shrink_clip_rect(clip_rect);
 
                 self.table_delegate
                     .cell_ui(&mut cell_ui, &CellInfo { col_nr, row_nr });
@@ -420,18 +432,25 @@ impl<'a> SplitScrollDelegate for TableSplitScrollDelegate<'a> {
 
             if resize_response.dragged() {
                 if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                    let mut new_width = *column_width + pointer.x - x;
+                    let desired_new_width = *column_width + pointer.x - x;
+                    let desired_new_width = column.range.clamp(desired_new_width);
 
                     // We don't want to shrink below the size that was actually used.
                     // However, we still want to allow content that shrinks when you try
                     // to make the column less wide, so we allow some small shrinkage each frame:
                     // big enough to allow shrinking over time, small enough not to look ugly when
                     // shrinking fails. This is a bit of a HACK around immediate mode.
+                    // TODO: do something smarter by remembering success/failure to resize from one frame to the next.
                     let max_shrinkage_per_frame = 8.0;
-                    new_width = new_width.at_least(used_width - max_shrinkage_per_frame);
-                    new_width = column.range.clamp(new_width);
+                    let new_width =
+                        desired_new_width.at_least(used_width - max_shrinkage_per_frame);
+                    let new_width = column.range.clamp(new_width);
                     x += new_width - *column_width;
                     *column_width = new_width;
+
+                    if new_width != desired_new_width {
+                        ui.ctx().request_repaint(); // Get there faster
+                    }
                 }
             }
 
