@@ -218,6 +218,7 @@ impl Table {
                     sticky_row_y,
                     max_column_widths: vec![0.0; num_columns],
                     visible_column_lines: Default::default(),
+                    do_full_sizing_pass,
                     has_prefetched: false,
                 },
             );
@@ -248,6 +249,8 @@ struct TableSplitScrollDelegate<'a> {
 
     /// Key is column number. The resizer is to the right of the column.
     visible_column_lines: BTreeMap<usize, ColumnResizer>,
+
+    do_full_sizing_pass: bool,
 
     has_prefetched: bool,
 }
@@ -288,8 +291,16 @@ impl<'a> TableSplitScrollDelegate<'a> {
         // Find the visible range of columns and rows:
         let viewport = ui.clip_rect().translate(offset);
 
-        let first_col = self.col_idx_at(viewport.min.x);
-        let last_col = self.col_idx_at(viewport.max.x);
+        let (first_col, last_col) = if self.do_full_sizing_pass {
+            // We do the UI for all columns during a sizing pass, so we can auto-size ALL columns
+            (0, self.col_x.len() - 1)
+        } else {
+            // Only paint the visible columns, as an optimization
+            (
+                self.col_idx_at(viewport.min.x),
+                self.col_idx_at(viewport.max.x),
+            )
+        };
         let first_row = self.row_idx_at(viewport.min.y);
         let last_row = self.row_idx_at(viewport.max.y);
 
