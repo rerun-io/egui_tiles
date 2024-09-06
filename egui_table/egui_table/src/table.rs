@@ -450,9 +450,13 @@ impl<'a> TableSplitScrollDelegate<'a> {
                 row_nr.at_most(self.table.num_rows.saturating_sub(1))
             };
 
-            let first_row = row_idx_at(viewport.min.y);
-            let last_row = row_idx_at(viewport.max.y);
-            first_row..last_row + 1
+            let margin = if do_prefetch {
+                1.0 // Handle possible rounding errors in the syncing of the scroll offsets
+            } else {
+                0.0
+            };
+
+            row_idx_at(viewport.min.y - margin)..row_idx_at(viewport.max.y + margin) + 1
         };
 
         if do_prefetch {

@@ -8,7 +8,6 @@ Work-in-progress. Pre-release.
 ### TODO/Bugs
 * Fix auto-sizing on parent resize
 * Go through TODOs
-* Pre-fetching sometimes misses a row, somehow
 * Make the API nice with proper builder pattern
 * Add API to make a specific row range visible
 
