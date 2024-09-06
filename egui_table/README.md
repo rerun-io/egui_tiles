@@ -6,7 +6,6 @@ Work-in-progress. Pre-release.
 
 
 ### TODO/Bugs
-* Hierarchical headers
 * Fix auto-sizing on parent resize
 * Go through TODOs
 * Pre-fetching sometimes misses a row, somehow

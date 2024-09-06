@@ -56,8 +56,10 @@ impl egui_table::TableDelegate for TableDemo {
             ..
         } = cell_inf;
 
+        let margin = 4.0;
+
         egui::Frame::none()
-            .inner_margin(Margin::symmetric(4.0, 0.0))
+            .inner_margin(Margin::symmetric(margin, 0.0))
             .show(ui, |ui| {
                 #[allow(clippy::collapsible_else_if)]
                 if *row_nr == 0 {
@@ -66,20 +68,27 @@ impl egui_table::TableDelegate for TableDemo {
                         let sticky = true;
                         let text = format!("This is group {group_index}");
                         if sticky {
-                            // Put the text leftmost in the clip rect (so it is always visible)
                             let font_id = egui::TextStyle::Heading.resolve(ui.style());
                             let text_color = ui.visuals().text_color();
                             let galley =
                                 ui.painter()
                                     .layout(text, font_id, text_color, f32::INFINITY);
+
+                            // Put the text leftmost in the clip rect (so it is always visible)
                             let mut pos = Align2::LEFT_CENTER
-                                .anchor_size(ui.clip_rect().left_center(), galley.size())
+                                .anchor_size(
+                                    ui.clip_rect().shrink(margin).left_center(),
+                                    galley.size(),
+                                )
                                 .min;
 
                             // … but not so far to the right that it doesn't fit.
                             pos.x = pos.x.at_most(ui.max_rect().right() - galley.size().x);
 
-                            ui.painter().galley(pos, galley, text_color);
+                            ui.put(
+                                egui::Rect::from_min_size(pos, galley.size()),
+                                egui::Label::new(galley),
+                            );
                         } else {
                             ui.heading(text);
                         }
