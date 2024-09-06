@@ -143,9 +143,24 @@ pub struct HeaderCellInfo {
     pub row_nr: usize,
 }
 
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[non_exhaustive]
+pub struct PrefetchInfo {
+    /// The sticky columns are always visible.
+    pub num_sticky_columns: usize,
+
+    /// This range of columns are currently visible, in addition to the sticky ones.
+    pub visible_columns: Range<usize>,
+
+    /// These rows are currently visible.
+    pub visible_rows: Range<u64>,
+}
+
 pub trait TableDelegate {
-    /// Called before any call to [`Self::cell_ui`] to prefetch the range of visible rows.
-    fn prefetch_rows(&mut self, _row_numbers: std::ops::Range<u64>) {}
+    /// Called before any call to [`Self::cell_ui`] to communicate the range of visible columns and rows.
+    ///
+    /// You can use this to only load the data required to be viewed.
+    fn prefetch_columns_and_rows(&mut self, _info: &PrefetchInfo) {}
 
     /// The contents of a header cell in the table.
     ///
@@ -433,8 +448,12 @@ impl<'a> TableSplitScrollDelegate<'a> {
         let last_row = row_idx_at(viewport.max.y);
 
         if do_prefetch {
-            let row_range = first_row..last_row + 1;
-            self.table_delegate.prefetch_rows(row_range.clone());
+            self.table_delegate
+                .prefetch_columns_and_rows(&PrefetchInfo {
+                    num_sticky_columns: self.table.num_sticky_cols,
+                    visible_columns: first_col..last_col + 1,
+                    visible_rows: first_row..last_row + 1,
+                });
             self.has_prefetched = true;
         } else {
             debug_assert!(

@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use egui::{Align2, Margin, NumExt};
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -11,7 +9,7 @@ pub struct TableDemo {
     auto_size_mode: egui_table::AutoSizeMode,
     top_row_height: f32,
     row_height: f32,
-    prefetched_row_ranges: Vec<Range<u64>>,
+    prefetched: Vec<egui_table::PrefetchInfo>,
 }
 
 impl Default for TableDemo {
@@ -24,22 +22,22 @@ impl Default for TableDemo {
             auto_size_mode: egui_table::AutoSizeMode::default(),
             top_row_height: 24.0,
             row_height: 20.0,
-            prefetched_row_ranges: vec![],
+            prefetched: vec![],
         }
     }
 }
 
 impl TableDemo {
-    fn was_prefetched(&self, row_nr: u64) -> bool {
-        self.prefetched_row_ranges
+    fn was_row_prefetched(&self, row_nr: u64) -> bool {
+        self.prefetched
             .iter()
-            .any(|range| range.contains(&row_nr))
+            .any(|info| info.visible_rows.contains(&row_nr))
     }
 }
 
 impl egui_table::TableDelegate for TableDemo {
-    fn prefetch_rows(&mut self, row_numbers: std::ops::Range<u64>) {
-        self.prefetched_row_ranges.push(row_numbers);
+    fn prefetch_columns_and_rows(&mut self, info: &egui_table::PrefetchInfo) {
+        self.prefetched.push(info.clone());
     }
 
     fn header_cell_ui(&mut self, ui: &mut egui::Ui, cell_inf: &egui_table::HeaderCellInfo) {
@@ -107,7 +105,7 @@ impl egui_table::TableDelegate for TableDemo {
         egui::Frame::none()
             .inner_margin(Margin::symmetric(4.0, 0.0))
             .show(ui, |ui| {
-                if !self.was_prefetched(row_nr) {
+                if !self.was_row_prefetched(row_nr) {
                     ui.painter()
                         .rect_filled(ui.max_rect(), 0.0, ui.visuals().error_fg_color);
                     ui.label("ERROR: row not prefetched");
@@ -215,11 +213,20 @@ impl TableDemo {
         ui.separator();
 
         ui.horizontal(|ui| {
-            ui.label("Prefetched row ranges:");
-            for range in &self.prefetched_row_ranges {
-                ui.label(format!("{}..{}", range.start, range.end));
+            for info in &self.prefetched {
+                ui.label("Visible columns:");
+                ui.label(format!(
+                    "{}..{}",
+                    info.visible_columns.start, info.visible_columns.end
+                ));
+
+                ui.label("rows:");
+                ui.label(format!(
+                    "{}..{}",
+                    info.visible_rows.start, info.visible_rows.end
+                ));
             }
-            self.prefetched_row_ranges.clear();
+            self.prefetched.clear();
         });
 
         ui.separator();
