@@ -212,7 +212,7 @@ impl TableDemo {
         });
 
         let id_salt = egui::Id::new("table_demo");
-        let state_id = egui_table::TableState::id(ui, id_salt); // Note: must be here (in the correct outer `ui` scope) to be correct.
+        let state_id = egui_table::Table::new().id_salt(id_salt).get_id(ui); // Note: must be here (in the correct outer `ui` scope) to be correct.
 
         ui.horizontal(|ui| {
             if ui.button("Reset settings").clicked() {
@@ -248,21 +248,20 @@ impl TableDemo {
 
         ui.separator();
 
-        egui_table::Table {
-            columns: vec![self.default_column; self.num_columns],
-            id_salt,
-            num_sticky_cols: self.num_sticky_cols,
-            headers: vec![
+        egui_table::Table::new()
+            .id_salt(id_salt)
+            .num_rows(self.num_rows)
+            .columns(vec![self.default_column; self.num_columns])
+            .num_sticky_cols(self.num_sticky_cols)
+            .headers([
                 egui_table::HeaderRow {
                     height: self.top_row_height,
                     groups: vec![0..1, 1..4, 4..8, 8..12],
                 },
                 egui_table::HeaderRow::new(self.top_row_height),
-            ],
-            row_height: self.row_height,
-            num_rows: self.num_rows,
-            auto_size_mode: self.auto_size_mode,
-        }
-        .show(ui, self);
+            ])
+            .row_height(self.row_height)
+            .auto_size_mode(self.auto_size_mode)
+            .show(ui, self);
     }
 }

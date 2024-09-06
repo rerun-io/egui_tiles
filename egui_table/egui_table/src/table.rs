@@ -90,23 +90,29 @@ impl HeaderRow {
 /// * Doesn't paint any guide-lines for the rows. Paint them yourself.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Table {
-    pub columns: Vec<Column>,
+    /// The columns of the table.
+    columns: Vec<Column>,
 
-    pub id_salt: Id,
+    /// Salt added to the parent [`Ui::id`] to produce an [`Id`] that is unique
+    /// within the parent [`Ui`].
+    ///
+    /// You need to set this to something unique if you have multiple tables in the same ui.
+    id_salt: Id,
 
     /// Which columns are sticky (non-scrolling)?
-    pub num_sticky_cols: usize,
+    num_sticky_cols: usize,
 
     /// The count and parameters of the sticky (non-scrolling) header rows.
-    pub headers: Vec<HeaderRow>,
+    headers: Vec<HeaderRow>,
 
     /// Height of the non-sticky rows.
-    pub row_height: f32,
+    row_height: f32,
 
     /// Total number of rows (sticky + non-sticky).
-    pub num_rows: u64,
+    num_rows: u64,
 
-    pub auto_size_mode: AutoSizeMode,
+    /// How to do auto-sizing of columns, if at all.
+    auto_size_mode: AutoSizeMode,
 }
 
 impl Default for Table {
@@ -174,6 +180,71 @@ pub trait TableDelegate {
 }
 
 impl Table {
+    /// Create a new table, with no columns and no headers, and zero rows.
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Salt added to the parent [`Ui::id`] to produce an [`Id`] that is unique
+    /// within the parent [`Ui`].
+    ///
+    /// You need to set this to something unique if you have multiple tables in the same ui.
+    #[inline]
+    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+        self.id_salt = Id::new(id_salt);
+        self
+    }
+
+    /// Total number of rows (sticky + non-sticky).
+    #[inline]
+    pub fn num_rows(mut self, num_rows: u64) -> Self {
+        self.num_rows = num_rows;
+        self
+    }
+
+    /// The columns of the table.
+    #[inline]
+    pub fn columns(mut self, columns: impl Into<Vec<Column>>) -> Self {
+        self.columns = columns.into();
+        self
+    }
+
+    /// Which columns are sticky (non-scrolling)?
+    #[inline]
+    pub fn num_sticky_cols(mut self, num_sticky_cols: usize) -> Self {
+        self.num_sticky_cols = num_sticky_cols;
+        self
+    }
+
+    /// The count and parameters of the sticky (non-scrolling) header rows.
+    #[inline]
+    pub fn headers(mut self, headers: impl Into<Vec<HeaderRow>>) -> Self {
+        self.headers = headers.into();
+        self
+    }
+
+    /// Height of the non-sticky rows.
+    #[inline]
+    pub fn row_height(mut self, row_height: f32) -> Self {
+        self.row_height = row_height;
+        self
+    }
+
+    /// How to do auto-sizing of columns, if at all.
+    #[inline]
+    pub fn auto_size_mode(mut self, auto_size_mode: AutoSizeMode) -> Self {
+        self.auto_size_mode = auto_size_mode;
+        self
+    }
+
+    /// Read the globally unique id, based on the current [`Self::id_salt`]
+    /// and the parent id.
+    #[inline]
+    pub fn get_id(&self, ui: &Ui) -> Id {
+        TableState::id(ui, self.id_salt)
+    }
+
     pub fn show(mut self, ui: &mut Ui, table_delegate: &mut dyn TableDelegate) {
         self.num_sticky_cols = self.num_sticky_cols.at_most(self.columns.len());
 
