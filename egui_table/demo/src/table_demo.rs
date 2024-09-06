@@ -36,7 +36,7 @@ impl TableDemo {
 }
 
 impl egui_table::TableDelegate for TableDemo {
-    fn prefetch_columns_and_rows(&mut self, info: &egui_table::PrefetchInfo) {
+    fn prepare(&mut self, info: &egui_table::PrefetchInfo) {
         for row in info.visible_rows.clone() {
             assert!(
                 row < self.num_rows,

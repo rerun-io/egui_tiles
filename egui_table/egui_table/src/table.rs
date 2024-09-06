@@ -166,7 +166,7 @@ pub trait TableDelegate {
     /// Called before any call to [`Self::cell_ui`] to communicate the range of visible columns and rows.
     ///
     /// You can use this to only load the data required to be viewed.
-    fn prefetch_columns_and_rows(&mut self, _info: &PrefetchInfo) {}
+    fn prepare(&mut self, _info: &PrefetchInfo) {}
 
     /// The contents of a header cell in the table.
     ///
@@ -531,12 +531,11 @@ impl<'a> TableSplitScrollDelegate<'a> {
         };
 
         if do_prefetch {
-            self.table_delegate
-                .prefetch_columns_and_rows(&PrefetchInfo {
-                    num_sticky_columns: self.table.num_sticky_cols,
-                    visible_columns: col_range.clone(),
-                    visible_rows: row_range.clone(),
-                });
+            self.table_delegate.prepare(&PrefetchInfo {
+                num_sticky_columns: self.table.num_sticky_cols,
+                visible_columns: col_range.clone(),
+                visible_rows: row_range.clone(),
+            });
             self.has_prefetched = true;
         } else {
             debug_assert!(
