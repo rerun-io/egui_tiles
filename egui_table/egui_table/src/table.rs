@@ -420,19 +420,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
     }
 
     fn region_ui(&mut self, ui: &mut Ui, offset: Vec2, do_prefetch: bool) {
-        let col_idx_at = |x: f32| -> usize {
-            self.col_x
-                .partition_point(|&col_x| col_x < x)
-                .saturating_sub(1)
-        };
-
-        let row_idx_at = |y: f32| -> u64 {
-            let y = y - self.header_row_y.last();
-            let row_nr = (y / self.table.row_height).floor() as u64;
-            row_nr.at_most(self.table.num_rows.saturating_sub(1))
-        };
-
-        // Find the visible range of columns and rows:
+        // Used to find the visible range of columns and rows:
         let viewport = ui.clip_rect().translate(offset);
 
         let col_range = if self.table.columns.is_empty() {
@@ -441,13 +429,27 @@ impl<'a> TableSplitScrollDelegate<'a> {
             // We do the UI for all columns during a sizing pass, so we can auto-size ALL columns
             0..self.table.columns.len()
         } else {
-            // Only paint the visible columns, as an optimization
+            // Only paint the visible columns:
+            let col_idx_at = |x: f32| -> usize {
+                self.col_x
+                    .partition_point(|&col_x| col_x < x)
+                    .saturating_sub(1)
+                    .at_most(self.table.columns.len() - 1)
+            };
+
             col_idx_at(viewport.min.x)..col_idx_at(viewport.max.x) + 1
         };
 
         let row_range = if self.table.num_rows == 0 {
             0..0
         } else {
+            // Only paint the visible rows:
+            let row_idx_at = |y: f32| -> u64 {
+                let y = y - self.header_row_y.last();
+                let row_nr = (y / self.table.row_height).floor() as u64;
+                row_nr.at_most(self.table.num_rows.saturating_sub(1))
+            };
+
             let first_row = row_idx_at(viewport.min.y);
             let last_row = row_idx_at(viewport.max.y);
             first_row..last_row + 1
