@@ -176,8 +176,6 @@ pub trait TableDelegate {
 impl Table {
     pub fn show(mut self, ui: &mut Ui, table_delegate: &mut dyn TableDelegate) {
         self.num_sticky_cols = self.num_sticky_cols.at_most(self.columns.len());
-        self.num_rows = self.num_rows.at_least(self.headers.len() as u64);
-        let num_scroll_rows = self.num_rows - self.headers.len() as u64;
 
         let id = TableState::id(ui, self.id_salt);
         let state = TableState::load(ui.ctx(), id);
@@ -266,7 +264,7 @@ impl Table {
                         .iter()
                         .map(|c| c.current)
                         .sum(),
-                    self.row_height * num_scroll_rows as f32,
+                    self.num_rows as f32 * self.row_height,
                 ),
             }
             .show(
@@ -437,22 +435,30 @@ impl<'a> TableSplitScrollDelegate<'a> {
         // Find the visible range of columns and rows:
         let viewport = ui.clip_rect().translate(offset);
 
-        let (first_col, last_col) = if self.do_full_sizing_pass {
+        let col_range = if self.table.columns.is_empty() {
+            0..0
+        } else if self.do_full_sizing_pass {
             // We do the UI for all columns during a sizing pass, so we can auto-size ALL columns
-            (0, self.col_x.len() - 1)
+            0..self.table.columns.len()
         } else {
             // Only paint the visible columns, as an optimization
-            (col_idx_at(viewport.min.x), col_idx_at(viewport.max.x))
+            col_idx_at(viewport.min.x)..col_idx_at(viewport.max.x) + 1
         };
-        let first_row = row_idx_at(viewport.min.y);
-        let last_row = row_idx_at(viewport.max.y);
+
+        let row_range = if self.table.num_rows == 0 {
+            0..0
+        } else {
+            let first_row = row_idx_at(viewport.min.y);
+            let last_row = row_idx_at(viewport.max.y);
+            first_row..last_row + 1
+        };
 
         if do_prefetch {
             self.table_delegate
                 .prefetch_columns_and_rows(&PrefetchInfo {
                     num_sticky_columns: self.table.num_sticky_cols,
-                    visible_columns: first_col..last_col + 1,
-                    visible_rows: first_row..last_row + 1,
+                    visible_columns: col_range.clone(),
+                    visible_rows: row_range.clone(),
                 });
             self.has_prefetched = true;
         } else {
@@ -462,18 +468,12 @@ impl<'a> TableSplitScrollDelegate<'a> {
             );
         }
 
-        for row_nr in first_row..=last_row {
-            if self.table.num_rows <= row_nr {
-                break;
-            }
+        for row_nr in row_range {
             let top_y = self.header_row_y.last() + row_nr as f32 * self.table.row_height;
             let y_range = Rangef::new(top_y, top_y + self.table.row_height);
 
-            for col_nr in first_col..=last_col {
-                let Some(column) = self.table.columns.get(col_nr) else {
-                    continue;
-                };
-
+            for col_nr in col_range.clone() {
+                let column = &self.table.columns[col_nr];
                 let mut cell_rect =
                     Rect::from_x_y_ranges(self.col_x[col_nr]..=self.col_x[col_nr + 1], y_range)
                         .translate(-offset);
@@ -502,10 +502,8 @@ impl<'a> TableSplitScrollDelegate<'a> {
         }
 
         // Save column lines for later interaction:
-        for col_nr in first_col..=last_col {
-            let Some(column) = self.table.columns.get(col_nr) else {
-                continue;
-            };
+        for col_nr in col_range.clone() {
+            let column = &self.table.columns[col_nr];
             if column.resizable {
                 update(
                     &mut self.visible_column_lines,
