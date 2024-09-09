@@ -1,4 +1,6 @@
-use egui::{Align2, Margin, NumExt};
+use std::collections::BTreeMap;
+
+use egui::{Align2, Id, Margin, NumExt, Sense, Vec2};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct TableDemo {
@@ -9,6 +11,7 @@ pub struct TableDemo {
     auto_size_mode: egui_table::AutoSizeMode,
     top_row_height: f32,
     row_height: f32,
+    is_row_expanded: BTreeMap<u64, bool>,
     prefetched: Vec<egui_table::PrefetchInfo>,
 }
 
@@ -23,7 +26,8 @@ impl Default for TableDemo {
                 .resizable(true),
             auto_size_mode: egui_table::AutoSizeMode::default(),
             top_row_height: 24.0,
-            row_height: 20.0,
+            row_height: 18.0,
+            is_row_expanded: Default::default(),
             prefetched: vec![],
         }
     }
@@ -35,18 +39,64 @@ impl TableDemo {
             .iter()
             .any(|info| info.visible_rows.contains(&row_nr))
     }
+
+    fn cell_content_ui(&mut self, row_nr: u64, col_nr: usize, ui: &mut egui::Ui) {
+        assert!(
+            self.was_row_prefetched(row_nr),
+            "Was asked to show row {row_nr} which was not prefetched! This is a bug in egui_table."
+        );
+
+        let is_expanded = self
+            .is_row_expanded
+            .get(&row_nr)
+            .copied()
+            .unwrap_or_default();
+        let expandedness = ui.ctx().animate_bool(Id::new(row_nr), is_expanded);
+
+        ui.vertical(|ui| {
+            if col_nr == 0 {
+                ui.horizontal(|ui| {
+                    // Button to expand/collapse row:
+                    let (_, response) = ui.allocate_exact_size(Vec2::splat(10.0), Sense::click());
+                    egui::collapsing_header::paint_default_icon(ui, expandedness, &response);
+                    if response.clicked() {
+                        // Toggle.
+                        // Note: we use a map instead of a set so that we can animate opening and closing of each column.
+                        self.is_row_expanded.insert(row_nr, !is_expanded);
+                    }
+
+                    ui.label(row_nr.to_string());
+                });
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label(format!("({row_nr}, {col_nr})"));
+
+                    if (row_nr + col_nr as u64) % 27 == 0 {
+                        if !ui.is_sizing_pass() {
+                            // During a sizing pass we don't truncate!
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                        }
+                        ui.label("Extra long cell!");
+                    }
+                });
+
+                if 0.0 < expandedness {
+                    ui.label("Expanded content");
+                    ui.label("Blah blah blah…");
+                }
+            }
+        });
+    }
 }
 
 impl egui_table::TableDelegate for TableDemo {
     fn prepare(&mut self, info: &egui_table::PrefetchInfo) {
-        for row in info.visible_rows.clone() {
-            assert!(
-                row < self.num_rows,
-                "Was asked to prefetch rows {:?}, but we only have {} rows. This is a bug in egui_table.",
-                info.visible_rows,
-                self.num_rows
-            );
-        }
+        assert!(
+            info.visible_rows.end <= self.num_rows,
+            "Was asked to prefetch rows {:?}, but we only have {} rows. This is a bug in egui_table.",
+            info.visible_rows,
+            self.num_rows
+        );
         self.prefetched.push(info.clone());
     }
 
@@ -124,29 +174,7 @@ impl egui_table::TableDelegate for TableDemo {
         egui::Frame::none()
             .inner_margin(Margin::symmetric(4.0, 0.0))
             .show(ui, |ui| {
-                if !self.was_row_prefetched(row_nr) {
-                    ui.painter()
-                        .rect_filled(ui.max_rect(), 0.0, ui.visuals().error_fg_color);
-                    ui.label("ERROR: row not prefetched");
-                    log::warn!(
-                        "Was asked to show row {row_nr} which was not prefetched! This is a bug in egui_table."
-                    );
-                    return;
-                }
-
-                if col_nr == 0 {
-                    ui.label(row_nr.to_string());
-                } else {
-                    ui.label(format!("({row_nr}, {col_nr})"));
-
-                    if (row_nr + col_nr as u64) % 27 == 0 {
-                        if !ui.is_sizing_pass() {
-                            // During a sizing pass we don't truncate!
-                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                        }
-                        ui.label("Extra long cell!");
-                    }
-                }
+                self.cell_content_ui(row_nr, col_nr, ui);
             });
     }
 }
@@ -213,7 +241,7 @@ impl TableDemo {
             ui.end_row();
         });
 
-        let id_salt = egui::Id::new("table_demo");
+        let id_salt = Id::new("table_demo");
         let state_id = egui_table::Table::new().id_salt(id_salt).get_id(ui); // Note: must be here (in the correct outer `ui` scope) to be correct.
 
         ui.horizontal(|ui| {
@@ -278,6 +306,11 @@ impl TableDemo {
 
         ui.separator();
 
+        // TODO: avoid this:
+        let egui_ctx = ui.ctx().clone();
+        let is_row_expanded = self.is_row_expanded.clone();
+        let row_height = self.row_height;
+
         let mut table = egui_table::Table::new()
             .id_salt(id_salt)
             .num_rows(self.num_rows)
@@ -290,7 +323,18 @@ impl TableDemo {
                 },
                 egui_table::HeaderRow::new(self.top_row_height),
             ])
-            .row_height(self.row_height)
+            .row_top_offset(move |row_nr| -> f32 {
+                let fully_expanded_row_height = 48.0;
+                is_row_expanded
+                    .range(0..row_nr)
+                    .map(|(expanded_row_nr, expanded)| {
+                        let how_expanded =
+                            egui_ctx.animate_bool(Id::new(expanded_row_nr), *expanded);
+                        how_expanded * fully_expanded_row_height
+                    })
+                    .sum::<f32>()
+                    + row_nr as f32 * row_height
+            })
             .auto_size_mode(self.auto_size_mode);
 
         if let Some(scroll_to_column) = scroll_to_column {
