@@ -39,8 +39,6 @@ pub struct SplitScroll {
 
 /// The contents of a [`SplitScroll`].
 pub trait SplitScrollDelegate {
-    // TODO: add method for prefetching the visible viewport.
-
     /// The fixed portion of the top left corner.
     fn left_top_ui(&mut self, ui: &mut Ui);
 
@@ -51,6 +49,8 @@ pub trait SplitScrollDelegate {
     fn left_bottom_ui(&mut self, ui: &mut Ui);
 
     /// The fully scrollable portion.
+    ///
+    /// First to be called.
     fn right_bottom_ui(&mut self, ui: &mut Ui);
 
     /// Called last.
@@ -83,6 +83,7 @@ impl SplitScroll {
                 // We could add something like `ScrollArea::with_scroll_bar_rect(bottom_right_rect)`
 
                 let mut scroll_ui = ui.new_child(UiBuilder::new().max_rect(rect));
+
                 egui::ScrollArea::new(scroll_enabled)
                     .auto_shrink(false)
                     .scroll_bar_rect(bottom_right_rect)
