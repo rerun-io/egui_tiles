@@ -18,7 +18,9 @@ impl Default for TableDemo {
             num_columns: 20,
             num_rows: 10_000,
             num_sticky_cols: 1,
-            default_column: egui_table::Column::new(100.0, 10.0..=500.0),
+            default_column: egui_table::Column::new(100.0)
+                .range(10.0..=500.0)
+                .resizable(true),
             auto_size_mode: egui_table::AutoSizeMode::default(),
             top_row_height: 24.0,
             row_height: 20.0,

@@ -4,27 +4,10 @@ use egui::Rangef;
 
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Column {
-    /// Current column width.
-    ///
-    /// To avoid rounding error you should keep this to a precise value, e.g. a multiple of `0.25`.
     pub current: f32,
-
-    /// Allowed width range.
-    ///
-    /// To avoid rounding error you should keep this to a precise value, e.g. a multiple of `0.25`.
     pub range: Rangef,
-
-    /// Optional unique id within the parent table.
-    ///
-    /// If not set, the column index is used.
     pub id: Option<egui::Id>,
-
-    /// Can the user resize this column?
     pub resizable: bool,
-
-    /// If set, we should acurately measure the size of this column this frame
-    /// so that we can correctly auto-size it.
-    /// This is done as a `sizing_pass`.
     pub auto_size_this_frame: bool,
 }
 
@@ -41,16 +24,53 @@ impl Default for Column {
 }
 
 impl Column {
-    pub fn new(current: f32, range: impl Into<Rangef>) -> Self {
+    /// Current and/or initial column width.
+    ///
+    /// To avoid rounding error you should keep this to a precise value, e.g. a multiple of `0.25`.
+    #[inline]
+    pub fn new(current: f32) -> Self {
         Self {
             current,
-            range: range.into(),
             ..Default::default()
         }
     }
 
+    /// Allowed width range.
+    ///
+    /// To avoid rounding error you should keep this to a precise value, e.g. a multiple of `0.25`.
     #[inline]
-    pub fn id(&self, col_idx: usize) -> egui::Id {
+    pub fn range(mut self, range: impl Into<Rangef>) -> Self {
+        self.range = range.into();
+        self
+    }
+
+    /// Optional unique id within the parent table.
+    ///
+    /// If not set, the column index is used.
+    #[inline]
+    pub fn id(mut self, id: egui::Id) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    /// Can the user resize this column?
+    #[inline]
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
+        self
+    }
+
+    /// If set, we should acurately measure the size of this column this frame
+    /// so that we can correctly auto-size it.
+    ///
+    /// This is done as an egui `sizing_pass`.
+    pub fn auto_size_this_frame(mut self, auto_size_this_frame: bool) -> Self {
+        self.auto_size_this_frame = auto_size_this_frame;
+        self
+    }
+
+    #[inline]
+    pub fn id_for(&self, col_idx: usize) -> egui::Id {
         self.id.unwrap_or_else(|| egui::Id::new(col_idx))
     }
 
@@ -141,10 +161,7 @@ mod tests {
     use super::*;
 
     fn col(c: i32, range: std::ops::RangeInclusive<i32>) -> Column {
-        Column::new(
-            c as f32,
-            Rangef::new(*range.start() as f32, *range.end() as f32),
-        )
+        Column::new(c as f32).range(Rangef::new(*range.start() as f32, *range.end() as f32))
     }
 
     fn widths(columns: &[Column]) -> Vec<f32> {

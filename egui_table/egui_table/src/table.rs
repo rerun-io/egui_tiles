@@ -308,7 +308,7 @@ impl Table {
         let mut state = state.unwrap_or_default();
 
         for (i, column) in self.columns.iter_mut().enumerate() {
-            let column_id = column.id(i);
+            let column_id = column.id_for(i);
             if let Some(existing_width) = state.col_widths.get(&column_id) {
                 column.current = *existing_width;
             }
@@ -370,7 +370,7 @@ impl Table {
 
             for (col_nr, column) in self.columns.iter_mut().enumerate() {
                 if column.resizable {
-                    let column_resize_id = id.with(column.id(col_nr)).with("resize");
+                    let column_resize_id = id.with(column.id_for(col_nr)).with("resize");
                     if let Some(response) = ui.ctx().read_response(column_resize_id) {
                         if response.double_clicked() {
                             column.auto_size_this_frame = true;
@@ -724,7 +724,7 @@ impl<'a> SplitScrollDelegate for TableSplitScrollDelegate<'a> {
                 continue;
             }
 
-            let column_id = column.id(col_nr);
+            let column_id = column.id_for(col_nr);
             let used_width = column.range.clamp(self.max_column_widths[col_nr]);
 
             let column_width = self
@@ -741,7 +741,7 @@ impl<'a> SplitScrollDelegate for TableSplitScrollDelegate<'a> {
                 *column_width = column_width.max(used_width);
             }
 
-            let column_resize_id = self.id.with(column.id(col_nr)).with("resize");
+            let column_resize_id = self.id.with(column.id_for(col_nr)).with("resize");
 
             let mut x = self.col_x[col_nr + 1] - offset.x; // Right side of the column
             let yrange = Rangef::new(*top, ui.clip_rect().bottom());
