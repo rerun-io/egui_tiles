@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use egui::{Align2, Id, Margin, NumExt, Sense, Vec2};
+use egui::{Align2, Context, Id, Margin, NumExt, Sense, Vec2};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct TableDemo {
@@ -177,6 +177,19 @@ impl egui_table::TableDelegate for TableDemo {
                 self.cell_content_ui(row_nr, col_nr, ui);
             });
     }
+
+    fn row_top_offset(&self, ctx: &Context, _table_id: Id, row_nr: u64) -> f32 {
+        let fully_expanded_row_height = 48.0;
+
+        self.is_row_expanded
+            .range(0..row_nr)
+            .map(|(expanded_row_nr, expanded)| {
+                let how_expanded = ctx.animate_bool(Id::new(expanded_row_nr), *expanded);
+                how_expanded * fully_expanded_row_height
+            })
+            .sum::<f32>()
+            + row_nr as f32 * self.row_height
+    }
 }
 
 impl TableDemo {
@@ -306,11 +319,6 @@ impl TableDemo {
 
         ui.separator();
 
-        // TODO: avoid this:
-        let egui_ctx = ui.ctx().clone();
-        let is_row_expanded = self.is_row_expanded.clone();
-        let row_height = self.row_height;
-
         let mut table = egui_table::Table::new()
             .id_salt(id_salt)
             .num_rows(self.num_rows)
@@ -323,18 +331,6 @@ impl TableDemo {
                 },
                 egui_table::HeaderRow::new(self.top_row_height),
             ])
-            .row_top_offset(move |row_nr| -> f32 {
-                let fully_expanded_row_height = 48.0;
-                is_row_expanded
-                    .range(0..row_nr)
-                    .map(|(expanded_row_nr, expanded)| {
-                        let how_expanded =
-                            egui_ctx.animate_bool(Id::new(expanded_row_nr), *expanded);
-                        how_expanded * fully_expanded_row_height
-                    })
-                    .sum::<f32>()
-                    + row_nr as f32 * row_height
-            })
             .auto_size_mode(self.auto_size_mode);
 
         if let Some(scroll_to_column) = scroll_to_column {
