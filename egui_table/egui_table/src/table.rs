@@ -137,6 +137,9 @@ pub struct CellInfo {
     pub col_nr: usize,
 
     pub row_nr: u64,
+
+    /// The unique [`Id`] of this table.
+    pub table_id: Id,
     // We could add more stuff here, like a reference to the column
 }
 
@@ -147,8 +150,11 @@ pub struct HeaderCellInfo {
 
     pub col_range: Range<usize>,
 
-    /// Hader row
+    /// Header row
     pub row_nr: usize,
+
+    /// The unique [`Id`] of this table.
+    pub table_id: Id,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -162,6 +168,9 @@ pub struct PrefetchInfo {
 
     /// These rows are currently visible.
     pub visible_rows: Range<u64>,
+
+    /// The unique [`Id`] of this table.
+    pub table_id: Id,
 }
 
 pub trait TableDelegate {
@@ -567,6 +576,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
                         group_index,
                         col_range,
                         row_nr,
+                        table_id: self.id,
                     },
                 );
 
@@ -637,6 +647,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
                 num_sticky_columns: self.table.num_sticky_cols,
                 visible_columns: col_range.clone(),
                 visible_rows: row_range.clone(),
+                table_id: self.id,
             });
             self.has_prefetched = true;
         } else {
@@ -673,8 +684,14 @@ impl<'a> TableSplitScrollDelegate<'a> {
                 let mut cell_ui = ui.new_child(ui_builder);
                 cell_ui.shrink_clip_rect(clip_rect);
 
-                self.table_delegate
-                    .cell_ui(&mut cell_ui, &CellInfo { col_nr, row_nr });
+                self.table_delegate.cell_ui(
+                    &mut cell_ui,
+                    &CellInfo {
+                        col_nr,
+                        row_nr,
+                        table_id: self.id,
+                    },
+                );
 
                 let width = &mut self.max_column_widths[col_nr];
                 *width = width.max(cell_ui.min_size().x);
