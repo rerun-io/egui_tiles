@@ -37,7 +37,7 @@ impl eframe::App for DemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                egui::widgets::global_theme_preference_switch(ui);
                 ui.add_space(16.0);
 
                 ui.horizontal(|ui| {
