@@ -7,6 +7,7 @@ name = "demo"
 publish = false
 rust-version.workspace = true
 version.workspace = true
+default-run = "demo"
 
 [lints]
 workspace = true
