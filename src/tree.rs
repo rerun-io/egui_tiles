@@ -1,7 +1,5 @@
 use egui::{NumExt as _, Rect, Ui};
 
-use serde::Deserialize;
-
 use crate::behavior::EditAction;
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
@@ -41,17 +39,25 @@ pub struct Tree<Pane> {
     pub tiles: Tiles<Pane>,
 
     /// When finite, this values contains the exact height of this tree
-    #[serde(deserialize_with = "deserialize_f32_null_as_infinity")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     height: f32,
 
     /// When finite, this values contains the exact width of this tree
-    #[serde(deserialize_with = "deserialize_f32_null_as_infinity")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     width: f32,
 }
 
+#[cfg(feature = "serde")]
 fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
     des: D,
 ) -> Result<f32, D::Error> {
+    use serde::Deserialize;
     Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
 }
 
