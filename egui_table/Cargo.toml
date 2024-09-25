@@ -27,8 +27,8 @@ vec1 = { version = "1.12.1", default-features = false }
 
 [patch.crates-io]
 # If you want to use the bleeding edge version of egui and eframe:
-eframe = { git = "https://github.com/emilk/egui", rev = "66076101e12eee01dec374285521b0bed4ecc40a" }  # egui master 2024-09-13
-egui = { git = "https://github.com/emilk/egui", rev = "66076101e12eee01dec374285521b0bed4ecc40a" }  # egui master 2024-09-13
+eframe = { git = "https://github.com/emilk/egui", rev = "f97f85089df5e936999d5b7280e2e93e2958fac8" }  # egui master 2024-09-25
+egui = { git = "https://github.com/emilk/egui", rev = "f97f85089df5e936999d5b7280e2e93e2958fac8" }  # egui master 2024-09-25
 
 # If you fork https://github.com/emilk/egui you can test with:
 # egui = { path = "../../egui/crates/egui" }

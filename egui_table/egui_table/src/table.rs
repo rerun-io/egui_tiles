@@ -405,7 +405,7 @@ impl Table {
         let mut ui_builder = UiBuilder::new();
         if do_full_sizing_pass {
             ui_builder = ui_builder.sizing_pass().invisible();
-            ui.ctx().request_discard();
+            ui.ctx().request_discard("Full egui_table sizing");
         }
         ui.scope_builder(ui_builder, |ui| {
             // Don't wrap text in the table cells.
@@ -423,7 +423,7 @@ impl Table {
                     }
                 }
                 if column.auto_size_this_frame {
-                    ui.ctx().request_discard();
+                    ui.ctx().request_discard("egui_table column sizing");
                 }
             }
 

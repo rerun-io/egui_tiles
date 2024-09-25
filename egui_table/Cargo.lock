@@ -397,7 +397,7 @@ checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
 [[package]]
 name = "ecolor"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "bytemuck",
  "emath",
@@ -407,7 +407,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -443,7 +443,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "accesskit",
  "ahash",
@@ -458,7 +458,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "ahash",
  "arboard",
@@ -475,7 +475,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -499,7 +499,7 @@ dependencies = [
 [[package]]
 name = "emath"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "bytemuck",
  "serde",
@@ -532,7 +532,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -549,7 +549,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.28.1"
-source = "git+https://github.com/emilk/egui?rev=66076101e12eee01dec374285521b0bed4ecc40a#66076101e12eee01dec374285521b0bed4ecc40a"
+source = "git+https://github.com/emilk/egui?rev=f97f85089df5e936999d5b7280e2e93e2958fac8#f97f85089df5e936999d5b7280e2e93e2958fac8"
 
 [[package]]
 name = "equivalent"
