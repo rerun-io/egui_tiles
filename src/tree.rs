@@ -39,10 +39,26 @@ pub struct Tree<Pane> {
     pub tiles: Tiles<Pane>,
 
     /// When finite, this values contains the exact height of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     height: f32,
 
     /// When finite, this values contains the exact width of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     width: f32,
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
+    des: D,
+) -> Result<f32, D::Error> {
+    use serde::Deserialize;
+    Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -341,9 +357,7 @@ impl<Pane> Tree<Pane> {
             ui.ctx().clone(),
             ui.layer_id(),
             ui.id().with(tile_id),
-            rect,
-            rect,
-            egui::UiStackInfo::default(),
+            egui::UiBuilder::new().max_rect(rect),
         );
 
         ui.add_enabled_ui(enabled, |ui| {
@@ -420,7 +434,7 @@ impl<Pane> Tree<Pane> {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
                         let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
+                            &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
                             dragged_tile_id,
                             pane,
                         );
