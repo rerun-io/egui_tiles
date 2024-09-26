@@ -30,7 +30,7 @@ ahash = { version = "0.8.1", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
   "std",
 ] }
-egui = { version = "0.28", default-features = false }
+egui = { version = "0.29", default-features = false }
 itertools = "0.13"
 log = { version = "0.4", features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
@@ -38,19 +38,23 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 # For the example:
 [dev-dependencies]
-eframe = { version = "0.28", default-features = false, features = [
+eframe = { version = "0.29", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
 ] }
-env_logger = "0.10"
+env_logger = { version = "0.10", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] }
+
 
 
 [patch.crates-io]
 # Useful while developing:
 
-eframe = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" } # egui master 2024-08-26
-egui = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" }   # egui master 2024-08-26
+# eframe = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" } # egui master 2024-08-26
+# egui = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" }   # egui master 2024-08-26
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
