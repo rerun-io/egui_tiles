@@ -1,6 +1,13 @@
 # `egui_tiles` Changelog
 
 
+## 0.10.0 - 2024-09-26
+* Update to egui 0.29 [#78](https://github.com/rerun-io/egui_tiles/pull/78)
+* Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
+* Fix for eagerly starting a drag when clicking tab background [#80](https://github.com/rerun-io/egui_tiles/pull/80)
+* Fix `Tree` deserialization using JSON [#85](https://github.com/rerun-io/egui_tiles/pull/85) (thanks [@hastri](https://github.com/hastri)!)
+
+
 ## [0.9.1](https://github.com/rerun-io/egui_tiles/compare/0.9.0...0.9.1) - 2024-08-27
 * Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
 * Fix for eagerly starting a drag when clicking tab background [#80](https://github.com/rerun-io/egui_tiles/pull/80)
