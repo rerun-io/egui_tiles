@@ -15,23 +15,20 @@ workspace = true
 [dependencies]
 egui_table = { workspace = true }
 
-egui = "0.28"
-eframe = { version = "0.28", default-features = false, features = [
+egui.workspace = true
+eframe = { workspace = true, default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
-log = "0.4"
-serde = { version = "1", features = ["derive"] }
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.10"
+env_logger.workspace = true
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
-
-# to access the DOM (to hide the loading text)
-[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.4"
+wasm-bindgen-futures.workspace = true
+web-sys.workspace = true # to access the DOM (to hide the loading text)
