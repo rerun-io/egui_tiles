@@ -37,7 +37,7 @@ fn main() {
 
         let canvas = document
             .get_element_by_id("the_canvas_id")
-            .expect("Faield to find the_canvas_id")
+            .expect("Failed to find the_canvas_id")
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
