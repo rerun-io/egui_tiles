@@ -7,7 +7,7 @@
 ///
 /// # Syntax
 ///
-/// `layout_helper!` expects a tiles struct as the first arguement, followed by a user defined
+/// `layout_helper!` expects a tiles struct as the first argument, followed by a user defined
 /// layout. This layout can be made up of 5 components:
 /// + `row`: Represents a [`Linear`](crate::Linear) with a [`LinearDir::Horizontal`](crate::LinearDir).
 /// + `col`: Represents a [`Linear`](crate::Linear) with a [`LinearDir::Vertical`](crate::LinearDir).
