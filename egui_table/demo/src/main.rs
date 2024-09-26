@@ -30,12 +30,14 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        let canvas = web_sys::window()
+        let document = web_sys::window()
             .expect("No window")
             .document()
-            .expect("No document")
+            .expect("No document");
+
+        let canvas = document
             .get_element_by_id("the_canvas_id")
-            .expect("Failed to find canvas the_canvas_id")
+            .expect("Faield to find the_canvas_id")
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
@@ -48,10 +50,7 @@ fn main() {
             .await;
 
         // Remove the loading text and spinner:
-        let loading_text = web_sys::window()
-            .and_then(|w| w.document())
-            .and_then(|d| d.get_element_by_id("loading_text"));
-        if let Some(loading_text) = loading_text {
+        if let Some(loading_text) = document.get_element_by_id("loading_text") {
             match start_result {
                 Ok(_) => {
                     loading_text.remove();
