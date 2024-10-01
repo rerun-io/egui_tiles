@@ -36,8 +36,8 @@ log = { version = "0.4", features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
 
-# For the example:
 [dev-dependencies]
+# For the example:
 eframe = { version = "0.29", default-features = false, features = [
   "default_fonts",
   "glow",
@@ -47,6 +47,10 @@ env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
+
+# For tests:
+serde_json = "1"
+ron = "0.8"
 
 
 
