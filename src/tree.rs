@@ -41,6 +41,7 @@ pub struct Tree<Pane> {
     /// When finite, this values contains the exact height of this tree
     #[cfg_attr(
         feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
         serde(deserialize_with = "deserialize_f32_null_as_infinity")
     )]
     height: f32,
@@ -48,9 +49,23 @@ pub struct Tree<Pane> {
     /// When finite, this values contains the exact width of this tree
     #[cfg_attr(
         feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
         serde(deserialize_with = "deserialize_f32_null_as_infinity")
     )]
     width: f32,
+}
+
+// Workaround for JSON which doesn't support infinity, because JSON is stupid.
+#[cfg(feature = "serde")]
+fn serialize_f32_infinity_as_null<S: serde::Serializer>(
+    t: &f32,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if t.is_infinite() {
+        serializer.serialize_none()
+    } else {
+        serializer.serialize_some(t)
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -95,9 +110,20 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             }
         }
 
-        if let Some(root) = self.root {
+        let Self {
+            id,
+            root,
+            tiles,
+            width,
+            height,
+        } = self;
+
+        if let Some(root) = root {
             writeln!(f, "Tree {{")?;
-            format_tile(f, &self.tiles, 1, root)?;
+            writeln!(f, "    id: {id:?}")?;
+            writeln!(f, "    width: {width:?}")?;
+            writeln!(f, "    height: {height:?}")?;
+            format_tile(f, tiles, 1, *root)?;
             write!(f, "}}")
         } else {
             writeln!(f, "Tree {{ }}")
