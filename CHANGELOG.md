@@ -1,6 +1,10 @@
 # `egui_tiles` Changelog
 
 
+## 0.10.1 - 2024-10-01
+* Fix `Tree` serialization [#87](https://github.com/rerun-io/egui_tiles/pull/87)
+
+
 ## 0.10.0 - 2024-09-26
 * Update to egui 0.29 [#78](https://github.com/rerun-io/egui_tiles/pull/78)
 * Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
