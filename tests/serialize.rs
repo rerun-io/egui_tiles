@@ -1,3 +1,5 @@
+#![cfg(feature = "serde")]
+
 use egui_tiles::{Tiles, Tree};
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
