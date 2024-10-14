@@ -337,7 +337,7 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
 name = "demo"
-version = "0.28.1"
+version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "egui_table"
-version = "0.28.1"
+version = "0.1.0"
 dependencies = [
  "egui",
  "serde",
