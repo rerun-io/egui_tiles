@@ -52,6 +52,9 @@ impl TableState {
     }
 }
 
+/// Describes one of potentially many header rows.
+///
+/// Each header row has a fixed height.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct HeaderRow {
     pub height: f32,
@@ -157,6 +160,7 @@ pub struct HeaderCellInfo {
     pub table_id: Id,
 }
 
+/// Data given to the delegate containing information about what is about to be rendered.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[non_exhaustive]
 pub struct PrefetchInfo {
@@ -173,6 +177,9 @@ pub struct PrefetchInfo {
     pub table_id: Id,
 }
 
+/// The interface that the user needs to implement to display a table.
+///
+/// The [`Table`] calls functions on the delegate to render the table.
 pub trait TableDelegate {
     /// Called before any call to [`Self::cell_ui`] to communicate the range of visible columns and rows.
     ///

@@ -9,6 +9,9 @@
 
 Table viewer for [egui](https://www.egui.rs/).
 
+### Design
+egui_table has a "batteries not included" design.
+
 ### Features
 * Auto-sized, resizable columns
 * Hierarchical column titles

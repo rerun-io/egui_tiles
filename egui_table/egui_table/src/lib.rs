@@ -1,4 +1,6 @@
 //! Table viewer for [egui](https://www.egui.rs/).
+//!
+//! See [`Table`].
 
 pub mod columns;
 mod split_scroll;
