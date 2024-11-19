@@ -1,7 +1,7 @@
 [package]
 authors = [
-  "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
-  "rerun.io <opensource@rerun.io>",
+    "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
+    "rerun.io <opensource@rerun.io>",
 ]
 categories = ["gui"]
 description = "A tiling layout engine for egui with drag-and-drop and resizing"
@@ -27,8 +27,8 @@ serde = ["dep:serde", "egui/serde"]
 
 [dependencies]
 ahash = { version = "0.8.1", default-features = false, features = [
-  "no-rng", # we don't need DOS-protection for what we use ahash for
-  "std",
+    "no-rng", # we don't need DOS-protection for what we use ahash for
+    "std",
 ] }
 egui = { version = "0.29", default-features = false }
 itertools = "0.13"
@@ -38,10 +38,10 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 # For the example:
-eframe = { version = "0.29", default-features = false, features = [
-  "default_fonts",
-  "glow",
-  "persistence",
+eframe = { version = "0.29.1", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "persistence",
 ] }
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
@@ -57,8 +57,8 @@ ron = "0.8"
 [patch.crates-io]
 # Useful while developing:
 
-# eframe = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" } # egui master 2024-08-26
-# egui = { git = "https://github.com/emilk/egui.git", rev = "47c0aeb7b9cef00d7793b2e84dc6e6a10c83552a" }   # egui master 2024-08-26
+eframe = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" } # egui master 2024-11-19
+egui = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" }   # egui master 2024-11-19
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
