@@ -1,7 +1,7 @@
 [package]
 authors = [
-    "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
-    "rerun.io <opensource@rerun.io>",
+  "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
+  "rerun.io <opensource@rerun.io>",
 ]
 categories = ["gui"]
 description = "A tiling layout engine for egui with drag-and-drop and resizing"
@@ -27,8 +27,8 @@ serde = ["dep:serde", "egui/serde"]
 
 [dependencies]
 ahash = { version = "0.8.1", default-features = false, features = [
-    "no-rng", # we don't need DOS-protection for what we use ahash for
-    "std",
+  "no-rng", # we don't need DOS-protection for what we use ahash for
+  "std",
 ] }
 egui = { version = "0.29", default-features = false }
 itertools = "0.13"
@@ -39,9 +39,9 @@ serde = { version = "1", features = ["derive"], optional = true }
 [dev-dependencies]
 # For the example:
 eframe = { version = "0.29.1", default-features = false, features = [
-    "default_fonts",
-    "glow",
-    "persistence",
+  "default_fonts",
+  "glow",
+  "persistence",
 ] }
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
