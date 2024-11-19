@@ -17,7 +17,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: default
-          toolchain: 1.76.0
+          toolchain: 1.77.0
           override: true
 
       - name: Install packages (Linux)
@@ -102,7 +102,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.76.0
+          toolchain: 1.77.0
           target: wasm32-unknown-unknown
           override: true
 
@@ -129,6 +129,6 @@ jobs:
     - uses: actions/checkout@v3
     - uses: EmbarkStudios/cargo-deny-action@v1
       with:
-        rust-version: "1.76.0"
+        rust-version: "1.77.0"
         log-level: warn
         command: check
