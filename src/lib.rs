@@ -118,6 +118,7 @@ use egui::{Pos2, Rect};
 
 mod behavior;
 mod container;
+mod macros;
 mod tile;
 mod tiles;
 mod tree;
