@@ -30,7 +30,7 @@ ahash = { version = "0.8.1", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
   "std",
 ] }
-egui = { version = "0.29", default-features = false }
+egui = { version = "0.30", default-features = false }
 itertools = "0.13"
 log = { version = "0.4", features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
@@ -38,20 +38,19 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 # For the example:
-eframe = { version = "0.29.1", default-features = false, features = [
+eframe = { version = "0.30", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
 ] }
 env_logger = { version = "0.10", default-features = false, features = [
-    "auto-color",
-    "humantime",
+  "auto-color",
+  "humantime",
 ] }
 
 # For tests:
 serde_json = "1"
 ron = "0.8"
-
 
 
 [patch.crates-io]
