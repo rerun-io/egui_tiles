@@ -6,7 +6,7 @@ use egui_table::{SplitScroll, SplitScrollDelegate};
 pub struct SplitScrollDemo {}
 
 impl SplitScrollDemo {
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    pub fn ui(&self, ui: &mut egui::Ui) {
         _ = self;
         let mut delegate = DemoScrollDelegate {};
 

@@ -59,6 +59,7 @@ PYTHON_FILES = {
 
 # Files required by Rust, but not by _both_ C++ and Python
 RUST_FILES = {
+    ".github/workflows/cargo_machete.yml",
     ".github/workflows/rust.yml",
     "bacon.toml",
     "Cargo.lock",
@@ -67,6 +68,7 @@ RUST_FILES = {
     "clippy.toml",
     "Cranky.toml",
     "deny.toml",
+    "RELEASES.md",
     "rust-toolchain",
     "scripts/clippy_wasm/",
     "scripts/clippy_wasm/clippy.toml",

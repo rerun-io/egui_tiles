@@ -16,6 +16,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Optional
 
 import requests
@@ -87,11 +88,18 @@ def fetch_pr_info(pr_number: int) -> Optional[PrInfo]:
 
 
 def get_commit_info(commit: Any) -> CommitInfo:
-    match = re.match(r"(.*) \(#(\d+)\)", commit.summary)
-    if match:
+    # Squash-merge commits:
+    if match := re.match(r"(.*) \(#(\d+)\)", commit.summary):
         title = str(match.group(1))
         pr_number = int(match.group(2))
         return CommitInfo(hexsha=commit.hexsha, title=title, pr_number=pr_number)
+
+    # Normal merge commits:
+    elif match := re.match(r"Merge pull request #(\d+) from (.*)", commit.summary):
+        title = str(match.group(2))
+        pr_number = int(match.group(1))
+        return CommitInfo(hexsha=commit.hexsha, title=title, pr_number=pr_number)
+
     else:
         return CommitInfo(hexsha=commit.hexsha, title=commit.summary, pr_number=None)
 
@@ -110,13 +118,43 @@ def print_section(crate: str, items: list[str]) -> None:
     print()
 
 
+def calc_commit_range(new_version: str) -> str:
+    parts = new_version.split(".")
+    assert len(parts) == 3, "Expected version to be on the format X.Y.Z"
+    major = int(parts[0])
+    minor = int(parts[1])
+    patch = int(parts[2])
+
+    if 0 < patch:
+        # A patch release.
+        # Include changes since last patch release.
+        # This assumes we've cherry-picked stuff for this release.
+        diff_since_version = f"0.{minor}.{patch - 1}"
+    elif 0 < minor:
+        # A minor release
+        # The diff should span everything since the last minor release.
+        # The script later excludes duplicated automatically, so we don't include stuff that
+        # was part of intervening patch releases.
+        diff_since_version = f"{major}.{minor - 1}.0"
+    else:
+        # A major release
+        # The diff should span everything since the last major release.
+        # The script later excludes duplicated automatically, so we don't include stuff that
+        # was part of intervening minor/patch releases.
+        diff_since_version = f"{major - 1}.{minor}.0"
+
+    return f"{diff_since_version}..HEAD"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a changelog.")
-    parser.add_argument("--commit-range", help="e.g. 0.1.0..HEAD", required=True)
+    parser.add_argument("--version", required=True, help="The version of the new release, e.g. 0.42.0")
     args = parser.parse_args()
 
+    commit_range = calc_commit_range(args.version)
+
     repo = Repo(".")
-    commits = list(repo.iter_commits(args.commit_range))
+    commits = list(repo.iter_commits(commit_range))
     commits.reverse()  # Most recent last
     commit_infos = list(map(get_commit_info, commits))
 
@@ -170,8 +208,9 @@ def main() -> None:
         line = line[0].upper() + line[1:]  # Upper-case first letter
         prs[i] = line
 
+    print(f"## {args.version} - {date.today()}")
     print()
-    print(f"Full diff at https://github.com/{OWNER}/{REPO}/compare/{args.commit_range}")
+    print(f"Full diff at https://github.com/{OWNER}/{REPO}/compare/{commit_range}")
     print()
     print_section("PRs", prs)
     print_section("Unsorted commits", unsorted_commits)
