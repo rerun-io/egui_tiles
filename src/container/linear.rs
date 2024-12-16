@@ -116,7 +116,7 @@ impl Linear {
         }
     }
 
-    fn visible_children<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+    fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<TileId> {
         self.children
             .iter()
             .copied()
@@ -168,7 +168,7 @@ impl Linear {
     }
 
     fn layout_horizontal<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,
@@ -192,7 +192,7 @@ impl Linear {
     }
 
     fn layout_vertical<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,

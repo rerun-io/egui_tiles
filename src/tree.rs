@@ -460,7 +460,7 @@ impl<Pane> Tree<Pane> {
                     if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
-                        let _: UiResponse = behavior.pane_ui(
+                        let _ignored: UiResponse = behavior.pane_ui(
                             &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
                             dragged_tile_id,
                             pane,
