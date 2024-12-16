@@ -39,9 +39,10 @@ serde = { version = "1", features = ["derive"], optional = true }
 [dev-dependencies]
 # For the example:
 eframe = { version = "0.30", default-features = false, features = [
-  "default_fonts",
-  "glow",
-  "persistence",
+  "default_fonts", # Embed the default egui fonts.
+  "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+  "persistence",   # Enable restoring app state when restarting the app.
+  "wayland",       # Required for Linux and CI.
 ] }
 env_logger = { version = "0.10", default-features = false, features = [
   "auto-color",
@@ -56,8 +57,8 @@ ron = "0.8"
 [patch.crates-io]
 # Useful while developing:
 
-eframe = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" } # egui master 2024-11-19
-egui = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" }   # egui master 2024-11-19
+# eframe = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" } # egui master 2024-11-19
+# egui = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" }   # egui master 2024-11-19
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
