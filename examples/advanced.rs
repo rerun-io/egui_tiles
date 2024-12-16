@@ -42,7 +42,7 @@ impl Pane {
         Self { nr }
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
+    pub fn ui(&self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
         let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
         let dragged = ui

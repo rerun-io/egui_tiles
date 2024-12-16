@@ -191,7 +191,7 @@ impl<Pane> Tiles<Pane> {
         let mut id = TileId::from_u64(self.next_tile_id);
 
         // Make sure it doesn't collide with an existing id
-        while self.tiles.get(&id).is_some() {
+        while self.tiles.contains_key(&id) {
             self.next_tile_id += 1;
             id = TileId::from_u64(self.next_tile_id);
         }

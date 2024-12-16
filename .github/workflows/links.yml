@@ -1,5 +1,10 @@
 # Copied from https://github.com/rerun-io/rerun_template
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    types: [ opened, synchronize ]
 
 name: Link checker
 
