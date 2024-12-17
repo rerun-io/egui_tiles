@@ -1,6 +1,11 @@
 # `egui_tiles` Changelog
 
 
+## 0.11.0 - 2024-12-17
+* Update MSRV to 1.80 [#91](https://github.com/rerun-io/egui_tiles/pull/91) by [@emilk](https://github.com/emilk)
+* Update to egui 0.30.0 [#92](https://github.com/rerun-io/egui_tiles/pull/92) by [@emilk](https://github.com/emilk)
+
+
 ## 0.10.1 - 2024-10-01
 * Fix `Tree` serialization [#87](https://github.com/rerun-io/egui_tiles/pull/87)
 

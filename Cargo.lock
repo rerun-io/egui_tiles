@@ -558,7 +558,7 @@ dependencies = [
 
 [[package]]
 name = "egui_tiles"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "ahash",
  "eframe",
