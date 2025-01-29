@@ -618,7 +618,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
         // Used to find the visible range of columns and rows:
         let viewport = ui.clip_rect().translate(offset);
 
-        let col_range = if self.table.columns.is_empty() {
+        let col_range = if self.table.columns.is_empty() || viewport.left() == viewport.right() {
             0..0
         } else if self.do_full_sizing_pass {
             // We do the UI for all columns during a sizing pass, so we can auto-size ALL columns
@@ -635,7 +635,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
             col_idx_at(viewport.min.x)..col_idx_at(viewport.max.x) + 1
         };
 
-        let row_range = if self.table.num_rows == 0 {
+        let row_range = if self.table.num_rows == 0 || viewport.top() == viewport.bottom() {
             0..0
         } else {
             // Only paint the visible rows:
