@@ -57,8 +57,8 @@ ron = "0.8"
 [patch.crates-io]
 # Useful while developing:
 
-# eframe = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" } # egui master 2024-11-19
-# egui = { git = "https://github.com/emilk/egui.git", rev = "83a30064f4812d0029532675a5f2bf38c257ad0e" }   # egui master 2024-11-19
+eframe = { git = "https://github.com/emilk/egui.git", branch = "master" }
+egui = { git = "https://github.com/emilk/egui.git", branch = "master" }
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
