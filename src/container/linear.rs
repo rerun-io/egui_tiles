@@ -1,6 +1,6 @@
 #![allow(clippy::tuple_array_conversions)]
 
-use egui::{pos2, vec2, NumExt, Rect};
+use egui::{emath::GuiRounding as _, pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;
@@ -280,7 +280,7 @@ impl Linear {
                     &visible_children,
                     &response,
                     [left, right],
-                    ui.painter().round_to_pixel(pointer.x) - x,
+                    pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).width(),
                 );
@@ -346,7 +346,7 @@ impl Linear {
                     &visible_children,
                     &response,
                     [top, bottom],
-                    ui.painter().round_to_pixel(pointer.y) - y,
+                    pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).height(),
                 );

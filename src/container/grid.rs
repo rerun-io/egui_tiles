@@ -1,4 +1,7 @@
-use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
+use egui::{
+    emath::{GuiRounding as _, Rangef},
+    pos2, vec2, NumExt as _, Rect,
+};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;
@@ -300,7 +303,7 @@ impl Grid {
                     &self.col_ranges,
                     &mut self.col_shares,
                     &response,
-                    ui.painter().round_to_pixel(pointer.x) - x,
+                    pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
                 );
 
@@ -344,7 +347,7 @@ impl Grid {
                     &self.row_ranges,
                     &mut self.row_shares,
                     &response,
-                    ui.painter().round_to_pixel(pointer.y) - y,
+                    pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
                 );
 
