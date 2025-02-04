@@ -38,64 +38,34 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: check --all-features
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features --all-targets
+        run: cargo check --all-features --all-targets
 
       - name: check default features
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-targets
+        run: cargo check --all-targets
 
       - name: check --no-default-features
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --no-default-features --lib --all-targets
+        run: cargo check --no-default-features --lib --all-targets
 
       - name: Test doc-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --doc --all-features
+        run: cargo test --doc --all-features
 
       - name: cargo doc --lib
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --lib --no-deps --all-features
+        run: cargo doc --lib --no-deps --all-features
 
       - name: cargo doc --document-private-items
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --document-private-items --no-deps --all-features
+        run: cargo doc --document-private-items --no-deps --all-features
 
       - name: Build tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --no-run
+        run: cargo test --all-features --no-run
 
       - name: Run test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
+        run: cargo test --all-features
 
       - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   # ---------------------------------------------------------------------------
 
@@ -116,10 +86,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check wasm32
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target wasm32-unknown-unknown --lib
+        run: cargo check --target wasm32-unknown-unknown --lib
 
       - name: Clippy wasm32
         env:
