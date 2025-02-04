@@ -14,7 +14,7 @@ name = "egui_tiles"
 readme = "README.md"
 repository = "https://github.com/rerun-io/egui_tiles"
 rust-version = "1.81"
-version = "0.11.0"
+version = "0.12.0"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -30,7 +30,7 @@ ahash = { version = "0.8.1", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
   "std",
 ] }
-egui = { version = "0.30", default-features = false }
+egui = { version = "0.31", default-features = false }
 itertools = "0.13"
 log = { version = "0.4", features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
@@ -57,8 +57,8 @@ ron = "0.8"
 [patch.crates-io]
 # Useful while developing:
 
-eframe = { git = "https://github.com/emilk/egui.git", branch = "master" }
-egui = { git = "https://github.com/emilk/egui.git", branch = "master" }
+#eframe = { git = "https://github.com/emilk/egui.git", branch = "master" }
+#egui = { git = "https://github.com/emilk/egui.git", branch = "master" }
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
