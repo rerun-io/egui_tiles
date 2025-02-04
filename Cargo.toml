@@ -38,7 +38,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 # For the example:
-eframe = { version = "0.30", default-features = false, features = [
+eframe = { version = "0.31", default-features = false, features = [
   "default_fonts", # Embed the default egui fonts.
   "glow",          # Use the glow rendering backend. Alternative: "wgpu".
   "persistence",   # Enable restoring app state when restarting the app.
