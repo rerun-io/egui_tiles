@@ -122,8 +122,13 @@ pub trait Behavior<Pane> {
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
             let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
             let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state);
-            ui.painter()
-                .rect(tab_rect.shrink(0.5), 0.0, bg_color, stroke);
+            ui.painter().rect(
+                tab_rect.shrink(0.5),
+                0.0,
+                bg_color,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
 
             if state.active {
                 // Make the tab name area connect with the tab ui area:
@@ -377,10 +382,16 @@ pub trait Behavior<Pane> {
 
         if let Some(parent_rect) = parent_rect {
             // Show which parent we will be dropped into
-            painter.rect_stroke(parent_rect, 1.0, preview_stroke);
+            painter.rect_stroke(parent_rect, 1.0, preview_stroke, egui::StrokeKind::Inside);
         }
 
-        painter.rect(preview_rect, 1.0, preview_color, preview_stroke);
+        painter.rect(
+            preview_rect,
+            1.0,
+            preview_color,
+            preview_stroke,
+            egui::StrokeKind::Inside,
+        );
     }
 
     /// How many columns should we use for a [`crate::Grid`] put into [`crate::GridLayout::Auto`]?
