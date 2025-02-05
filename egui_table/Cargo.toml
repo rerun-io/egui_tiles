@@ -18,9 +18,9 @@ opt-level = 2 # fast and small wasm
 egui_table = { version = "0.2.0", path = "egui_table", default-features = false }
 
 document-features = " 0.2.10"
-eframe = { version = "0.30.0", default-features = false }
-egui = { version = "0.30.0", default-features = false }
-emath = { version = "0.30.0", default-features = false }
+eframe = { version = "0.31.0", default-features = false }
+egui = { version = "0.31.0", default-features = false }
+emath = { version = "0.31.0", default-features = false }
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",

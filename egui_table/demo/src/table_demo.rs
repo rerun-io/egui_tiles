@@ -108,10 +108,10 @@ impl egui_table::TableDelegate for TableDemo {
             ..
         } = cell_inf;
 
-        let margin = 4.0;
+        let margin = 4;
 
-        egui::Frame::none()
-            .inner_margin(Margin::symmetric(margin, 0.0))
+        egui::Frame::NONE
+            .inner_margin(Margin::symmetric(margin, 0))
             .show(ui, |ui| {
                 #[allow(clippy::collapsible_else_if)]
                 if *row_nr == 0 {
@@ -129,7 +129,7 @@ impl egui_table::TableDelegate for TableDemo {
                             // Put the text leftmost in the clip rect (so it is always visible)
                             let mut pos = Align2::LEFT_CENTER
                                 .anchor_size(
-                                    ui.clip_rect().shrink(margin).left_center(),
+                                    ui.clip_rect().shrink(margin as _).left_center(),
                                     galley.size(),
                                 )
                                 .min;
@@ -171,8 +171,8 @@ impl egui_table::TableDelegate for TableDemo {
                 .rect_filled(ui.max_rect(), 0.0, ui.visuals().faint_bg_color);
         }
 
-        egui::Frame::none()
-            .inner_margin(Margin::symmetric(4.0, 0.0))
+        egui::Frame::NONE
+            .inner_margin(Margin::symmetric(4, 0))
             .show(ui, |ui| {
                 self.cell_content_ui(row_nr, col_nr, ui);
             });
