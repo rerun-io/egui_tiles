@@ -48,7 +48,7 @@ pub trait Behavior<Pane> {
 
     /// The cursor icon when hovering over a tab.
     fn tab_hover_cursor_icon(&self) -> egui::CursorIcon {
-        egui::CursorIcon::Default
+        egui::CursorIcon::Grab
     }
 
     /// Should the tab have a close-button?
