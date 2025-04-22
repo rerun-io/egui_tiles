@@ -71,8 +71,8 @@ impl From<Grid> for Container {
 }
 
 impl Container {
-    pub fn new(typ: ContainerKind, children: Vec<TileId>) -> Self {
-        match typ {
+    pub fn new(kind: ContainerKind, children: Vec<TileId>) -> Self {
+        match kind {
             ContainerKind::Tabs => Self::new_tabs(children),
             ContainerKind::Horizontal => Self::new_horizontal(children),
             ContainerKind::Vertical => Self::new_vertical(children),
