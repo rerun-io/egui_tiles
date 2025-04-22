@@ -332,8 +332,8 @@ fn tree_ui(
             egui::ComboBox::from_label("Kind")
                 .selected_text(format!("{kind:?}"))
                 .show_ui(ui, |ui| {
-                    for typ in egui_tiles::ContainerKind::ALL {
-                        ui.selectable_value(&mut kind, typ, format!("{typ:?}"))
+                    for alternative in egui_tiles::ContainerKind::ALL {
+                        ui.selectable_value(&mut kind, alternative, format!("{alternative:?}"))
                             .clicked();
                     }
                 });

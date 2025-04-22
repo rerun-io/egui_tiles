@@ -59,7 +59,7 @@ PYTHON_FILES = {
 
 # Files required by Rust, but not by _both_ C++ and Python
 RUST_FILES = {
-    ".github/workflows/cargo_machete.yml",
+    ".github/workflows/cargo_shear.yml",
     ".github/workflows/rust.yml",
     "bacon.toml",
     "Cargo.lock",
