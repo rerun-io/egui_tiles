@@ -1,18 +1,21 @@
 use crate::{Container, ContainerKind};
 
 /// An identifier for a [`Tile`] in the tree, be it a [`Container`] or a pane.
+///
+/// This id is unique within the tree, but not across trees.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct TileId(u64);
+pub struct TileId(pub u64);
 
 impl TileId {
-    pub(crate) fn from_u64(n: u64) -> Self {
+    #[inline]
+    pub fn from_u64(n: u64) -> Self {
         Self(n)
     }
 
-    /// Corresponding [`egui::Id`], used for dragging.
-    pub fn egui_id(&self) -> egui::Id {
-        egui::Id::new(("egui_tile", self))
+    /// Corresponding [`egui::Id`], used for tracking dragging of tiles.
+    pub fn egui_id(&self, tree_id: egui::Id) -> egui::Id {
+        tree_id.with(("tile", self))
     }
 }
 
@@ -47,8 +50,8 @@ impl<Pane> Tile<Pane> {
     #[inline]
     pub fn kind(&self) -> Option<ContainerKind> {
         match self {
-            Tile::Pane(_) => None,
-            Tile::Container(container) => Some(container.kind()),
+            Self::Pane(_) => None,
+            Self::Container(container) => Some(container.kind()),
         }
     }
 

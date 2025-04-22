@@ -1,8 +1,10 @@
+# Copied from https://github.com/rerun-io/rerun_template
+
 # https://github.com/marketplace/actions/require-labels
 # Check for existence of labels
 # See all our labels at https://github.com/rerun-io/rerun/issues/labels
 
-name: Pull Request Labels
+name: PR Labels
 
 on:
   pull_request:
@@ -24,9 +26,9 @@ jobs:
           count: 0
           labels: "do-not-merge"
 
-      - name: Require at least one label
+      - name: Require label "include in changelog" or "exclude from changelog"
         uses: mheap/github-action-required-labels@v3
         with:
           mode: minimum
           count: 1
-          labels: "bug, enhancement"
+          labels: "exclude from changelog, include in changelog"

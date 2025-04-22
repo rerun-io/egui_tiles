@@ -122,8 +122,8 @@ mod tile;
 mod tiles;
 mod tree;
 
-pub use behavior::Behavior;
-pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Tabs};
+pub use behavior::{Behavior, EditAction, TabState};
+pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Shares, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
 pub use tree::Tree;
@@ -170,7 +170,29 @@ pub struct SimplificationOptions {
 
     /// If a horizontal container contain another horizontal container, join them?
     /// Same for vertical containers. Does NOT apply to grid container or tab containers.
-    pub join_nested_linear_containerss: bool,
+    pub join_nested_linear_containers: bool,
+}
+
+impl SimplificationOptions {
+    /// [`SimplificationOptions`] with all simplifications turned off.
+    ///
+    /// This makes it easy to run a single simplification type on a tree:
+    /// ```
+    /// # use egui_tiles::*;
+    /// # let mut tree: Tree<()> = Tree::empty("tree");
+    /// tree.simplify(&SimplificationOptions {
+    ///     prune_empty_tabs: true,
+    ///     ..SimplificationOptions::OFF
+    /// });
+    ///
+    pub const OFF: Self = Self {
+        prune_empty_tabs: false,
+        prune_empty_containers: false,
+        prune_single_child_tabs: false,
+        prune_single_child_containers: false,
+        all_panes_must_have_tabs: false,
+        join_nested_linear_containers: false,
+    };
 }
 
 impl Default for SimplificationOptions {
@@ -181,7 +203,7 @@ impl Default for SimplificationOptions {
             prune_empty_containers: true,
             prune_single_child_containers: true,
             all_panes_must_have_tabs: false,
-            join_nested_linear_containerss: true,
+            join_nested_linear_containers: true,
         }
     }
 }
@@ -215,19 +237,19 @@ impl ContainerInsertion {
     /// Where in the parent (in what order among its children).
     fn index(self) -> usize {
         match self {
-            ContainerInsertion::Tabs(index)
-            | ContainerInsertion::Horizontal(index)
-            | ContainerInsertion::Vertical(index)
-            | ContainerInsertion::Grid(index) => index,
+            Self::Tabs(index)
+            | Self::Horizontal(index)
+            | Self::Vertical(index)
+            | Self::Grid(index) => index,
         }
     }
 
     fn kind(self) -> ContainerKind {
         match self {
-            ContainerInsertion::Tabs(_) => ContainerKind::Tabs,
-            ContainerInsertion::Horizontal(_) => ContainerKind::Horizontal,
-            ContainerInsertion::Vertical(_) => ContainerKind::Vertical,
-            ContainerInsertion::Grid(_) => ContainerKind::Grid,
+            Self::Tabs(_) => ContainerKind::Tabs,
+            Self::Horizontal(_) => ContainerKind::Horizontal,
+            Self::Vertical(_) => ContainerKind::Vertical,
+            Self::Grid(_) => ContainerKind::Grid,
         }
     }
 }
@@ -263,23 +285,20 @@ enum SimplifyAction {
     Replace(TileId),
 }
 
-fn is_possible_drag(ctx: &egui::Context) -> bool {
-    ctx.input(|input| input.pointer.is_decidedly_dragging())
-}
-
-fn is_being_dragged(ctx: &egui::Context, tile_id: TileId) -> bool {
-    ctx.memory(|mem| mem.is_being_dragged(tile_id.egui_id())) && is_possible_drag(ctx)
+pub(crate) fn is_being_dragged(ctx: &egui::Context, tree_id: egui::Id, tile_id: TileId) -> bool {
+    let dragged_id = ctx.dragged_id().or(ctx.drag_stopped_id());
+    dragged_id == Some(tile_id.egui_id(tree_id))
 }
 
 /// If this tile is currently being dragged, cover it with a semi-transparent overlay ([`Behavior::dragged_overlay_color`]).
 fn cover_tile_if_dragged<Pane>(
     tree: &Tree<Pane>,
     behavior: &dyn Behavior<Pane>,
-    ui: &mut egui::Ui,
+    ui: &egui::Ui,
     tile_id: TileId,
 ) {
-    if is_being_dragged(ui.ctx(), tile_id) {
-        if let Some(child_rect) = tree.tiles.try_rect(tile_id) {
+    if is_being_dragged(ui.ctx(), tree.id, tile_id) {
+        if let Some(child_rect) = tree.tiles.rect(tile_id) {
             let overlay_color = behavior.dragged_overlay_color(ui.visuals());
             ui.painter().rect_filled(child_rect, 0.0, overlay_color);
         }
@@ -305,7 +324,7 @@ struct DropContext {
 impl DropContext {
     fn on_tile<Pane>(
         &mut self,
-        behavior: &mut dyn Behavior<Pane>,
+        behavior: &dyn Behavior<Pane>,
         style: &egui::Style,
         parent_id: TileId,
         rect: Rect,

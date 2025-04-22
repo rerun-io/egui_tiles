@@ -1,14 +1,15 @@
 use egui::{NumExt as _, Pos2, Rect, Ui, ViewportBuilder, ViewportId};
 
-use crate::{ContainerKind, UiResponse};
+use crate::behavior::EditAction;
+use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
 use super::{
-    is_possible_drag, Behavior, Container, DropContext, InsertionPoint, SimplificationOptions,
-    SimplifyAction, Tile, TileId, Tiles,
+    Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
+    TileId, Tiles,
 };
 
 /// Tile that has its own egui viewport (native window).
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ViewportTile {
     pub root: TileId,
@@ -35,11 +36,14 @@ pub struct ViewportTile {
 /// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
 /// let root: TileId = tiles.insert_tab_tile(tabs);
 ///
-/// let tree = Tree::new(root, tiles);
+/// let tree = Tree::new("my_tree", root, tiles);
 /// ```
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
+    /// The constant, globally unique id of this tree.
+    pub(crate) id: egui::Id,
+
     /// None = empty tree
     pub root: Option<TileId>,
 
@@ -49,17 +53,43 @@ pub struct Tree<Pane> {
     /// Tiles that have their own viewports (native windows).
     /// They form their own roots.
     pub viewport_tiles: Vec<ViewportTile>,
+
+    /// When finite, this values contains the exact height of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
+    height: f32,
+
+    /// When finite, this values contains the exact width of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
+    width: f32,
 }
 
-impl<Pane> Default for Tree<Pane> {
-    // An empty tree
-    fn default() -> Self {
-        Self {
-            root: None,
-            tiles: Default::default(),
-            viewport_tiles: Default::default(),
-        }
+// Workaround for JSON which doesn't support infinity, because JSON is stupid.
+#[cfg(feature = "serde")]
+fn serialize_f32_infinity_as_null<S: serde::Serializer>(
+    t: &f32,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if t.is_infinite() {
+        serializer.serialize_none()
+    } else {
+        serializer.serialize_some(t)
     }
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
+    des: D,
+) -> Result<f32, D::Error> {
+    use serde::Deserialize;
+    Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -96,9 +126,22 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             }
         }
 
-        if let Some(root) = self.root {
+        let Self {
+            id,
+            root,
+            tiles,
+            viewport_tiles,
+            width,
+            height,
+        } = self;
+
+        if let Some(root) = root {
             writeln!(f, "Tree {{")?;
-            format_tile(f, &self.tiles, 1, root)?;
+            writeln!(f, "    id: {id:?}")?;
+            writeln!(f, "    viewport_tiles: {viewport_tiles:?}")?;
+            writeln!(f, "    width: {width:?}")?;
+            writeln!(f, "    height: {height:?}")?;
+            format_tile(f, tiles, 1, *root)?;
             write!(f, "}}")
         } else {
             writeln!(f, "Tree {{ }}")
@@ -109,49 +152,115 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
 // ----------------------------------------------------------------------------
 
 impl<Pane> Tree<Pane> {
-    pub fn empty() -> Self {
-        Self::default()
+    /// Construct an empty tree.
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn empty(id: impl Into<egui::Id>) -> Self {
+        Self {
+            id: id.into(),
+            root: None,
+            tiles: Default::default(),
+            viewport_tiles: Default::default(),
+            width: f32::INFINITY,
+            height: f32::INFINITY,
+        }
     }
 
     /// The most flexible constructor, allowing you to set up the tiles
     /// however you want.
-    pub fn new(root: TileId, tiles: Tiles<Pane>) -> Self {
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new(id: impl Into<egui::Id>, root: TileId, tiles: Tiles<Pane>) -> Self {
         Self {
+            id: id.into(),
             root: Some(root),
             tiles,
             viewport_tiles: Default::default(),
+            width: f32::INFINITY,
+            height: f32::INFINITY,
         }
     }
 
     /// Create a top-level [`crate::Tabs`] container with the given panes.
-    pub fn new_tabs(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Tabs, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_tabs(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Tabs, panes)
     }
 
     /// Create a top-level horizontal [`crate::Linear`] container with the given panes.
-    pub fn new_horizontal(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Horizontal, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_horizontal(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Horizontal, panes)
     }
 
     /// Create a top-level vertical [`crate::Linear`] container with the given panes.
-    pub fn new_vertical(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Vertical, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_vertical(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Vertical, panes)
     }
 
     /// Create a top-level [`crate::Grid`] container with the given panes.
-    pub fn new_grid(panes: Vec<Pane>) -> Self {
-        Self::new_container(ContainerKind::Grid, panes)
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_grid(id: impl Into<egui::Id>, panes: Vec<Pane>) -> Self {
+        Self::new_container(id, ContainerKind::Grid, panes)
     }
 
     /// Create a top-level container with the given panes.
-    pub fn new_container(kind: ContainerKind, panes: Vec<Pane>) -> Self {
+    ///
+    /// The `id` must be _globally_ unique (!).
+    /// This is so that the same tree can be added to different [`egui::Ui`]s (if you want).
+    pub fn new_container(id: impl Into<egui::Id>, kind: ContainerKind, panes: Vec<Pane>) -> Self {
         let mut tiles = Tiles::default();
         let tile_ids = panes
             .into_iter()
             .map(|pane| tiles.insert_pane(pane))
             .collect();
         let root = tiles.insert_new(Tile::Container(Container::new(kind, tile_ids)));
-        Self::new(root, tiles)
+        Self::new(id, root, tiles)
+    }
+
+    /// Remove the given tile and all child tiles, recursively.
+    ///
+    /// This also removes the tile id from the parent's list of children.
+    ///
+    /// All removed tiles are returned in unspecified order.
+    pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        // Remove the top-most tile_id from its parent
+        self.remove_tile_id_from_parent(id);
+
+        let mut removed_tiles = vec![];
+        self.remove_recursively_impl(id, &mut removed_tiles);
+        removed_tiles
+    }
+
+    fn remove_recursively_impl(&mut self, id: TileId, removed_tiles: &mut Vec<Tile<Pane>>) {
+        // We can safely use the raw `tiles.remove` API here because either the parent was cleaned
+        // up explicitly from `remove_recursively` or the parent is also being removed so there's
+        // no reason to clean it up.
+        if let Some(tile) = self.tiles.remove(id) {
+            if let Tile::Container(container) = &tile {
+                for &child_id in container.children() {
+                    self.remove_recursively_impl(child_id, removed_tiles);
+                }
+            }
+            removed_tiles.push(tile);
+        }
+    }
+
+    /// The globally unique id used by this `Tree`.
+    #[inline]
+    pub fn id(&self) -> egui::Id {
+        self.id
     }
 
     /// Check if [`Self::root`] is [`None`].
@@ -178,6 +287,7 @@ impl<Pane> Tree<Pane> {
         roots
     }
 
+    #[inline]
     pub fn is_root(&self, tile: TileId) -> bool {
         self.root == Some(tile)
     }
@@ -185,6 +295,7 @@ impl<Pane> Tree<Pane> {
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
+    #[inline]
     pub fn is_visible(&self, tile_id: TileId) -> bool {
         self.tiles.is_visible(tile_id)
     }
@@ -194,6 +305,21 @@ impl<Pane> Tree<Pane> {
     /// Invisible tiles still retain their place in the tile hierarchy.
     pub fn set_visible(&mut self, tile_id: TileId, visible: bool) {
         self.tiles.set_visible(tile_id, visible);
+    }
+
+    /// All visible tiles.
+    ///
+    /// This excludes all tiles that invisible or are inactive tabs, recursively.
+    ///
+    /// The order of the returned tiles is arbitrary.
+    pub fn active_tiles(&self) -> Vec<TileId> {
+        let mut tiles = vec![];
+        if let Some(root) = self.root {
+            if self.is_visible(root) {
+                self.tiles.collect_acticve_tiles(root, &mut tiles);
+            }
+        }
+        tiles
     }
 
     /// Show the tree in the given [`Ui`].
@@ -210,15 +336,21 @@ impl<Pane> Tree<Pane> {
         let mut drop_context = DropContext {
             enabled: true,
             dragged_tile_id: self.dragged_id(ui.ctx()),
-            mouse_pos: ui.input(|i| i.pointer.hover_pos()),
+            mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
             preview_rect: None,
         };
 
+        let mut rect = ui.available_rect_before_wrap();
+        if self.height.is_finite() {
+            rect.set_height(self.height);
+        }
+        if self.width.is_finite() {
+            rect.set_width(self.width);
+        }
         if let Some(root) = self.root {
-            self.tiles
-                .layout_tile(ui.style(), behavior, ui.available_rect_before_wrap(), root);
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
@@ -274,13 +406,38 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+        ui.advance_cursor_after_rect(rect);
+    }
+
+    /// Sets the exact height that can be used by the tree.
+    ///
+    /// Determines the height that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
+    pub fn set_height(&mut self, height: f32) {
+        if height.is_sign_positive() && height.is_finite() {
+            self.height = height;
+        } else {
+            self.height = f32::INFINITY;
+        }
+    }
+
+    /// Sets the exact width that can be used by the tree.
+    ///
+    /// Determines the width that will be used by the tree component.
+    /// By default, the tree occupies all the available space in the parent container.
+    pub fn set_width(&mut self, width: f32) {
+        if width.is_sign_positive() && width.is_finite() {
+            self.width = width;
+        } else {
+            self.width = f32::INFINITY;
+        }
     }
 
     pub(super) fn tile_ui(
         &mut self,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut Ui,
+        ui: &Ui,
         tile_id: TileId,
     ) {
         if !self.is_visible(tile_id) {
@@ -288,13 +445,13 @@ impl<Pane> Tree<Pane> {
         }
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
-        let Some(rect) = self.tiles.try_rect(tile_id) else {
-            log::warn!("Failed to find rect for tile {tile_id:?} during ui");
-            return
+        let Some(rect) = self.tiles.rect(tile_id) else {
+            log::debug!("Failed to find rect for tile {tile_id:?} during ui");
+            return;
         };
         let Some(mut tile) = self.tiles.remove(tile_id) else {
-            log::warn!("Failed to find tile {tile_id:?} during ui");
-            return
+            log::debug!("Failed to find tile {tile_id:?} during ui");
+            return;
         };
 
         let drop_context_was_enabled = drop_context.enabled;
@@ -305,26 +462,32 @@ impl<Pane> Tree<Pane> {
         drop_context.on_tile(behavior, ui.style(), tile_id, rect, &tile);
 
         // Each tile gets its own `Ui`, nested inside each other, with proper clip rectangles.
+        let enabled = ui.is_enabled();
         let mut ui = egui::Ui::new(
             ui.ctx().clone(),
-            ui.layer_id(),
             ui.id().with(tile_id),
-            rect,
-            rect,
+            egui::UiBuilder::new()
+                .layer_id(ui.layer_id())
+                .max_rect(rect),
         );
-        match &mut tile {
-            Tile::Pane(pane) => {
-                if behavior.pane_ui(&mut ui, tile_id, pane) == UiResponse::DragStarted {
-                    ui.memory_mut(|mem| mem.set_dragged_id(tile_id.egui_id()));
-                }
-            }
-            Tile::Container(container) => {
-                container.ui(self, behavior, drop_context, &mut ui, rect, tile_id);
-            }
-        };
 
-        self.tiles.insert(tile_id, tile);
-        drop_context.enabled = drop_context_was_enabled;
+        ui.add_enabled_ui(enabled, |ui| {
+            match &mut tile {
+                Tile::Pane(pane) => {
+                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                    }
+                }
+                Tile::Container(container) => {
+                    container.ui(self, behavior, drop_context, ui, rect, tile_id);
+                }
+            };
+
+            behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
+
+            self.tiles.insert(tile_id, tile);
+            drop_context.enabled = drop_context_was_enabled;
+        });
     }
 
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
@@ -332,7 +495,10 @@ impl<Pane> Tree<Pane> {
     /// This means making the matching tiles and its ancestors the active tab in any tab layout.
     ///
     /// Returns `true` if a tab was made active.
-    pub fn make_active(&mut self, mut should_activate: impl FnMut(&Tile<Pane>) -> bool) -> bool {
+    pub fn make_active(
+        &mut self,
+        mut should_activate: impl FnMut(TileId, &Tile<Pane>) -> bool,
+    ) -> bool {
         if let Some(root) = self.root {
             self.tiles.make_active(root, &mut should_activate)
         } else {
@@ -347,7 +513,10 @@ impl<Pane> Tree<Pane> {
         ui: &mut Ui,
     ) {
         let (Some(mouse_pos), Some(dragged_tile_id)) =
-            (drop_context.mouse_pos, drop_context.dragged_tile_id) else { return; };
+            (drop_context.mouse_pos, drop_context.dragged_tile_id)
+        else {
+            return;
+        };
 
         // Preview what is being dragged:
         let preview_size = egui::vec2(300.0, 200.0);
@@ -371,9 +540,9 @@ impl<Pane> Tree<Pane> {
             };
 
             // Spawn the new viewport tile right away, to get a nice preview for it:
-            ui.memory_mut(|mem| mem.stop_dragging());
+            ui.ctx().stop_dragging();
 
-            behavior.on_edit();
+            behavior.on_edit(EditAction::TileDragged);
             self.remove_tile_id_from_parent(dragged_tile_id);
             self.viewport_tiles.push(ViewportTile {
                 root: dragged_tile_id,
@@ -387,7 +556,7 @@ impl<Pane> Tree<Pane> {
 
             let parent_rect = drop_context
                 .best_insertion
-                .and_then(|insertion_point| self.tiles.try_rect(insertion_point.parent_id));
+                .and_then(|insertion_point| self.tiles.rect(insertion_point.parent_id));
 
             behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
 
@@ -395,8 +564,10 @@ impl<Pane> Tree<Pane> {
                 // TODO(emilk): add support for previewing containers too.
                 if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
                     if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
-                        let _ = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout()),
+                        // Intentionally ignore the response, since the user cannot possibly
+                        // begin a drag on the preview pane.
+                        let _ignored: UiResponse = behavior.pane_ui(
+                            &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
                             dragged_tile_id,
                             pane,
                         );
@@ -406,11 +577,11 @@ impl<Pane> Tree<Pane> {
         }
 
         if ui.input(|i| i.pointer.any_released()) {
-            ui.memory_mut(|mem| mem.stop_dragging());
+            ui.ctx().stop_dragging();
 
             if let Some(insertion_point) = drop_context.best_insertion {
-                behavior.on_edit();
-                self.move_tile(dragged_tile_id, insertion_point);
+                behavior.on_edit(EditAction::TileDropped);
+                self.move_tile(dragged_tile_id, insertion_point, false);
             }
 
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
@@ -431,12 +602,21 @@ impl<Pane> Tree<Pane> {
                     self.root = Some(new_root);
                 }
             }
-        }
 
-        if options.all_panes_must_have_tabs {
-            for root in self.roots() {
-                self.tiles.make_all_panes_children_of_tabs(false, root);
+            if options.all_panes_must_have_tabs {
+                for root in self.roots() {
+                    self.tiles.make_all_panes_children_of_tabs(false, root);
+                }
             }
+        }
+    }
+
+    /// Simplify all of the children of the given container tile recursively.
+    pub fn simplify_children_of_tile(&mut self, tile_id: TileId, options: &SimplificationOptions) {
+        if let Some(Tile::Container(mut container)) = self.tiles.remove(tile_id) {
+            let kind = container.kind();
+            container.simplify_children(|child| self.tiles.simplify(options, child, Some(kind)));
+            self.tiles.insert(tile_id, Tile::Container(container));
         }
     }
 
@@ -447,8 +627,63 @@ impl<Pane> Tree<Pane> {
         self.tiles.gc_roots(behavior, &self.roots());
     }
 
+    /// Move a tile to a new container, at the specified insertion index.
+    ///
+    /// If the insertion index is greater than the current number of children, the tile is appended at the end.
+    ///
+    /// The grid layout needs a special treatment because it can have holes. When dragging a tile away from a grid, it
+    /// leaves behind it a hole. As a result, if the tile is the dropped in the same grid, it there is no need to account
+    /// for an insertion index shift (the hole can still occupy the original place of the dragged tile). However, if the
+    /// tiles are reordered in a separate, linear representation of the grid (such as the Rerun blueprint tree), the
+    /// expectation is that the grid is properly reordered and thus the insertion index must be shifted in case the tile
+    /// is moved inside the same grid. The `reflow_grid` parameter controls this behavior.
+    ///
+    /// TL;DR:
+    /// - when drag-and-dropping from a 2D representation of the grid, set `reflow_grid = false`
+    /// - when drag-and-dropping from a 1D representation of the grid, set `reflow_grid = true`
+    pub fn move_tile_to_container(
+        &mut self,
+        moved_tile_id: TileId,
+        destination_container: TileId,
+        mut insertion_index: usize,
+        reflow_grid: bool,
+    ) {
+        // find target container
+        if let Some(Tile::Container(target_container)) = self.tiles.get(destination_container) {
+            let num_children = target_container.num_children();
+            if insertion_index > num_children {
+                insertion_index = num_children;
+            }
+
+            let container_insertion = match target_container.kind() {
+                ContainerKind::Tabs => ContainerInsertion::Tabs(insertion_index),
+                ContainerKind::Horizontal => ContainerInsertion::Horizontal(insertion_index),
+                ContainerKind::Vertical => ContainerInsertion::Vertical(insertion_index),
+                ContainerKind::Grid => ContainerInsertion::Grid(insertion_index),
+            };
+
+            self.move_tile(
+                moved_tile_id,
+                InsertionPoint {
+                    parent_id: destination_container,
+                    insertion: container_insertion,
+                },
+                reflow_grid,
+            );
+        } else {
+            log::warn!("Failed to find destination container {destination_container:?} during `move_tile_to_container()`");
+        }
+    }
+
     /// Move the given tile to the given insertion point.
-    pub(super) fn move_tile(&mut self, moved_tile_id: TileId, insertion_point: InsertionPoint) {
+    ///
+    /// See [`Self::move_tile_to_container()`] for details on `reflow_grid`.
+    pub(super) fn move_tile(
+        &mut self,
+        moved_tile_id: TileId,
+        insertion_point: InsertionPoint,
+        reflow_grid: bool,
+    ) {
         log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
@@ -487,11 +722,14 @@ impl<Pane> Tree<Pane> {
                                 linear.children.insert(insertion_index, moved_tile_id);
                             }
                             Container::Grid(grid) => {
-                                // the grid allow holes in its children list, so don't use `adjusted_index`
-                                let dest_tile = grid.replace_at(dest_index, moved_tile_id);
-                                if let Some(dest) = dest_tile {
-                                    grid.insert_at(source_index, dest);
-                                }
+                                if reflow_grid {
+                                    self.tiles.insert_at(insertion_point, moved_tile_id);
+                                } else {
+                                    let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                    if let Some(dest) = dest_tile {
+                                        grid.insert_at(source_index, dest);
+                                    }
+                                };
                             }
                         }
                         return; // done
@@ -506,22 +744,16 @@ impl<Pane> Tree<Pane> {
 
     /// Find the currently dragged tile, if any.
     pub fn dragged_id(&self, ctx: &egui::Context) -> Option<TileId> {
-        if !is_possible_drag(ctx) {
-            // We're not sure we're dragging _at all_ yet.
-            return None;
-        }
-
         for tile_id in self.tiles.tile_ids() {
             if self.is_root(tile_id) {
                 continue; // not allowed to drag root
             }
 
-            let id = tile_id.egui_id();
-            let is_tile_being_dragged = ctx.memory(|mem| mem.is_being_dragged(id));
+            let is_tile_being_dragged = crate::is_being_dragged(ctx, self.id, tile_id);
             if is_tile_being_dragged {
                 // Abort drags on escape:
                 if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-                    ctx.memory_mut(|mem| mem.stop_dragging());
+                    ctx.stop_dragging();
                     return None;
                 }
 
@@ -542,14 +774,30 @@ impl<Pane> Tree<Pane> {
         &mut self,
         remove_me: TileId,
     ) -> Option<(TileId, usize)> {
+        let mut result = None;
+
         for (parent_id, parent) in self.tiles.iter_mut() {
             if let Tile::Container(container) = parent {
                 if let Some(child_index) = container.remove_child(remove_me) {
-                    return Some((*parent_id, child_index));
+                    result = Some((*parent_id, child_index));
                 }
             }
         }
-        None
+
+        // Make sure that if we drag away the active some tabs,
+        // that the tab container gets assigned another active tab.
+        // If the tab is dragged to the same container, then it will become active again,
+        // since all tabs become active when dragged, wherever they end up.
+        if let Some((parent_id, _)) = result {
+            if let Some(mut tile) = self.tiles.remove(parent_id) {
+                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                    tabs.ensure_active(&self.tiles);
+                }
+                self.tiles.insert(parent_id, tile);
+            }
+        }
+
+        result
     }
 }
 

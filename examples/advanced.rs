@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use egui_tiles::{Tile, TileId, Tiles};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -20,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
                     app = state;
                 }
             }
-            Box::new(app)
+            Ok(Box::new(app))
         }),
     )
 }
@@ -41,11 +42,11 @@ impl Pane {
         Self { nr }
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
+    pub fn ui(&self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
         let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
         let dragged = ui
-            .allocate_rect(ui.max_rect(), egui::Sense::drag())
+            .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
             .on_hover_cursor(egui::CursorIcon::Grab)
             .dragged();
         if dragged {
@@ -92,7 +93,7 @@ impl TreeBehavior {
 
                 ui.label("Join nested containers:");
                 ui.checkbox(
-                    &mut simplification_options.join_nested_linear_containerss,
+                    &mut simplification_options.join_nested_linear_containers,
                     "",
                 );
                 ui.end_row();
@@ -100,17 +101,13 @@ impl TreeBehavior {
                 ui.label("Tab bar height:");
                 ui.add(
                     egui::DragValue::new(tab_bar_height)
-                        .clamp_range(0.0..=100.0)
+                        .range(0.0..=100.0)
                         .speed(1.0),
                 );
                 ui.end_row();
 
                 ui.label("Gap width:");
-                ui.add(
-                    egui::DragValue::new(gap_width)
-                        .clamp_range(0.0..=20.0)
-                        .speed(1.0),
-                );
+                ui.add(egui::DragValue::new(gap_width).range(0.0..=20.0).speed(1.0));
                 ui.end_row();
             });
     }
@@ -157,6 +154,36 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
         self.simplification_options
     }
+
+    fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    fn on_tab_close(&mut self, tiles: &mut Tiles<Pane>, tile_id: TileId) -> bool {
+        if let Some(tile) = tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(pane) => {
+                    // Single pane removal
+                    let tab_title = self.tab_title_for_pane(pane);
+                    log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                }
+                Tile::Container(container) => {
+                    // Container removal
+                    log::debug!("Closing container: {:?}", container.kind());
+                    let children_ids = container.children();
+                    for child_id in children_ids {
+                        if let Some(Tile::Pane(pane)) = tiles.get(*child_id) {
+                            let tab_title = self.tab_title_for_pane(pane);
+                            log::debug!("Closing tab: {}, tile ID: {tile_id:?}", tab_title.text());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Proceed to removing the tab
+        true
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -165,9 +192,6 @@ struct MyApp {
 
     #[cfg_attr(feature = "serde", serde(skip))]
     behavior: TreeBehavior,
-
-    #[cfg_attr(feature = "serde", serde(skip))]
-    last_tree_debug: String,
 }
 
 impl Default for MyApp {
@@ -203,12 +227,11 @@ impl Default for MyApp {
 
         let root = tiles.insert_tab_tile(tabs);
 
-        let tree = egui_tiles::Tree::new(root, tiles);
+        let tree = egui_tiles::Tree::new("my_tree", root, tiles);
 
         Self {
             tree,
             behavior: Default::default(),
-            last_tree_debug: Default::default(),
         }
     }
 }
@@ -220,6 +243,26 @@ impl eframe::App for MyApp {
                 *self = Default::default();
             }
             self.behavior.ui(ui);
+
+            ui.separator();
+
+            ui.collapsing("Tree", |ui| {
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                let tree_debug = format!("{:#?}", self.tree);
+                ui.monospace(&tree_debug);
+            });
+
+            ui.separator();
+
+            ui.collapsing("Active tiles", |ui| {
+                let active = self.tree.active_tiles();
+                for tile_id in active {
+                    use egui_tiles::Behavior as _;
+                    let name = self.behavior.tab_title_for_tile(&self.tree.tiles, tile_id);
+                    ui.label(format!("{} - {tile_id:?}", name.text()));
+                }
+            });
+
             ui.separator();
 
             if let Some(root) = self.tree.root() {
@@ -238,14 +281,6 @@ impl eframe::App for MyApp {
                     tabs.add_child(new_child);
                     tabs.set_active(new_child);
                 }
-            }
-
-            ui.separator();
-            ui.style_mut().wrap = Some(false);
-            let tree_debug = format!("{:#?}", self.tree);
-            ui.monospace(&tree_debug);
-            if self.last_tree_debug != tree_debug {
-                self.last_tree_debug = tree_debug;
             }
         });
 
@@ -274,14 +309,14 @@ fn tree_ui(
 
     // Temporarily remove the tile to circumvent the borrowchecker
     let Some(mut tile) = tiles.remove(tile_id) else {
-        log::warn!("Missing tile {tile_id:?}");
+        log::debug!("Missing tile {tile_id:?}");
         return;
     };
 
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
         ui.ctx(),
-        egui::Id::new((tile_id, "tree")),
+        ui.id().with((tile_id, "tree")),
         default_open,
     )
     .show_header(ui, |ui| {

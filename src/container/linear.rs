@@ -1,6 +1,9 @@
-use egui::{pos2, vec2, NumExt, Rect};
+#![allow(clippy::tuple_array_conversions)]
+
+use egui::{emath::GuiRounding as _, pos2, vec2, NumExt, Rect};
 use itertools::Itertools as _;
 
+use crate::behavior::EditAction;
 use crate::{
     is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState,
     SimplifyAction, TileId, Tiles, Tree,
@@ -24,6 +27,10 @@ pub struct Shares {
 }
 
 impl Shares {
+    pub fn iter(&self) -> impl Iterator<Item = (&TileId, &f32)> {
+        self.shares.iter()
+    }
+
     pub fn replace_with(&mut self, remove: TileId, new: TileId) {
         if let Some(share) = self.shares.remove(&remove) {
             self.shares.insert(new, share);
@@ -109,7 +116,7 @@ impl Linear {
         }
     }
 
-    fn visible_children<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+    fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<TileId> {
         self.children
             .iter()
             .copied()
@@ -121,7 +128,10 @@ impl Linear {
     ///
     /// The `fraction` is the fraction of the total width that the first child should get.
     pub fn new_binary(dir: LinearDir, children: [TileId; 2], fraction: f32) -> Self {
-        debug_assert!((0.0..=1.0).contains(&fraction));
+        debug_assert!(
+            (0.0..=1.0).contains(&fraction),
+            "Fraction should be in 0.0..=1.0"
+        );
         let mut slf = Self {
             children: children.into(),
             dir,
@@ -158,7 +168,7 @@ impl Linear {
     }
 
     fn layout_horizontal<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,
@@ -182,7 +192,7 @@ impl Linear {
     }
 
     fn layout_vertical<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,
@@ -210,7 +220,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         tile_id: TileId,
     ) {
         match self.dir {
@@ -224,7 +234,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let visible_children = self.visible_children(&tree.tiles);
@@ -244,33 +254,35 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tree.tiles.rect(parent_id);
+        let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
-            let left_rect = tree.tiles.rect(left);
-            let right_rect = tree.tiles.rect(right);
+            let left_rect = tree.tiles.rect_or_die(left);
+            let right_rect = tree.tiles.rect_or_die(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(x, parent_rect.center().y),
-                    vec2(
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                        parent_rect.height(),
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(x, parent_rect.center().y),
+                vec2(
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                    parent_rect.height(),
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
                     &visible_children,
                     &response,
                     [left, right],
-                    ui.painter().round_to_pixel(pointer.x) - x,
+                    pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
-                    |tile_id: TileId| tree.tiles.rect(tile_id).width(),
+                    |tile_id: TileId| tree.tiles.rect_or_die(tile_id).width(),
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -288,7 +300,7 @@ impl Linear {
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &mut DropContext,
-        ui: &mut egui::Ui,
+        ui: &egui::Ui,
         parent_id: TileId,
     ) {
         let visible_children = self.visible_children(&tree.tiles);
@@ -308,33 +320,35 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tree.tiles.rect(parent_id);
+        let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
-            let resize_id = egui::Id::new((parent_id, "resize", i));
+            let resize_id = ui.id().with((parent_id, "resize", i));
 
-            let top_rect = tree.tiles.rect(top);
-            let bottom_rect = tree.tiles.rect(bottom);
+            let top_rect = tree.tiles.rect_or_die(top);
+            let bottom_rect = tree.tiles.rect_or_die(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
-            if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                let line_rect = Rect::from_center_size(
-                    pos2(parent_rect.center().x, y),
-                    vec2(
-                        parent_rect.width(),
-                        2.0 * ui.style().interaction.resize_grab_radius_side,
-                    ),
-                );
-                let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            let line_rect = Rect::from_center_size(
+                pos2(parent_rect.center().x, y),
+                vec2(
+                    parent_rect.width(),
+                    2.0 * ui.style().interaction.resize_grab_radius_side,
+                ),
+            );
+            let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
+            // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
+            // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
                     &visible_children,
                     &response,
                     [top, bottom],
-                    ui.painter().round_to_pixel(pointer.y) - y,
+                    pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
-                    |tile_id: TileId| tree.tiles.rect(tile_id).height(),
+                    |tile_id: TileId| tree.tiles.rect_or_die(tile_id).height(),
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -379,7 +393,7 @@ fn resize_interaction<Pane>(
     tile_width: impl Fn(TileId) -> f32,
 ) -> ResizeState {
     if splitter_response.double_clicked() {
-        behavior.on_edit();
+        behavior.on_edit(EditAction::TileResized);
 
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
@@ -387,7 +401,7 @@ fn resize_interaction<Pane>(
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
-        behavior.on_edit();
+        behavior.on_edit(EditAction::TileResized);
 
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:
@@ -461,7 +475,7 @@ fn linear_drop_zones<Pane>(
     let preview_thickness = 12.0;
     let dragged_index = children
         .iter()
-        .position(|&child| is_being_dragged(egui_ctx, child));
+        .position(|&child| is_being_dragged(egui_ctx, tree.id, child));
 
     let after_rect = |rect: Rect| match dir {
         LinearDir::Horizontal => Rect::from_min_max(
@@ -479,7 +493,7 @@ fn linear_drop_zones<Pane>(
         children,
         dragged_index,
         dir,
-        |tile_id| tree.tiles.try_rect(tile_id),
+        |tile_id| tree.tiles.rect(tile_id),
         add_drop_drect,
         after_rect,
     );

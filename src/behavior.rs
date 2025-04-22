@@ -5,16 +5,69 @@ use egui::{
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
 
+/// The kind of edit that triggered the call to [`Behavior::on_edit`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EditAction {
+    /// A tile was resized by dragging or double-clicking a boundary.
+    TileResized,
+
+    /// A drag with a tile started.
+    TileDragged,
+
+    /// A tile was dropped and its position changed accordingly.
+    TileDropped,
+
+    /// A tab was selected by a click, or by hovering a dragged tile over it,
+    /// or there was no active tab and egui picked an arbitrary one.
+    TabSelected,
+}
+
+/// The state of a tab, used to inform the rendering of the tab.
+#[derive(Clone, Debug, Default)]
+pub struct TabState {
+    /// Is the tab currently selected?
+    pub active: bool,
+
+    /// Is the tab currently being dragged?
+    pub is_being_dragged: bool,
+
+    /// Should the tab have a close button?
+    pub closable: bool,
+}
+
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
 pub trait Behavior<Pane> {
     /// Show a pane tile in the given [`egui::Ui`].
     ///
     /// You can make the pane draggable by returning [`UiResponse::DragStarted`]
     /// when the user drags some handle.
-    fn pane_ui(&mut self, _ui: &mut Ui, _tile_id: TileId, _pane: &mut Pane) -> UiResponse;
+    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut Pane) -> UiResponse;
 
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
+
+    /// Should the tab have a close-button?
+    fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        false
+    }
+
+    /// Called when the close-button on a tab is pressed.
+    ///
+    /// Return `false` to abort the closing of a tab (e.g. after showing a message box).
+    fn on_tab_close(&mut self, _tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// The size of the close button in the tab.
+    fn close_button_outer_size(&self) -> f32 {
+        12.0
+    }
+
+    /// How much smaller the visual part of the close-button will be
+    /// compared to [`Self::close_button_outer_size`].
+    fn close_button_inner_margin(&self) -> f32 {
+        2.0
+    }
 
     /// The title of a general tab.
     ///
@@ -42,50 +95,102 @@ pub trait Behavior<Pane> {
     #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
-        tiles: &Tiles<Pane>,
+        tiles: &mut Tiles<Pane>,
         ui: &mut Ui,
         id: Id,
         tile_id: TileId,
-        active: bool,
-        is_being_dragged: bool,
+        state: &TabState,
     ) -> Response {
         let text = self.tab_title_for_tile(tiles, tile_id);
+        let close_btn_size = Vec2::splat(self.close_button_outer_size());
+        let close_btn_left_padding = 4.0;
         let font_id = TextStyle::Button.resolve(ui.style());
-        let galley = text.into_galley(ui, Some(false), f32::INFINITY, font_id);
+        let galley = text.into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, font_id);
 
         let x_margin = self.tab_title_spacing(ui.visuals());
-        let (_, rect) = ui.allocate_space(vec2(
-            galley.size().x + 2.0 * x_margin,
-            ui.available_height(),
-        ));
-        let response = ui.interact(rect, id, Sense::click_and_drag());
+
+        let button_width = galley.size().x
+            + 2.0 * x_margin
+            + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
+        let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
+
+        let tab_response = ui
+            .interact(tab_rect, id, Sense::click_and_drag())
+            .on_hover_cursor(egui::CursorIcon::Grab);
 
         // Show a gap when dragged
-        if ui.is_rect_visible(rect) && !is_being_dragged {
-            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, active);
-            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, active);
-            ui.painter().rect(rect.shrink(0.5), 0.0, bg_color, stroke);
+        if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
+            let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
+            let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state);
+            ui.painter().rect(
+                tab_rect.shrink(0.5),
+                0.0,
+                bg_color,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
 
-            if active {
+            if state.active {
                 // Make the tab name area connect with the tab ui area:
                 ui.painter().hline(
-                    rect.x_range(),
-                    rect.bottom(),
+                    tab_rect.x_range(),
+                    tab_rect.bottom(),
                     Stroke::new(stroke.width + 1.0, bg_color),
                 );
             }
 
-            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, active);
-            ui.painter().galley_with_color(
-                egui::Align2::CENTER_CENTER
-                    .align_size_within_rect(galley.size(), rect)
-                    .min,
-                galley.galley,
-                text_color,
-            );
+            // Prepare title's text for rendering
+            let text_color = self.tab_text_color(ui.visuals(), tiles, tile_id, state);
+            let text_position = egui::Align2::LEFT_CENTER
+                .align_size_within_rect(galley.size(), tab_rect.shrink(x_margin))
+                .min;
+
+            // Render the title
+            ui.painter().galley(text_position, galley, text_color);
+
+            // Conditionally render the close button
+            if state.closable {
+                let close_btn_rect = egui::Align2::RIGHT_CENTER
+                    .align_size_within_rect(close_btn_size, tab_rect.shrink(x_margin));
+
+                // Allocate
+                let close_btn_id = ui.auto_id_with("tab_close_btn");
+                let close_btn_response = ui
+                    .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
+                    .on_hover_cursor(egui::CursorIcon::Default);
+
+                let visuals = ui.style().interact(&close_btn_response);
+
+                // Scale based on the interaction visuals
+                let rect = close_btn_rect
+                    .shrink(self.close_button_inner_margin())
+                    .expand(visuals.expansion);
+                let stroke = visuals.fg_stroke;
+
+                // paint the crossed lines
+                ui.painter() // paints \
+                    .line_segment([rect.left_top(), rect.right_bottom()], stroke);
+                ui.painter() // paints /
+                    .line_segment([rect.right_top(), rect.left_bottom()], stroke);
+
+                // Give the user a chance to react to the close button being clicked
+                // Only close if the user returns true (handled)
+                if close_btn_response.clicked() {
+                    log::debug!("Tab close requested for tile: {tile_id:?}");
+
+                    // Close the tab if the implementation wants to
+                    if self.on_tab_close(tiles, tile_id) {
+                        log::debug!("Implementation confirmed close request for tile: {tile_id:?}");
+
+                        tiles.remove(tile_id);
+                    } else {
+                        log::debug!("Implementation denied close request for tile: {tile_id:?}");
+                    }
+                }
+            }
         }
 
-        self.on_tab_button(tiles, tile_id, response)
+        self.on_tab_button(tiles, tile_id, tab_response)
     }
 
     /// Show the ui for the tab being dragged.
@@ -166,6 +271,16 @@ pub trait Behavior<Pane> {
         SimplificationOptions::default()
     }
 
+    /// Add some custom painting on top of a tile (container or pane), e.g. draw an outline on top of it.
+    fn paint_on_top_of_tile(
+        &self,
+        _painter: &egui::Painter,
+        _style: &egui::Style,
+        _tile_id: TileId,
+        _rect: Rect,
+    ) {
+    }
+
     /// The stroke used for the lines in horizontal, vertical, and grid layouts.
     fn resize_stroke(&self, style: &egui::Style, resize_state: ResizeState) -> Stroke {
         match resize_state {
@@ -197,9 +312,9 @@ pub trait Behavior<Pane> {
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Color32 {
-        if active {
+        if state.active {
             visuals.panel_fill // same as the tab contents
         } else {
             Color32::TRANSPARENT // fade into background
@@ -212,9 +327,9 @@ pub trait Behavior<Pane> {
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Stroke {
-        if active {
+        if state.active {
             Stroke::new(1.0, visuals.widgets.active.bg_fill)
         } else {
             Stroke::NONE
@@ -227,14 +342,17 @@ pub trait Behavior<Pane> {
     }
 
     /// The color of the title text of the tab.
+    ///
+    /// This is the fallback color used if [`Self::tab_title_for_tile`]
+    /// has no color.
     fn tab_text_color(
         &self,
         visuals: &Visuals,
         _tiles: &Tiles<Pane>,
         _tile_id: TileId,
-        active: bool,
+        state: &TabState,
     ) -> Color32 {
-        if active {
+        if state.active {
             visuals.widgets.active.text_color()
         } else {
             visuals.widgets.noninteractive.text_color()
@@ -264,10 +382,16 @@ pub trait Behavior<Pane> {
 
         if let Some(parent_rect) = parent_rect {
             // Show which parent we will be dropped into
-            painter.rect_stroke(parent_rect, 1.0, preview_stroke);
+            painter.rect_stroke(parent_rect, 1.0, preview_stroke, egui::StrokeKind::Inside);
         }
 
-        painter.rect(preview_rect, 1.0, preview_color, preview_stroke);
+        painter.rect(
+            preview_rect,
+            1.0,
+            preview_color,
+            preview_stroke,
+            egui::StrokeKind::Inside,
+        );
     }
 
     /// How many columns should we use for a [`crate::Grid`] put into [`crate::GridLayout::Auto`]?
@@ -295,7 +419,7 @@ pub trait Behavior<Pane> {
 
     /// Called if the user edits the tree somehow, e.g. changes the size of some container,
     /// clicks a tab, or drags a tile.
-    fn on_edit(&mut self) {}
+    fn on_edit(&mut self, _edit_action: EditAction) {}
 }
 
 /// How many columns should we use to fit `n` children in a grid?
