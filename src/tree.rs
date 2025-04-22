@@ -522,6 +522,7 @@ impl<Pane> Tree<Pane> {
         let preview_size = egui::vec2(300.0, 200.0);
         let preview_id = egui::Id::new((dragged_tile_id, "preview"));
         if ui.ctx().screen_rect().contains(mouse_pos) {
+            // Dragging within the original viewport:
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
             egui::Area::new(preview_id)
                 .pivot(egui::Align2::CENTER_CENTER)
@@ -533,6 +534,7 @@ impl<Pane> Tree<Pane> {
                     behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
                 });
         } else {
+            // Detach into own viewport:
             let screen_pos = if let Some(inner_rect) = ui.ctx().input(|i| i.viewport().inner_rect) {
                 mouse_pos + inner_rect.min.to_vec2() + egui::vec2(-0.5 * preview_size.x, -16.0)
             } else {
