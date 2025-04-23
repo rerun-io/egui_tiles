@@ -46,6 +46,11 @@ pub trait Behavior<Pane> {
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
 
+    /// The cursor icon when hovering over a tab.
+    fn tab_hover_cursor_icon(&self) -> egui::CursorIcon {
+        egui::CursorIcon::Grab
+    }
+
     /// Should the tab have a close-button?
     fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
         false
@@ -116,7 +121,7 @@ pub trait Behavior<Pane> {
 
         let tab_response = ui
             .interact(tab_rect, id, Sense::click_and_drag())
-            .on_hover_cursor(egui::CursorIcon::Grab);
+            .on_hover_cursor(self.tab_hover_cursor_icon());
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
