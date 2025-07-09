@@ -67,15 +67,16 @@ RUST_FILES = {
     "CHANGELOG.md",  # We only keep a changelog for Rust crates at the moment
     "clippy.toml",
     "Cranky.toml",
+    "crates/new_project_name/Cargo.toml",
+    "crates/new_project_name/src/",
+    "crates/new_project_name/src/lib.rs",
+    "crates/new_project_name/src/main.rs",
     "deny.toml",
     "RELEASES.md",
     "rust-toolchain",
     "scripts/clippy_wasm/",
     "scripts/clippy_wasm/clippy.toml",
     "scripts/generate_changelog.py",  # We only keep a changelog for Rust crates at the moment
-    "src/",
-    "src/lib.rs",
-    "src/main.rs",
 }
 
 # Files we used to have, but have been removed in never version of rerun_template
@@ -147,7 +148,7 @@ def update(languages: set[str], dry_run: bool) -> None:
 
                 if rel_path.startswith(".git/"):
                     continue
-                if rel_path.startswith("src/"):
+                if rel_path.startswith("crates/") or rel_path.startswith("src/"):
                     continue
                 if rel_path in files_to_ignore:
                     continue
