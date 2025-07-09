@@ -1,14 +1,14 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{BTreeMap, btree_map::Entry},
     ops::{Range, RangeInclusive},
 };
 
 use egui::{
-    vec2, Align, Context, Id, IdMap, NumExt as _, Rangef, Rect, Ui, UiBuilder, Vec2, Vec2b,
+    Align, Context, Id, IdMap, NumExt as _, Rangef, Rect, Ui, UiBuilder, Vec2, Vec2b, vec2,
 };
 use vec1::Vec1;
 
-use crate::{columns::Column, SplitScroll, SplitScrollDelegate};
+use crate::{SplitScroll, SplitScrollDelegate, columns::Column};
 
 // TODO: fix the functionality of this
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -374,7 +374,7 @@ impl Table {
         let auto_size = match self.auto_size_mode {
             AutoSizeMode::Never => false,
             AutoSizeMode::Always => true,
-            AutoSizeMode::OnParentResize => state.parent_width.map_or(true, |w| w != parent_width),
+            AutoSizeMode::OnParentResize => state.parent_width != Some(parent_width),
         };
         if auto_size {
             Column::auto_size(&mut self.columns, parent_width);
@@ -511,7 +511,7 @@ struct TableSplitScrollDelegate<'a> {
     egui_ctx: Context,
 }
 
-impl<'a> TableSplitScrollDelegate<'a> {
+impl TableSplitScrollDelegate<'_> {
     /// Helper wrapper around [`Table::get_row_top_offset`].
     fn get_row_top_offset(&self, row_nr: u64) -> f32 {
         self.table
@@ -726,7 +726,7 @@ impl<'a> TableSplitScrollDelegate<'a> {
     }
 }
 
-impl<'a> SplitScrollDelegate for TableSplitScrollDelegate<'a> {
+impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
     // First to be called
     fn right_bottom_ui(&mut self, ui: &mut Ui) {
         if self.table.scroll_to_columns.is_some() || self.table.scroll_to_rows.is_some() {

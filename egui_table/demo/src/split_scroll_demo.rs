@@ -1,4 +1,4 @@
-use egui::{pos2, vec2, Rect, Ui, Vec2b};
+use egui::{Rect, Ui, Vec2b, pos2, vec2};
 
 use egui_table::{SplitScroll, SplitScrollDelegate};
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use egui::{Align2, Context, Id, Margin, NumExt, Sense, Vec2};
+use egui::{Align2, Context, Id, Margin, NumExt as _, Sense, Vec2};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct TableDemo {

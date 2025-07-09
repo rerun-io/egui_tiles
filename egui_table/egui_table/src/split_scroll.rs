@@ -1,4 +1,4 @@
-use egui::{pos2, vec2, Rect, Ui, UiBuilder, Vec2, Vec2b};
+use egui::{Rect, Ui, UiBuilder, Vec2, Vec2b, pos2, vec2};
 /// A scroll area with some portion of its left and/or top side "stuck".
 ///
 /// This produces four quadrants:
