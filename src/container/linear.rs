@@ -1,6 +1,6 @@
 #![allow(clippy::tuple_array_conversions)]
 
-use egui::{NumExt, Rect, emath::GuiRounding as _, pos2, vec2};
+use egui::{NumExt as _, Rect, emath::GuiRounding as _, pos2, vec2};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;

@@ -72,7 +72,7 @@ fn serialize_f32_infinity_as_null<S: serde::Serializer>(
 fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
     des: D,
 ) -> Result<f32, D::Error> {
-    use serde::Deserialize;
+    use serde::Deserialize as _;
     Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
 }
 

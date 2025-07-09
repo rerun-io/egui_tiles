@@ -1,4 +1,4 @@
-use egui::{NumExt, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
+use egui::{NumExt as _, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
 
 use crate::behavior::{EditAction, TabState};
 use crate::{

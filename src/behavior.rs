@@ -438,7 +438,7 @@ fn num_columns_heuristic(n: usize, size: Vec2, gap: f32, desired_aspect: f32) ->
             continue;
         }
 
-        let nrows = (n + ncols - 1) / ncols;
+        let nrows = n.div_ceil(ncols);
 
         let cell_width = (size.x - gap * (ncols as f32 - 1.0)) / (ncols as f32);
         let cell_height = (size.y - gap * (nrows as f32 - 1.0)) / (nrows as f32);
