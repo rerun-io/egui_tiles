@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          profile: default
+          components: rust-docs, clippy, rustfmt
           toolchain: 1.85.0
           override: true
 
@@ -74,19 +74,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: 1.85.0
-          target: wasm32-unknown-unknown
           override: true
-          components: clippy
-
-      - name: Set up cargo cache
-        uses: Swatinem/rust-cache@v2
+          target: wasm32-unknown-unknown
+          components: clippy,rustfmt
 
       - name: Check wasm32
-        run: cargo check --target wasm32-unknown-unknown --lib
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --target wasm32-unknown-unknown --lib
 
       - name: Clippy wasm32
         env:
