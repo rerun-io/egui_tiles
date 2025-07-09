@@ -5,7 +5,7 @@ authors = [
 ]
 categories = ["gui"]
 description = "A tiling layout engine for egui with drag-and-drop and resizing"
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/rerun-io/egui_tiles"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 keywords = ["egui", "gui", "tile", "dock", "layout"]

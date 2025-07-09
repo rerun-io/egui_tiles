@@ -1,9 +1,9 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, NumExt, Rect, Vec2};
+use egui::{NumExt, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
 
 use crate::behavior::{EditAction, TabState};
 use crate::{
-    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
-    TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction, TileId, Tiles, Tree,
+    is_being_dragged,
 };
 
 /// Fixed size icons for `⏴` and `⏵`

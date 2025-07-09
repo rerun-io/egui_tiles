@@ -1,6 +1,7 @@
 use egui::{
+    NumExt as _, Rect,
     emath::{GuiRounding as _, Rangef},
-    pos2, vec2, NumExt as _, Rect,
+    pos2, vec2,
 };
 use itertools::Itertools as _;
 

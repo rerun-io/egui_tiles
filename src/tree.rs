@@ -562,7 +562,9 @@ impl<Pane> Tree<Pane> {
                 reflow_grid,
             );
         } else {
-            log::warn!("Failed to find destination container {destination_container:?} during `move_tile_to_container()`");
+            log::warn!(
+                "Failed to find destination container {destination_container:?} during `move_tile_to_container()`"
+            );
         }
     }
 
