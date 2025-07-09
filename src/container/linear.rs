@@ -1,12 +1,12 @@
 #![allow(clippy::tuple_array_conversions)]
 
-use egui::{emath::GuiRounding as _, pos2, vec2, NumExt, Rect};
+use egui::{NumExt as _, Rect, emath::GuiRounding as _, pos2, vec2};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;
 use crate::{
-    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState,
-    SimplifyAction, TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
+    Tiles, Tree, is_being_dragged,
 };
 
 // ----------------------------------------------------------------------------

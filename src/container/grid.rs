@@ -1,6 +1,7 @@
 use egui::{
+    NumExt as _, Rect,
     emath::{GuiRounding as _, Rangef},
-    pos2, vec2, NumExt as _, Rect,
+    pos2, vec2,
 };
 use itertools::Itertools as _;
 
@@ -160,7 +161,7 @@ impl Grid {
                 GridLayout::Columns(num_columns) => num_columns,
             };
             let num_cols = num_cols.at_least(1);
-            let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+            let num_rows = num_visible_children.div_ceil(num_cols);
             (num_cols, num_rows)
         };
 
