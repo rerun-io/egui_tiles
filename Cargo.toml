@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 name = "egui_tiles"
 readme = "README.md"
 repository = "https://github.com/rerun-io/egui_tiles"
-rust-version = "1.81"
+rust-version = "1.85"
 version = "0.12.0"
 
 [package.metadata.docs.rs]
