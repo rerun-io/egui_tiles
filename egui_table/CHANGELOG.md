@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0 - 2025-07-10 - Update to egui 0.32
+* Update to egui 0.32 [#30](https://github.com/rerun-io/egui_table/pull/30) by [@emilk](https://github.com/emilk)
+* Update to Rust 1.85 [#29](https://github.com/rerun-io/egui_table/pull/29) by [@emilk](https://github.com/emilk)
 
 ## 0.3.0 - 2025-02-05 - Update to egui 0.31
 * Update to egui 0.31 [#22](https://github.com/rerun-io/egui_table/pull/22) by [@emilk](https://github.com/emilk)
