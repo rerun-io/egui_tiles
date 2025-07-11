@@ -4,7 +4,7 @@
 [![Latest version](https://img.shields.io/crates/v/egui_tiles.svg)](https://crates.io/crates/egui_tiles)
 [![Documentation](https://docs.rs/egui_tiles/badge.svg)](https://docs.rs/egui_tiles)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
-[![Build Status](https://github.com/rerun-io/egui_tiles/workflows/CI/badge.svg)](https://github.com/rerun-io/egui_tiles/actions?workflow=CI)
+[![Build Status](https://github.com/rerun-io/egui_tiles/workflows/Rust/badge.svg)](https://github.com/rerun-io/egui_tiles/actions?workflow=Rust)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/master/LICENSE-MIT)
 [![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/master/LICENSE-APACHE)
 
