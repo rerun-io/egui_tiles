@@ -282,7 +282,7 @@ impl<Pane> Tree<Pane> {
         let mut tiles = vec![];
         if let Some(root) = self.root {
             if self.is_visible(root) {
-                self.tiles.collect_acticve_tiles(root, &mut tiles);
+                self.tiles.collect_active_tiles(root, &mut tiles);
             }
         }
         tiles
