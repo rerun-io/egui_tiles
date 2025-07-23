@@ -275,7 +275,7 @@ impl<Pane> Tree<Pane> {
 
     /// All visible tiles.
     ///
-    /// This excludes all tiles that invisible or are inactive tabs, recursively.
+    /// This excludes all tiles that are invisible or are inactive tabs, recursively.
     ///
     /// The order of the returned tiles is arbitrary.
     pub fn active_tiles(&self) -> Vec<TileId> {
@@ -286,6 +286,19 @@ impl<Pane> Tree<Pane> {
             }
         }
         tiles
+    }
+
+    /// All non-visible tiles.
+    ///
+    /// This includes all tiles that are invisible or are inactive tabs. Uses `active_tiles`.
+    ///
+    /// The order of the returned tiles is arbitrary.
+    pub fn inactive_tiles(&self) -> Vec<TileId> {
+        let active_tiles = self.active_tiles();
+        self.tiles
+            .tile_ids()
+            .filter(|id| !active_tiles.contains(id))
+            .collect()
     }
 
     /// Show the tree in the given [`Ui`].
