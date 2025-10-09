@@ -3194,3 +3194,13 @@ checksum = "29ce2c8a9384ad323cf564b67da86e21d3cfdff87908bc1223ed5c99bc792713"
 dependencies = [
  "zune-core",
 ]
+
+[[patch.unused]]
+name = "eframe"
+version = "0.33.0"
+source = "git+https://github.com/emilk/egui.git?branch=main#96470fabee60afaf3f89116e4bc9992d879e2b56"
+
+[[patch.unused]]
+name = "egui"
+version = "0.33.0"
+source = "git+https://github.com/emilk/egui.git?branch=main#96470fabee60afaf3f89116e4bc9992d879e2b56"
