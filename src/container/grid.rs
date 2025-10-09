@@ -129,7 +129,7 @@ impl Grid {
     fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
         self.children
             .iter()
-            .filter(|id| id.map_or(true, |id| tiles.is_visible(id)))
+            .filter(|id| id.is_none_or(|id| tiles.is_visible(id)))
             .copied()
             .collect()
     }
