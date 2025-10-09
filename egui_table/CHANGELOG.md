@@ -6,7 +6,7 @@
 
 ## 0.3.0 - 2025-02-05 - Update to egui 0.31
 * Update to egui 0.31 [#22](https://github.com/rerun-io/egui_table/pull/22) by [@emilk](https://github.com/emilk)
-* Update MSRV to 1.85 [#21](https://github.com/rerun-io/egui_table/pull/21) by [@emilk](https://github.com/emilk)
+* Update MSRV to 1.81 [#21](https://github.com/rerun-io/egui_table/pull/21) by [@emilk](https://github.com/emilk)
 * Fix ghost column when no sticky columns [#20](https://github.com/rerun-io/egui_table/pull/20) by [@EpixScripts](https://github.com/EpixScripts)
 
 
