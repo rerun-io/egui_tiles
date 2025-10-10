@@ -7,7 +7,7 @@ members = ["egui_table", "demo"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.88"
-version = "0.4.0"
+version = "0.5.0"
 
 
 [profile.release]
@@ -15,7 +15,7 @@ opt-level = 2 # fast and small wasm
 
 
 [workspace.dependencies]
-egui_table = { version = "0.4.0", path = "egui_table", default-features = false }
+egui_table = { version = "0.5.0", path = "egui_table", default-features = false }
 
 eframe = { version = "0.33.0", default-features = false }
 egui = { version = "0.33.0", default-features = false }

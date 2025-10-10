@@ -1,5 +1,11 @@
 # Changelog
 
+
+## 0.5.0 - 2025-10-10
+* Update msrv to 1.88 [#32](https://github.com/rerun-io/egui_table/pull/32) by [@lucasmerlin](https://github.com/lucasmerlin)
+* Update to egui 0.33.0 [#35](https://github.com/rerun-io/egui_table/pull/35) by [@emilk](https://github.com/emilk)
+
+
 ## 0.4.0 - 2025-07-10 - Update to egui 0.32
 * Update to egui 0.32 [#30](https://github.com/rerun-io/egui_table/pull/30) by [@emilk](https://github.com/emilk)
 * Update to Rust 1.85 [#29](https://github.com/rerun-io/egui_table/pull/29) by [@emilk](https://github.com/emilk)
