@@ -30,7 +30,7 @@ ahash = { version = "0.8.12", default-features = false, features = [
   "no-rng", # we don't need DOS-protection for what we use ahash for
   "std",
 ] }
-egui = { version = "0.32.3", default-features = false }
+egui = { version = "0.33.0", default-features = false }
 itertools = "0.14.0"
 log = { version = "0.4.28", features = ["std"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
@@ -38,7 +38,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
 # For the example:
-eframe = { version = "0.32.3", default-features = false, features = [
+eframe = { version = "0.33.0", default-features = false, features = [
   "default_fonts", # Embed the default egui fonts.
   "glow",          # Use the glow rendering backend. Alternative: "wgpu".
   "persistence",   # Enable restoring app state when restarting the app.
@@ -57,8 +57,8 @@ ron = "0.10.1"
 [patch.crates-io]
 # Useful while developing:
 
- eframe = { git = "https://github.com/emilk/egui.git", branch = "main" }
- egui = { git = "https://github.com/emilk/egui.git", branch = "main" }
+#  eframe = { git = "https://github.com/emilk/egui.git", branch = "main" }
+#  egui = { git = "https://github.com/emilk/egui.git", branch = "main" }
 
 # eframe = { path = "../../egui/crates/eframe" }
 # egui = { path = "../../egui/crates/egui" }
@@ -166,7 +166,6 @@ manual_string_new = "warn"
 map_err_ignore = "warn"
 map_flatten = "warn"
 match_bool = "warn"
-match_on_vec_items = "warn"
 match_same_arms = "warn"
 match_wild_err_arm = "warn"
 match_wildcard_for_single_variants = "warn"
