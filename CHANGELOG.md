@@ -1,5 +1,14 @@
 # `egui_tiles` Changelog
 
+
+## 0.14.0 - 2025-10-10
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.13.0..HEAD
+
+* Update to egui 0.33.0 [#108](https://github.com/rerun-io/egui_tiles/pull/108) by [@lucasmerlin](https://github.com/lucasmerlin)
+* Update MSRV to 1.88 [#107](https://github.com/rerun-io/egui_tiles/pull/107) by [@lucasmerlin](https://github.com/lucasmerlin)
+* Add `Tree::inactive_tiles` for getting non-visible tiles [#106](https://github.com/rerun-io/egui_tiles/pull/106) by [@ivanrg99](https://github.com/ivanrg99)
+
+
 ## 0.13.0 - 2025-07-11
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.12.0..HEAD
 
