@@ -160,8 +160,8 @@ impl<Pane> Tiles<Pane> {
         self.set_visible(tile_id, !self.is_visible(tile_id));
     }
 
-    /// This excludes all tiles that invisible or are inactive tabs, recursively.
-    pub(crate) fn collect_acticve_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
+    /// This excludes all tiles that are invisible or are inactive tabs, recursively.
+    pub(crate) fn collect_active_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
         if !self.is_visible(tile_id) {
             return;
         }
@@ -169,7 +169,7 @@ impl<Pane> Tiles<Pane> {
 
         if let Some(Tile::Container(container)) = self.get(tile_id) {
             for &child_id in container.active_children() {
-                self.collect_acticve_tiles(child_id, tiles);
+                self.collect_active_tiles(child_id, tiles);
             }
         }
     }
