@@ -673,7 +673,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// The [`Tile`] itself is not removed from [`Self::tiles`].
     ///
-    /// Performs no simplifcations.
+    /// Performs no simplifications.
     ///
     /// If found, the parent tile and the child's index is returned.
     pub(super) fn remove_tile_id_from_parent(

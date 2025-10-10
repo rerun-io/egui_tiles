@@ -1,5 +1,13 @@
 # `egui_tiles` Changelog
 
+## 0.13.0 - 2025-07-11
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.12.0..HEAD
+
+* Allow setting a custom cursor icon when hovering over a tab [#97](https://github.com/rerun-io/egui_tiles/pull/97) by [@s-nie](https://github.com/s-nie)
+* Update to egui 0.32 [#104](https://github.com/rerun-io/egui_tiles/pull/104) by [@emilk](https://github.com/emilk)
+* Update to Rust 1.85 [#102](https://github.com/rerun-io/egui_tiles/pull/102) by [@emilk](https://github.com/emilk)
+* Update itertools to 0.14 [#105](https://github.com/rerun-io/egui_tiles/pull/105) by [@lucasmerlin](https://github.com/lucasmerlin)
+
 
 ## 0.11.0 - 2024-12-17
 * Update MSRV to 1.80 [#91](https://github.com/rerun-io/egui_tiles/pull/91) by [@emilk](https://github.com/emilk)
