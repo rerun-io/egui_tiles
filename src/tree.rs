@@ -1,11 +1,12 @@
-use egui::{NumExt as _, Rect, Ui};
+use egui::{Id, NumExt as _, Rect, Ui, Vec2};
 
 use crate::behavior::EditAction;
-use crate::{ContainerInsertion, ContainerKind, UiResponse};
+use crate::{ContainerInsertion, ContainerKind, GridLayout, LinearDir, UiResponse};
 
 use super::{
     Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
     TileId, Tiles,
+    container::{AncestorSplitInfo, PendingLinearResize},
 };
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
@@ -53,7 +54,69 @@ pub struct Tree<Pane> {
         serde(deserialize_with = "deserialize_f32_null_as_infinity")
     )]
     width: f32,
+
+    /// Whether the tree is in floating mode, where panes are shown as floating windows.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub floating: bool,
+
+    /// Positions of panes in floating mode.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub floating_positions: ahash::HashMap<TileId, egui::Rect>,
+
+    /// Whether the next floating pass should explicitly reapply stored geometry.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    floating_reset_pending: bool,
+
+    /// Currently maximized tile, if any.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    maximized_state: Option<MaximizedState>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pending_linear_resizes: Vec<PendingLinearResize>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    cached_perpendicular_splits: ahash::HashMap<Id, AncestorSplitInfo>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    active_linear_stack: Vec<ActiveLinearInfo>,
 }
+
+#[derive(Clone, PartialEq)]
+struct MaximizedState {
+    tile: TileId,
+    fully_maximized: bool,
+    backups: Vec<ContainerBackup>,
+    floating_backup: Option<FloatingBackup>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum FloatingBackup {
+    Missing,
+    Rect(Rect),
+}
+
+#[derive(Clone, PartialEq)]
+enum ContainerBackup {
+    Linear {
+        container_id: TileId,
+        shares: ahash::HashMap<TileId, f32>,
+    },
+    Grid {
+        container_id: TileId,
+        col_shares: Vec<f32>,
+        row_shares: Vec<f32>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ActiveLinearInfo {
+    pub(crate) tile_id: TileId,
+    pub(crate) dir: LinearDir,
+    pub(crate) visible_children: Vec<TileId>,
+}
+
+const MAXIMIZED_PRIMARY_SHARE: f32 = 10.0;
+const MAXIMIZED_SECONDARY_SHARE: f32 = 0.1;
 
 // Workaround for JSON which doesn't support infinity, because JSON is stupid.
 #[cfg(feature = "serde")]
@@ -116,6 +179,10 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             tiles,
             width,
             height,
+            floating: _,
+            floating_positions: _,
+            maximized_state: _,
+            ..
         } = self;
 
         if let Some(root) = root {
@@ -145,6 +212,13 @@ impl<Pane> Tree<Pane> {
             tiles: Default::default(),
             width: f32::INFINITY,
             height: f32::INFINITY,
+            floating: false,
+            floating_positions: Default::default(),
+            floating_reset_pending: false,
+            maximized_state: None,
+            pending_linear_resizes: Vec::new(),
+            cached_perpendicular_splits: Default::default(),
+            active_linear_stack: Vec::new(),
         }
     }
 
@@ -160,6 +234,13 @@ impl<Pane> Tree<Pane> {
             tiles,
             width: f32::INFINITY,
             height: f32::INFINITY,
+            floating: false,
+            floating_positions: Default::default(),
+            floating_reset_pending: false,
+            maximized_state: None,
+            pending_linear_resizes: Vec::new(),
+            cached_perpendicular_splits: Default::default(),
+            active_linear_stack: Vec::new(),
         }
     }
 
@@ -215,6 +296,11 @@ impl<Pane> Tree<Pane> {
     ///
     /// All removed tiles are returned in unspecified order.
     pub fn remove_recursively(&mut self, id: TileId) -> Vec<Tile<Pane>> {
+        if let Some(state_tile) = self.maximized_state.as_ref().map(|s| s.tile) {
+            if state_tile == id || self.is_descendant_of(state_tile, id) {
+                self.clear_maximized();
+            }
+        }
         // Remove the top-most tile_id from its parent
         self.remove_tile_id_from_parent(id);
 
@@ -235,6 +321,106 @@ impl<Pane> Tree<Pane> {
             }
             removed_tiles.push(tile);
         }
+    }
+
+    fn is_descendant_of(&self, mut tile: TileId, potential_ancestor: TileId) -> bool {
+        while let Some(parent) = self.tiles.parent_of(tile) {
+            if parent == potential_ancestor {
+                return true;
+            }
+            tile = parent;
+        }
+        false
+    }
+
+    fn parent_chain(&self, mut tile: TileId) -> Vec<(TileId, TileId)> {
+        let mut chain = Vec::new();
+        while let Some(parent) = self.tiles.parent_of(tile) {
+            chain.push((parent, tile));
+            tile = parent;
+        }
+        chain
+    }
+
+    /// Visit the ancestor containers of `tile_id`, starting with its direct parent.
+    ///
+    /// The provided closure receives the current parent `TileId`, a mutable reference to that
+    /// container, and the child `TileId` that led to it. Returning `true` from the closure stops
+    /// the traversal early. Returns `true` if the traversal was stopped early.
+    pub fn visit_ancestor_containers_mut(
+        &mut self,
+        mut tile_id: TileId,
+        mut visitor: impl FnMut(TileId, &mut Container, TileId) -> bool,
+    ) -> bool {
+        while let Some(parent_id) = self.tiles.parent_of(tile_id) {
+            let Some(tile) = self.tiles.get_mut(parent_id) else {
+                tile_id = parent_id;
+                continue;
+            };
+            let Tile::Container(container) = tile else {
+                tile_id = parent_id;
+                continue;
+            };
+            if visitor(parent_id, container, tile_id) {
+                return true;
+            }
+            tile_id = parent_id;
+        }
+        false
+    }
+
+    pub fn swap_tile_in_linear_ancestors(
+        &mut self,
+        tile_id: TileId,
+        forward: bool,
+        preferred_dir: Option<LinearDir>,
+    ) -> bool {
+        if let Some(dir) = preferred_dir {
+            if self.swap_tile_in_linear_ancestors_with_filter(tile_id, forward, Some(dir)) {
+                return true;
+            }
+        }
+        self.swap_tile_in_linear_ancestors_with_filter(tile_id, forward, None)
+    }
+
+    fn swap_tile_in_linear_ancestors_with_filter(
+        &mut self,
+        tile_id: TileId,
+        forward: bool,
+        dir_filter: Option<LinearDir>,
+    ) -> bool {
+        self.visit_ancestor_containers_mut(tile_id, |_, container, child_id| {
+            let Container::Linear(linear) = container else {
+                return false;
+            };
+
+            if let Some(required_dir) = dir_filter {
+                if linear.dir != required_dir {
+                    return false;
+                }
+            }
+
+            let Some(index) = linear.children.iter().position(|&c| c == child_id) else {
+                return false;
+            };
+
+            let neighbor_index = if forward {
+                if index + 1 < linear.children.len() {
+                    Some(index + 1)
+                } else {
+                    None
+                }
+            } else {
+                index.checked_sub(1)
+            };
+
+            if let Some(neigh) = neighbor_index {
+                linear.swap_children(index, neigh);
+                true
+            } else {
+                false
+            }
+        })
     }
 
     /// The globally unique id used by this `Tree`.
@@ -273,6 +459,257 @@ impl<Pane> Tree<Pane> {
         self.tiles.set_visible(tile_id, visible);
     }
 
+    /// Returns the currently maximized tile, if any.
+    #[inline]
+    pub fn maximized(&self) -> Option<TileId> {
+        self.maximized_state.as_ref().map(|state| state.tile)
+    }
+
+    /// Is any tile currently maximized?
+    #[inline]
+    pub fn is_maximized(&self) -> bool {
+        self.maximized_state.is_some()
+    }
+
+    /// Returns `true` if the given tile is currently maximized.
+    #[inline]
+    pub fn is_tile_maximized(&self, tile_id: TileId) -> bool {
+        self.maximized() == Some(tile_id)
+    }
+
+    /// Clear the maximized state, if any. Returns `true` if the layout changed.
+    #[inline]
+    pub fn clear_maximized(&mut self) -> bool {
+        if let Some(state) = self.maximized_state.take() {
+            for backup in state.backups.into_iter().rev() {
+                match backup {
+                    ContainerBackup::Linear {
+                        container_id,
+                        shares,
+                    } => {
+                        if let Some(Tile::Container(Container::Linear(linear))) =
+                            self.tiles.get_mut(container_id)
+                        {
+                            linear.set_shares(shares);
+                        }
+                    }
+                    ContainerBackup::Grid {
+                        container_id,
+                        col_shares,
+                        row_shares,
+                    } => {
+                        if let Some(Tile::Container(Container::Grid(grid))) =
+                            self.tiles.get_mut(container_id)
+                        {
+                            grid.set_col_shares(col_shares);
+                            grid.set_row_shares(row_shares);
+                        }
+                    }
+                }
+            }
+            if let Some(floating_backup) = state.floating_backup {
+                match floating_backup {
+                    FloatingBackup::Rect(rect) => {
+                        self.floating_positions.insert(state.tile, rect);
+                    }
+                    FloatingBackup::Missing => {
+                        self.floating_positions.remove(&state.tile);
+                    }
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Maximize the given tile so it fills the entire tree.
+    ///
+    /// Returns `true` if the tile exists and is now maximized.
+    pub fn maximize_tile(&mut self, tile_id: TileId, fully_maximize: bool) -> bool {
+        if self.tiles.get(tile_id).is_none() {
+            log::debug!("Ignoring maximize request for missing tile {tile_id:?}");
+            return false;
+        }
+
+        if !self.tiles.is_visible(tile_id) {
+            log::debug!("Ignoring maximize request for invisible tile {tile_id:?}");
+            return false;
+        }
+
+        let target_full_maximize = if self.floating { true } else { fully_maximize };
+
+        if let Some(state) = &self.maximized_state {
+            if state.tile == tile_id && state.fully_maximized == target_full_maximize {
+                return true;
+            }
+        }
+
+        self.clear_maximized();
+
+        // Ensure that all ancestors are activated (e.g. tab containers).
+        self.make_active(|id, _| id == tile_id);
+
+        let backups = if target_full_maximize {
+            Vec::new()
+        } else {
+            self.apply_partial_maximize(tile_id)
+        };
+
+        let floating_backup = if self.floating {
+            Some(
+                if let Some(rect) = self.floating_positions.get(&tile_id).copied() {
+                    FloatingBackup::Rect(rect)
+                } else {
+                    FloatingBackup::Missing
+                },
+            )
+        } else {
+            None
+        };
+
+        self.maximized_state = Some(MaximizedState {
+            tile: tile_id,
+            fully_maximized: target_full_maximize,
+            backups,
+            floating_backup,
+        });
+        true
+    }
+
+    /// Toggle maximizing the given tile. Returns `true` if the tile is maximized after the call.
+    pub fn toggle_maximize(&mut self, tile_id: TileId, fully_maximize: bool) -> bool {
+        if self.is_tile_maximized(tile_id) {
+            self.clear_maximized();
+            false
+        } else {
+            self.maximize_tile(tile_id, fully_maximize);
+            self.is_tile_maximized(tile_id)
+        }
+    }
+
+    /// Set the maximized tile.
+    ///
+    /// Returns `true` if the maximized state changed.
+    pub fn set_maximized(&mut self, tile_id: Option<TileId>, fully_maximize: bool) -> bool {
+        match tile_id {
+            Some(tile_id) => {
+                let prev = self.maximized();
+                if self.maximize_tile(tile_id, fully_maximize) {
+                    prev != Some(tile_id)
+                } else {
+                    false
+                }
+            }
+            None => self.clear_maximized(),
+        }
+    }
+
+    fn apply_partial_maximize(&mut self, tile_id: TileId) -> Vec<ContainerBackup> {
+        let mut backups = Vec::new();
+        let chain = self.parent_chain(tile_id);
+
+        enum ParentKind {
+            Linear,
+            Grid { visible_slots: Vec<Option<TileId>> },
+            Tabs,
+        }
+
+        for (parent_id, child_id) in chain {
+            let parent_kind = match self.tiles.get(parent_id) {
+                Some(Tile::Container(Container::Linear(_))) => ParentKind::Linear,
+                Some(Tile::Container(Container::Grid(grid))) => ParentKind::Grid {
+                    visible_slots: grid.visible_children_and_holes(&self.tiles),
+                },
+                Some(Tile::Container(Container::Tabs(_))) => ParentKind::Tabs,
+                _ => continue,
+            };
+
+            let Some(Tile::Container(container)) = self.tiles.get_mut(parent_id) else {
+                continue;
+            };
+
+            match (parent_kind, container) {
+                (ParentKind::Linear, Container::Linear(linear)) => {
+                    if !linear.children.iter().any(|&id| id == child_id) {
+                        continue;
+                    }
+                    backups.push(ContainerBackup::Linear {
+                        container_id: parent_id,
+                        shares: linear.clone_shares(),
+                    });
+
+                    let siblings = linear.children.clone();
+                    for sibling in siblings {
+                        let share = if sibling == child_id {
+                            MAXIMIZED_PRIMARY_SHARE
+                        } else {
+                            MAXIMIZED_SECONDARY_SHARE
+                        };
+                        linear.set_share(sibling, share);
+                    }
+                }
+                (ParentKind::Grid { visible_slots }, Container::Grid(grid)) => {
+                    let Some(slot_index) = visible_slots
+                        .iter()
+                        .position(|slot| slot == &Some(child_id))
+                    else {
+                        continue;
+                    };
+
+                    let mut num_cols = grid.col_shares.len();
+                    if num_cols == 0 {
+                        num_cols = match grid.layout {
+                            GridLayout::Columns(cols) => cols.max(1),
+                            GridLayout::Auto => visible_slots.len().max(1),
+                        };
+                    }
+                    let num_cols = num_cols.max(1);
+                    let num_rows = (visible_slots.len().max(1) + num_cols - 1) / num_cols;
+
+                    if grid.col_shares.len() < num_cols {
+                        grid.col_shares.resize(num_cols, 1.0);
+                    }
+                    if grid.row_shares.len() < num_rows {
+                        grid.row_shares.resize(num_rows, 1.0);
+                    }
+
+                    let row = slot_index / num_cols;
+                    let col = slot_index % num_cols;
+
+                    backups.push(ContainerBackup::Grid {
+                        container_id: parent_id,
+                        col_shares: grid.clone_col_shares(),
+                        row_shares: grid.clone_row_shares(),
+                    });
+
+                    for c in 0..grid.col_shares.len() {
+                        let share = if c == col {
+                            MAXIMIZED_PRIMARY_SHARE
+                        } else {
+                            MAXIMIZED_SECONDARY_SHARE
+                        };
+                        grid.set_col_share(c, share);
+                    }
+
+                    for r in 0..grid.row_shares.len() {
+                        let share = if r == row {
+                            MAXIMIZED_PRIMARY_SHARE
+                        } else {
+                            MAXIMIZED_SECONDARY_SHARE
+                        };
+                        grid.set_row_share(r, share);
+                    }
+                }
+                (ParentKind::Tabs, Container::Tabs(tabs)) => {
+                    tabs.set_active(child_id);
+                }
+                _ => {}
+            }
+        }
+        backups
+    }
+
     /// All visible tiles.
     ///
     /// This excludes all tiles that are invisible or are inactive tabs, recursively.
@@ -301,6 +738,87 @@ impl<Pane> Tree<Pane> {
             .collect()
     }
 
+    /// Tiles to show in floating mode.
+    ///
+    /// Collects panes and tab containers in tree order, keeping tabbed layouts intact.
+    pub fn floating_tiles(&self) -> Vec<TileId> {
+        if let Some(state) = &self.maximized_state {
+            if state.fully_maximized && self.tiles.get(state.tile).is_some() {
+                return vec![state.tile];
+            }
+        }
+        let mut tiles = vec![];
+        if let Some(root) = self.root {
+            if self.is_visible(root) {
+                self.collect_floating_tiles(root, &mut tiles, false);
+            }
+        }
+        tiles
+    }
+
+    fn collect_floating_tiles(
+        &self,
+        tile_id: TileId,
+        tiles: &mut Vec<TileId>,
+        parent_is_tabs: bool,
+    ) {
+        if let Some(tile) = self.tiles.get(tile_id) {
+            match tile {
+                Tile::Pane(_) => {
+                    if !parent_is_tabs {
+                        tiles.push(tile_id);
+                    }
+                }
+                Tile::Container(container) => {
+                    let is_tabs = matches!(container, Container::Tabs(_));
+                    if is_tabs && !parent_is_tabs {
+                        tiles.push(tile_id);
+                    }
+
+                    let next_parent_is_tabs = parent_is_tabs || is_tabs;
+                    for &child in container.active_children() {
+                        self.collect_floating_tiles(child, tiles, next_parent_is_tabs);
+                    }
+                }
+            }
+        }
+    }
+
+    fn retain_floating_positions(&mut self, allowed_tiles: &ahash::HashSet<TileId>) {
+        let mut removed: Vec<(TileId, egui::Rect)> = Vec::new();
+        self.floating_positions.retain(|tile_id, rect| {
+            if allowed_tiles.contains(tile_id) {
+                true
+            } else {
+                removed.push((*tile_id, *rect));
+                false
+            }
+        });
+
+        for (tile_id, rect) in removed {
+            let Some(tile) = self.tiles.get(tile_id) else {
+                continue;
+            };
+            let Tile::Container(container) = tile else {
+                continue;
+            };
+
+            let mut visible_children = container
+                .active_children()
+                .filter(|child| self.is_visible(**child))
+                .copied();
+
+            if let Some(single_child) = visible_children.next() {
+                if visible_children.next().is_none()
+                    && allowed_tiles.contains(&single_child)
+                    && !self.floating_positions.contains_key(&single_child)
+                {
+                    self.floating_positions.insert(single_child, rect);
+                }
+            }
+        }
+    }
+
     /// Show the tree in the given [`Ui`].
     ///
     /// The tree will use upp all the available space - nothing more, nothing less.
@@ -308,6 +826,11 @@ impl<Pane> Tree<Pane> {
         self.simplify(&behavior.simplification_options());
 
         self.gc(behavior);
+
+        if self.floating {
+            self.show_floating(behavior, ui);
+            return;
+        }
 
         self.tiles.rects.clear();
 
@@ -319,6 +842,7 @@ impl<Pane> Tree<Pane> {
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
             preview_rect: None,
+            tabs_only_dragging: false,
         };
 
         let mut rect = ui.available_rect_before_wrap();
@@ -328,14 +852,145 @@ impl<Pane> Tree<Pane> {
         if self.width.is_finite() {
             rect.set_width(self.width);
         }
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(ui.style(), behavior, rect, root);
+        let mut fully_maximized_tile = None;
+        if let Some((tile_id, fully_maximized)) = self
+            .maximized_state
+            .as_ref()
+            .map(|state| (state.tile, state.fully_maximized))
+        {
+            if self.tiles.get(tile_id).is_some() {
+                if fully_maximized {
+                    fully_maximized_tile = Some(tile_id);
+                }
+            } else {
+                self.clear_maximized();
+            }
+        }
 
+        if let Some(tile_id) = fully_maximized_tile {
+            self.tiles.layout_tile(ui.style(), behavior, rect, tile_id);
+            self.tile_ui(behavior, &mut drop_context, ui, tile_id);
+        } else if let Some(root) = self.root {
+            self.tiles.layout_tile(ui.style(), behavior, rect, root);
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
         ui.advance_cursor_after_rect(rect);
+    }
+
+    /// Show panes and tab containers as floating windows.
+    fn show_floating(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &mut Ui) {
+        self.tiles.rects.clear();
+
+        let mut drop_context = DropContext {
+            enabled: false,
+            dragged_tile_id: self.dragged_id(ui.ctx()),
+            mouse_pos: ui.input(|i| i.pointer.interact_pos()),
+            best_insertion: None,
+            best_dist_sq: f32::INFINITY,
+            preview_rect: None,
+            tabs_only_dragging: true,
+        };
+
+        let available_rect = ui.available_rect_before_wrap();
+        let default_size = {
+            let size = available_rect.size();
+            let default_width = if size.x.is_finite() && size.x > 0.0 {
+                size.x.clamp(200.0, 360.0)
+            } else {
+                320.0
+            };
+            let default_height = if size.y.is_finite() && size.y > 0.0 {
+                size.y.clamp(160.0, 300.0)
+            } else {
+                240.0
+            };
+            Vec2::new(default_width, default_height)
+        };
+
+        let mut fully_maximized_tile = None;
+        if let Some((tile_id, fully_maximized)) = self
+            .maximized_state
+            .as_ref()
+            .map(|state| (state.tile, state.fully_maximized))
+        {
+            if self.tiles.get(tile_id).is_some() {
+                if fully_maximized {
+                    fully_maximized_tile = Some(tile_id);
+                }
+            } else {
+                self.clear_maximized();
+            }
+        }
+
+        let floating_tiles = self.floating_tiles();
+        if drop_context.tabs_only_dragging && fully_maximized_tile.is_none() {
+            let allowed_tiles: ahash::HashSet<TileId> = floating_tiles.iter().copied().collect();
+            self.retain_floating_positions(&allowed_tiles);
+        }
+
+        if let Some(tile_id) = fully_maximized_tile {
+            self.tiles
+                .layout_tile(ui.style(), behavior, available_rect, tile_id);
+            self.tile_ui(behavior, &mut drop_context, ui, tile_id);
+            self.preview_dragged_tile(behavior, &drop_context, ui);
+            ui.advance_cursor_after_rect(available_rect);
+            return;
+        }
+
+        let mut defaults_assigned = 0usize;
+
+        for &tile_id in &floating_tiles {
+            let area = egui::Area::new(tile_id.egui_id(self.id));
+            let (rect_opt, mut area) = if let Some(rect) = self.floating_positions.get(&tile_id) {
+                (
+                    Some(*rect),
+                    area.current_pos(rect.min).default_size(rect.size()),
+                )
+            } else {
+                let offset_factor = self.floating_positions.len() + defaults_assigned;
+                let offset = Vec2::splat(24.0) * (offset_factor as f32);
+                defaults_assigned += 1;
+
+                let mut position = available_rect.min + offset;
+                if !position.x.is_finite() {
+                    position.x = 0.0;
+                }
+                if !position.y.is_finite() {
+                    position.y = 0.0;
+                }
+
+                let rect = Rect::from_min_size(position, default_size);
+                (
+                    Some(rect),
+                    area.current_pos(rect.min).default_size(rect.size()),
+                )
+            };
+            if self.floating_reset_pending && rect_opt.is_some() {
+                area = area.sizing_pass(true);
+            }
+
+            let response = area.show(ui.ctx(), |area_ui| {
+                if let Some(rect) = rect_opt {
+                    area_ui.set_min_size(rect.size());
+                }
+
+                let rect = area_ui.available_rect_before_wrap();
+                self.tiles
+                    .layout_tile(area_ui.style(), behavior, rect, tile_id);
+
+                self.tile_ui(behavior, &mut drop_context, area_ui, tile_id);
+            });
+            self.floating_positions
+                .insert(tile_id, response.response.rect);
+        }
+
+        if self.floating_reset_pending {
+            self.floating_reset_pending = false;
+        }
+
+        self.preview_dragged_tile(behavior, &drop_context, ui);
     }
 
     /// Sets the exact height that can be used by the tree.
@@ -359,6 +1014,125 @@ impl<Pane> Tree<Pane> {
             self.width = width;
         } else {
             self.width = f32::INFINITY;
+        }
+    }
+
+    /// Sets whether the tree is in floating mode.
+    ///
+    /// In floating mode, panes are shown as movable windows instead of tiled layout.
+    /// When entering floating mode, panes are positioned at their current tiled locations.
+    pub fn set_floating(&mut self, floating: bool) {
+        if floating {
+            self.clear_maximized();
+        }
+
+        if floating && !self.floating {
+            let floating_tiles = self.floating_tiles();
+
+            let previous_positions = std::mem::take(&mut self.floating_positions);
+            let mut new_positions: ahash::HashMap<TileId, Rect> = ahash::HashMap::default();
+            new_positions.reserve(floating_tiles.len());
+
+            for tile_id in floating_tiles {
+                if let Some(rect) = self.tiles.rect(tile_id) {
+                    new_positions.insert(tile_id, rect);
+                } else if let Some(rect) = previous_positions.get(&tile_id) {
+                    new_positions.insert(tile_id, *rect);
+                }
+            }
+
+            self.floating_positions = new_positions;
+            self.floating_reset_pending = true;
+        } else {
+            self.floating_reset_pending = false;
+        }
+        self.floating = floating;
+    }
+
+    /// Adjust the ratio of a child in a linear container.
+    ///
+    /// This allows resizing tiles via keyboard or other means.
+    /// `delta_ratio` is added to the child's ratio, clamped to positive values.
+    pub fn adjust_linear_ratio(
+        &mut self,
+        linear_tile_id: TileId,
+        child_index: usize,
+        delta_ratio: f32,
+    ) {
+        if let Some(tile) = self.tiles.get_mut(linear_tile_id) {
+            if let Tile::Container(Container::Linear(linear)) = tile {
+                if child_index < linear.children.len() {
+                    let child_id = linear.children[child_index];
+                    linear.adjust_share(child_id, delta_ratio);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn enqueue_pending_linear_resize(&mut self, pending: PendingLinearResize) {
+        self.pending_linear_resizes.push(pending);
+    }
+
+    pub(crate) fn cached_perpendicular_split(&mut self, id: Id) -> Option<AncestorSplitInfo> {
+        if let Some(split) = self.cached_perpendicular_splits.get(&id) {
+            if self.is_cached_split_valid(split) {
+                return Some(split.clone());
+            }
+            self.cached_perpendicular_splits.remove(&id);
+        }
+        None
+    }
+
+    pub(crate) fn store_perpendicular_split(&mut self, id: Id, split: AncestorSplitInfo) {
+        self.cached_perpendicular_splits.insert(id, split);
+    }
+
+    pub(crate) fn clear_perpendicular_split(&mut self, id: Id) {
+        self.cached_perpendicular_splits.remove(&id);
+    }
+
+    pub(crate) fn active_linear_stack(&self) -> &[ActiveLinearInfo] {
+        &self.active_linear_stack
+    }
+
+    fn is_cached_split_valid(&self, split: &AncestorSplitInfo) -> bool {
+        let Some(Tile::Container(Container::Linear(linear))) = self.tiles.get(split.container_id)
+        else {
+            return false;
+        };
+
+        if linear.dir != split.dir {
+            return false;
+        }
+
+        let current_visible = linear.visible_children(&self.tiles);
+        if split.index + 1 >= current_visible.len() {
+            return false;
+        }
+
+        current_visible == split.visible_children
+    }
+
+    fn apply_pending_linear_resizes(
+        &mut self,
+        behavior: &mut dyn Behavior<Pane>,
+        tile_id: TileId,
+        tile: &mut Tile<Pane>,
+    ) {
+        if self.pending_linear_resizes.is_empty() {
+            return;
+        }
+
+        let mut i = 0;
+        while i < self.pending_linear_resizes.len() {
+            if self.pending_linear_resizes[i].container_id == tile_id {
+                let pending = self.pending_linear_resizes.remove(i);
+                if let Tile::Container(Container::Linear(linear)) = tile {
+                    pending.apply(self, behavior, linear);
+                }
+            } else {
+                i += 1;
+            }
         }
     }
 
@@ -404,16 +1178,53 @@ impl<Pane> Tree<Pane> {
             match &mut tile {
                 Tile::Pane(pane) => {
                     if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
-                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                        let allow_drag = if self.floating {
+                            self.tiles.parent_of(tile_id).map_or(false, |parent_id| {
+                                matches!(
+                                    self.tiles.get(parent_id),
+                                    Some(Tile::Container(Container::Tabs(_)))
+                                )
+                            })
+                        } else {
+                            true
+                        };
+
+                        if allow_drag {
+                            ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                        }
                     }
                 }
                 Tile::Container(container) => {
+                    let mut pushed_linear = false;
+                    if let Container::Linear(linear) = container {
+                        let visible_children = linear.visible_children(&self.tiles);
+                        self.active_linear_stack.push(ActiveLinearInfo {
+                            tile_id,
+                            dir: linear.dir,
+                            visible_children,
+                        });
+                        pushed_linear = true;
+                    }
+
+                    if drop_context.tabs_only_dragging
+                        && !drop_context_was_enabled
+                        && drop_context.dragged_tile_id != Some(tile_id)
+                        && matches!(container, Container::Tabs(_))
+                    {
+                        drop_context.enabled = true;
+                    }
+
                     container.ui(self, behavior, drop_context, ui, rect, tile_id);
+
+                    if pushed_linear {
+                        self.active_linear_stack.pop();
+                    }
                 }
             };
 
             behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
 
+            self.apply_pending_linear_resizes(behavior, tile_id, &mut tile);
             self.tiles.insert(tile_id, tile);
             drop_context.enabled = drop_context_was_enabled;
         });
@@ -449,8 +1260,12 @@ impl<Pane> Tree<Pane> {
 
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
-        // Preview what is being dragged:
-        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
+        let overlay_layer_id =
+            egui::LayerId::new(egui::Order::Tooltip, self.id.with("drag_overlay"));
+
+        // Preview what is being dragged (the floating tile under the cursor):
+        egui::Area::new(self.id.with((dragged_tile_id, "preview")))
+            .order(egui::Order::Tooltip)
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
@@ -465,7 +1280,8 @@ impl<Pane> Tree<Pane> {
                 .best_insertion
                 .and_then(|insertion_point| self.tiles.rect(insertion_point.parent_id));
 
-            behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
+            let overlay_painter = ui.ctx().layer_painter(overlay_layer_id);
+            behavior.paint_drag_preview(ui.visuals(), &overlay_painter, parent_rect, preview_rect);
 
             if behavior.preview_dragged_panes() {
                 // TODO(emilk): add support for previewing containers too.
@@ -473,11 +1289,15 @@ impl<Pane> Tree<Pane> {
                     if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
                         // Intentionally ignore the response, since the user cannot possibly
                         // begin a drag on the preview pane.
-                        let _ignored: UiResponse = behavior.pane_ui(
-                            &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
-                            dragged_tile_id,
-                            pane,
+                        let mut preview_ui = egui::Ui::new(
+                            ui.ctx().clone(),
+                            self.id.with((dragged_tile_id, "pane_preview_ui")),
+                            egui::UiBuilder::new()
+                                .layer_id(overlay_layer_id)
+                                .max_rect(preview_rect),
                         );
+                        let _ignored: UiResponse =
+                            behavior.pane_ui(&mut preview_ui, dragged_tile_id, pane);
                     }
                 }
             }
@@ -749,4 +1569,87 @@ fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: R
     }
 
     smoothed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ContainerKind, Tile, Tiles};
+    use ahash::HashSet;
+    use egui::{Rect as EguiRect, Vec2, pos2};
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct Pane;
+
+    fn rect() -> EguiRect {
+        EguiRect::from_min_size(pos2(0.0, 0.0), Vec2::new(10.0, 10.0))
+    }
+
+    #[test]
+    fn floating_tiles_keep_tab_children_together() {
+        let mut tiles = Tiles::default();
+        let pane_a = tiles.insert_pane(Pane);
+        let pane_b = tiles.insert_pane(Pane);
+        let tab = tiles.insert_tab_tile(vec![pane_a, pane_b]);
+        let other = tiles.insert_pane(Pane);
+        let root = tiles.insert_horizontal_tile(vec![tab, other]);
+
+        let tree = Tree::new("floating_tiles_keep_tab_children_together", root, tiles);
+
+        assert_eq!(tree.floating_tiles(), vec![tab, other]);
+    }
+
+    #[test]
+    fn floating_positions_do_not_track_tab_children() {
+        let mut tiles = Tiles::default();
+        let pane_a = tiles.insert_pane(Pane);
+        let pane_b = tiles.insert_pane(Pane);
+        let tab = tiles.insert_tab_tile(vec![pane_a, pane_b]);
+
+        let mut tree = Tree::new("floating_positions_do_not_track_tab_children", tab, tiles);
+
+        let saved = rect();
+        tree.floating_positions.insert(pane_a, rect());
+        tree.floating_positions.insert(pane_b, rect());
+        tree.floating_positions.insert(tab, saved);
+
+        let floating_tiles = tree.floating_tiles();
+        let allowed: HashSet<TileId> = floating_tiles.iter().copied().collect();
+        tree.retain_floating_positions(&allowed);
+
+        assert!(tree.floating_positions.contains_key(&tab));
+        assert!(!tree.floating_positions.contains_key(&pane_a));
+        assert!(!tree.floating_positions.contains_key(&pane_b));
+        assert_eq!(tree.floating_positions.get(&tab), Some(&saved));
+    }
+
+    #[test]
+    fn floating_position_transfers_when_tabs_becomes_linear() {
+        let mut tiles = Tiles::default();
+        let pane = tiles.insert_pane(Pane);
+        let tab = tiles.insert_tab_tile(vec![pane]);
+
+        let mut tree = Tree::new(
+            "floating_position_transfers_when_tabs_becomes_linear",
+            tab,
+            tiles,
+        );
+
+        let saved = rect();
+        tree.floating_positions.insert(tab, saved);
+
+        {
+            let Some(Tile::Container(container)) = tree.tiles.get_mut(tab) else {
+                panic!("Expected container tile");
+            };
+            container.set_kind(ContainerKind::Horizontal);
+        }
+
+        let floating_tiles = tree.floating_tiles();
+        let allowed: HashSet<TileId> = floating_tiles.iter().copied().collect();
+        tree.retain_floating_positions(&allowed);
+
+        assert!(!tree.floating_positions.contains_key(&tab));
+        assert_eq!(tree.floating_positions.get(&pane), Some(&saved));
+    }
 }

@@ -3,10 +3,11 @@
 use egui::{NumExt as _, Rect, emath::GuiRounding as _, pos2, vec2};
 use itertools::Itertools as _;
 
+use super::Container;
 use crate::behavior::EditAction;
 use crate::{
-    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
-    Tiles, Tree, is_being_dragged,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, Tile,
+    TileId, Tiles, Tree, is_being_dragged,
 };
 
 // ----------------------------------------------------------------------------
@@ -98,6 +99,115 @@ pub enum LinearDir {
     Vertical,
 }
 
+impl LinearDir {
+    pub fn perpendicular(self) -> Self {
+        match self {
+            LinearDir::Horizontal => LinearDir::Vertical,
+            LinearDir::Vertical => LinearDir::Horizontal,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum PendingResizeAction {
+    Reset,
+    Drag { delta: f32 },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PendingLinearResize {
+    pub(crate) container_id: TileId,
+    pub(crate) dir: LinearDir,
+    pub(crate) visible_children: Vec<TileId>,
+    pub(crate) index: usize,
+    pub(crate) action: PendingResizeAction,
+    pub(crate) notify_edit: bool,
+}
+
+impl PendingLinearResize {
+    pub(crate) fn apply<Pane>(
+        &self,
+        tree: &Tree<Pane>,
+        behavior: &mut dyn Behavior<Pane>,
+        linear: &mut Linear,
+    ) {
+        let left = self.visible_children[self.index];
+        let right = self.visible_children[self.index + 1];
+
+        let size_lookup = |tile_id: TileId| {
+            let rect = tree.tiles.rect_or_die(tile_id);
+            match self.dir {
+                LinearDir::Horizontal => rect.width(),
+                LinearDir::Vertical => rect.height(),
+            }
+        };
+
+        match self.action {
+            PendingResizeAction::Reset => {
+                if self.notify_edit {
+                    behavior.on_edit(EditAction::TileResized);
+                }
+
+                let mean = 0.5 * (linear.shares[left] + linear.shares[right]);
+                linear.shares[left] = mean;
+                linear.shares[right] = mean;
+            }
+            PendingResizeAction::Drag { delta } => {
+                if self.notify_edit {
+                    behavior.on_edit(EditAction::TileResized);
+                }
+
+                if delta < 0.0 {
+                    let affected: Vec<TileId> = self.visible_children[..=self.index]
+                        .iter()
+                        .copied()
+                        .rev()
+                        .collect();
+                    let gained = shrink_shares(
+                        behavior,
+                        &mut linear.shares,
+                        &affected,
+                        delta.abs(),
+                        size_lookup,
+                    );
+                    linear.shares[right] += gained;
+                } else {
+                    let affected: Vec<TileId> = self.visible_children[self.index + 1..].to_vec();
+                    let gained = shrink_shares(
+                        behavior,
+                        &mut linear.shares,
+                        &affected,
+                        delta.abs(),
+                        size_lookup,
+                    );
+                    linear.shares[left] += gained;
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct AncestorSplitInfo {
+    pub(crate) container_id: TileId,
+    pub(crate) dir: LinearDir,
+    pub(crate) visible_children: Vec<TileId>,
+    pub(crate) index: usize,
+}
+
+impl AncestorSplitInfo {
+    fn into_pending(&self, action: PendingResizeAction, notify_edit: bool) -> PendingLinearResize {
+        PendingLinearResize {
+            container_id: self.container_id,
+            dir: self.dir,
+            visible_children: self.visible_children.clone(),
+            index: self.index,
+            action,
+            notify_edit,
+        }
+    }
+}
+
 /// Horizontal or vertical container.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -116,7 +226,70 @@ impl Linear {
         }
     }
 
-    fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+    /// Adjust the share of a child by scaling, clamped to positive.
+    pub fn adjust_share(&mut self, child_id: TileId, delta: f32) {
+        let share = self.shares.shares.entry(child_id).or_insert(1.0);
+        if delta > 0.0 {
+            *share *= 1.5;
+        } else if delta < 0.0 {
+            *share *= 1.0 / 1.5;
+        }
+        *share = share.max(0.01);
+    }
+
+    /// Set the share of a child to a specific value, clamped to positive.
+    pub fn set_share(&mut self, child_id: TileId, value: f32) {
+        self.shares.shares.insert(child_id, value.max(0.01));
+    }
+
+    /// Transfer a share amount from one child to another, clamped to keep shares positive.
+    pub fn transfer_share(&mut self, from: TileId, to: TileId, amount: f32) -> bool {
+        if from == to {
+            return false;
+        }
+
+        let transfer = amount.abs();
+        if transfer == 0.0 {
+            return false;
+        }
+
+        let delta = {
+            let from_entry = self.shares.shares.entry(from).or_insert(1.0);
+            let available = (*from_entry - 0.01).max(0.0);
+            if available <= 0.0 {
+                return false;
+            }
+            let delta = transfer.min(available);
+            if delta <= 0.0 {
+                return false;
+            }
+            *from_entry -= delta;
+            delta
+        };
+
+        let to_entry = self.shares.shares.entry(to).or_insert(1.0);
+        *to_entry += delta;
+        true
+    }
+
+    /// Swap two children by index.
+    pub fn swap_children(&mut self, i: usize, j: usize) {
+        if i < self.children.len() && j < self.children.len() {
+            self.children.swap(i, j);
+        }
+    }
+
+    /// Clone the shares map.
+    pub fn clone_shares(&self) -> ahash::HashMap<TileId, f32> {
+        self.shares.shares.clone()
+    }
+
+    /// Set the shares map.
+    pub fn set_shares(&mut self, shares: ahash::HashMap<TileId, f32>) {
+        self.shares.shares = shares;
+    }
+
+    pub(crate) fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<TileId> {
         self.children
             .iter()
             .copied()
@@ -283,6 +456,7 @@ impl Linear {
                     pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).width(),
+                    true,
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -292,6 +466,204 @@ impl Linear {
 
             let stroke = behavior.resize_stroke(ui.style(), resize_state);
             ui.painter().vline(x, parent_rect.y_range(), stroke);
+        }
+
+        if !tree.is_maximized() {
+            self.resize_diagonal_corners(behavior, tree, ui, parent_id, &visible_children);
+        }
+    }
+
+    fn resize_diagonal_corners<Pane>(
+        &mut self,
+        behavior: &mut dyn Behavior<Pane>,
+        tree: &mut Tree<Pane>,
+        ui: &egui::Ui,
+        parent_id: TileId,
+        visible_children: &[TileId],
+    ) {
+        if visible_children.is_empty() || !behavior.allow_diagonal_resize() || tree.is_maximized() {
+            return;
+        }
+
+        let handle_extent = ui.style().interaction.resize_grab_radius_corner;
+        if handle_extent <= 0.0 {
+            return;
+        }
+
+        let handle_size = vec2(handle_extent, handle_extent);
+        let perp_dir = self.dir.perpendicular();
+
+        for (index, &child) in visible_children.iter().enumerate() {
+            let next_index = index + 1;
+            if next_index >= visible_children.len() {
+                continue;
+            }
+
+            let child_rect = tree.tiles.rect_or_die(child);
+            let corner_rect = Rect::from_min_size(child_rect.max - handle_size, handle_size);
+            if !ui.is_rect_visible(corner_rect) {
+                continue;
+            }
+
+            let corner_id = ui.id().with((parent_id, child, "resize_corner"));
+            let cache_id = corner_id.with("perp_split_cache");
+            let response = ui.interact(corner_rect, corner_id, egui::Sense::click_and_drag());
+            let anchor_pointer = corner_rect.center().round_to_pixels(ui.pixels_per_point());
+
+            if response.hovered() || response.dragged() || response.double_clicked() {
+                if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                    let pointer = pointer.round_to_pixels(ui.pixels_per_point());
+
+                    let mut perp_split = tree.cached_perpendicular_split(cache_id);
+                    if perp_split.is_none() {
+                        let descendant_split =
+                            find_descendant_split(tree, child, perp_dir, anchor_pointer);
+                        let ancestor_split =
+                            find_ancestor_split(tree, child, perp_dir, Some((self, parent_id)));
+                        perp_split = choose_perpendicular_split(
+                            tree,
+                            descendant_split,
+                            ancestor_split,
+                            anchor_pointer,
+                        );
+
+                        if let Some(split) = perp_split.as_ref() {
+                            if split_distance_to_point(tree, split, anchor_pointer) > handle_extent
+                            {
+                                perp_split = None;
+                            }
+                        }
+                    }
+                    if let Some(split) = perp_split.clone() {
+                        tree.store_perpendicular_split(cache_id, split);
+                    } else {
+                        tree.clear_perpendicular_split(cache_id);
+                    }
+
+                    let neighbor = visible_children[next_index];
+                    let neighbor_rect = tree.tiles.rect_or_die(neighbor);
+
+                    let split_primary = match self.dir {
+                        LinearDir::Horizontal => {
+                            egui::lerp(child_rect.right()..=neighbor_rect.left(), 0.5)
+                        }
+                        LinearDir::Vertical => {
+                            egui::lerp(child_rect.bottom()..=neighbor_rect.top(), 0.5)
+                        }
+                    };
+
+                    let delta_primary = match self.dir {
+                        LinearDir::Horizontal => pointer.x - split_primary,
+                        LinearDir::Vertical => pointer.y - split_primary,
+                    };
+
+                    let size_lookup_primary = |tile_id: TileId| match self.dir {
+                        LinearDir::Horizontal => tree.tiles.rect_or_die(tile_id).width(),
+                        LinearDir::Vertical => tree.tiles.rect_or_die(tile_id).height(),
+                    };
+
+                    let local_children = &visible_children[index..=next_index];
+                    let primary_state = resize_interaction(
+                        behavior,
+                        &mut self.shares,
+                        local_children,
+                        &response,
+                        [child, neighbor],
+                        delta_primary,
+                        0,
+                        size_lookup_primary,
+                        true,
+                    );
+
+                    let primary_ancestor_split = if primary_state == ResizeState::Idle {
+                        find_ancestor_split(tree, parent_id, self.dir, Some((self, parent_id)))
+                    } else {
+                        None
+                    };
+
+                    let ancestor_primary_state = if let Some(primary_split) =
+                        primary_ancestor_split.as_ref()
+                    {
+                        let ancestor_child = primary_split.visible_children[primary_split.index];
+                        let ancestor_neighbor =
+                            primary_split.visible_children[primary_split.index + 1];
+                        let ancestor_child_rect = tree.tiles.rect_or_die(ancestor_child);
+                        let ancestor_neighbor_rect = tree.tiles.rect_or_die(ancestor_neighbor);
+
+                        let split_primary_ancestor = match primary_split.dir {
+                            LinearDir::Horizontal => egui::lerp(
+                                ancestor_child_rect.right()..=ancestor_neighbor_rect.left(),
+                                0.5,
+                            ),
+                            LinearDir::Vertical => egui::lerp(
+                                ancestor_child_rect.bottom()..=ancestor_neighbor_rect.top(),
+                                0.5,
+                            ),
+                        };
+
+                        let delta_primary_ancestor = match primary_split.dir {
+                            LinearDir::Horizontal => pointer.x - split_primary_ancestor,
+                            LinearDir::Vertical => pointer.y - split_primary_ancestor,
+                        };
+
+                        apply_resize_for_split(
+                            tree,
+                            behavior,
+                            primary_split,
+                            &response,
+                            delta_primary_ancestor,
+                            true,
+                        )
+                    } else {
+                        ResizeState::Idle
+                    };
+
+                    let secondary_state = if let Some(perp_split) = perp_split.as_ref() {
+                        let secondary_child = perp_split.visible_children[perp_split.index];
+                        let secondary_neighbor = perp_split.visible_children[perp_split.index + 1];
+                        let secondary_child_rect = tree.tiles.rect_or_die(secondary_child);
+                        let secondary_neighbor_rect = tree.tiles.rect_or_die(secondary_neighbor);
+
+                        let split_secondary = match perp_split.dir {
+                            LinearDir::Horizontal => egui::lerp(
+                                secondary_child_rect.right()..=secondary_neighbor_rect.left(),
+                                0.5,
+                            ),
+                            LinearDir::Vertical => egui::lerp(
+                                secondary_child_rect.bottom()..=secondary_neighbor_rect.top(),
+                                0.5,
+                            ),
+                        };
+
+                        let delta_secondary = match perp_split.dir {
+                            LinearDir::Horizontal => pointer.x - split_secondary,
+                            LinearDir::Vertical => pointer.y - split_secondary,
+                        };
+
+                        apply_resize_for_split(
+                            tree,
+                            behavior,
+                            perp_split,
+                            &response,
+                            delta_secondary,
+                            primary_state == ResizeState::Idle,
+                        )
+                    } else {
+                        ResizeState::Idle
+                    };
+
+                    let primary_combined =
+                        combine_resize_states(primary_state, ancestor_primary_state);
+                    let corner_state = combine_resize_states(primary_combined, secondary_state);
+                    if corner_state != ResizeState::Idle {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                    }
+                }
+            } else {
+                tree.clear_perpendicular_split(cache_id);
+            }
+
+            behavior.paint_corner_hint(ui, &response, corner_rect);
         }
     }
 
@@ -349,6 +721,7 @@ impl Linear {
                     pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).height(),
+                    true,
                 );
 
                 if resize_state != ResizeState::Idle {
@@ -358,6 +731,10 @@ impl Linear {
 
             let stroke = behavior.resize_stroke(ui.style(), resize_state);
             ui.painter().hline(parent_rect.x_range(), y, stroke);
+        }
+
+        if !tree.is_maximized() {
+            self.resize_diagonal_corners(behavior, tree, ui, parent_id, &visible_children);
         }
     }
 
@@ -381,6 +758,451 @@ impl Linear {
     }
 }
 
+fn find_descendant_split<Pane>(
+    tree: &Tree<Pane>,
+    start_tile: TileId,
+    desired_dir: LinearDir,
+    pointer: egui::Pos2,
+) -> Option<AncestorSplitInfo> {
+    let mut current_tile = start_tile;
+
+    loop {
+        let tile = tree.tiles.get(current_tile)?;
+        let Tile::Container(container) = tile else {
+            return None;
+        };
+
+        let Container::Linear(linear) = container else {
+            return None;
+        };
+
+        let visible_children = linear.visible_children(&tree.tiles);
+
+        if linear.dir == desired_dir {
+            if let Some(index) =
+                find_split_index_for_pointer(tree, &visible_children, desired_dir, pointer)
+            {
+                return Some(AncestorSplitInfo {
+                    container_id: current_tile,
+                    dir: desired_dir,
+                    visible_children,
+                    index,
+                });
+            }
+        }
+
+        let Some(next_child) = child_containing_pointer(tree, &visible_children, pointer) else {
+            return None;
+        };
+
+        current_tile = next_child;
+    }
+}
+
+fn find_split_index_for_pointer<Pane>(
+    tree: &Tree<Pane>,
+    visible_children: &[TileId],
+    dir: LinearDir,
+    pointer: egui::Pos2,
+) -> Option<usize> {
+    if visible_children.len() < 2 {
+        return None;
+    }
+
+    let pointer_value = match dir {
+        LinearDir::Horizontal => pointer.x,
+        LinearDir::Vertical => pointer.y,
+    };
+
+    let first_rect = tree.tiles.rect_or_die(*visible_children.first().unwrap());
+    let last_rect = tree.tiles.rect_or_die(*visible_children.last().unwrap());
+    let (min_bound, max_bound) = match dir {
+        LinearDir::Horizontal => (first_rect.min.x, last_rect.max.x),
+        LinearDir::Vertical => (first_rect.min.y, last_rect.max.y),
+    };
+
+    if pointer_value < min_bound || pointer_value > max_bound {
+        return None;
+    }
+
+    let mut best_index = None;
+    let mut best_distance = f32::INFINITY;
+
+    for (index, window) in visible_children.windows(2).enumerate() {
+        let first_rect = tree.tiles.rect_or_die(window[0]);
+        let boundary = match dir {
+            LinearDir::Horizontal => first_rect.max.x,
+            LinearDir::Vertical => first_rect.max.y,
+        };
+        let distance = (pointer_value - boundary).abs();
+
+        if distance < best_distance {
+            best_distance = distance;
+            best_index = Some(index);
+        }
+    }
+
+    best_index
+}
+
+fn child_containing_pointer<Pane>(
+    tree: &Tree<Pane>,
+    children: &[TileId],
+    pointer: egui::Pos2,
+) -> Option<TileId> {
+    if children.is_empty() {
+        return None;
+    }
+
+    for &child in children {
+        let rect = tree.tiles.rect_or_die(child);
+        if rect.contains(pointer) {
+            return Some(child);
+        }
+    }
+
+    children.iter().copied().min_by(|&a, &b| {
+        let rect_a = tree.tiles.rect_or_die(a);
+        let rect_b = tree.tiles.rect_or_die(b);
+        distance_to_rect(pointer, rect_a)
+            .partial_cmp(&distance_to_rect(pointer, rect_b))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+}
+
+fn distance_to_rect(point: egui::Pos2, rect: egui::Rect) -> f32 {
+    let dx = if point.x < rect.min.x {
+        rect.min.x - point.x
+    } else if point.x > rect.max.x {
+        point.x - rect.max.x
+    } else {
+        0.0
+    };
+
+    let dy = if point.y < rect.min.y {
+        rect.min.y - point.y
+    } else if point.y > rect.max.y {
+        point.y - rect.max.y
+    } else {
+        0.0
+    };
+
+    (dx * dx + dy * dy).sqrt()
+}
+
+fn ancestor_split_from_linear<Pane>(
+    tree: &Tree<Pane>,
+    container_id: TileId,
+    linear: &Linear,
+    desired_dir: LinearDir,
+    child: TileId,
+) -> Option<AncestorSplitInfo> {
+    if linear.dir != desired_dir {
+        return None;
+    }
+    let visible_children = linear.visible_children(&tree.tiles);
+    let Some(index) = visible_children.iter().position(|&id| id == child) else {
+        return None;
+    };
+    if index + 1 >= visible_children.len() {
+        return None;
+    }
+
+    Some(AncestorSplitInfo {
+        container_id,
+        dir: desired_dir,
+        visible_children,
+        index,
+    })
+}
+
+fn find_ancestor_split<Pane>(
+    tree: &Tree<Pane>,
+    start_child: TileId,
+    desired_dir: LinearDir,
+    local_container: Option<(&Linear, TileId)>,
+) -> Option<AncestorSplitInfo> {
+    let mut current_child = start_child;
+
+    if let Some((linear, container_id)) = local_container {
+        if let Some(split) =
+            ancestor_split_from_linear(tree, container_id, linear, desired_dir, current_child)
+        {
+            return Some(split);
+        }
+
+        current_child = container_id;
+    }
+
+    for info in tree.active_linear_stack().iter().rev() {
+        if let Some(index) = info
+            .visible_children
+            .iter()
+            .position(|&id| id == current_child)
+        {
+            if index + 1 < info.visible_children.len() && info.dir == desired_dir {
+                return Some(AncestorSplitInfo {
+                    container_id: info.tile_id,
+                    dir: info.dir,
+                    visible_children: info.visible_children.clone(),
+                    index,
+                });
+            }
+            current_child = info.tile_id;
+        }
+    }
+
+    while let Some(parent_id) = tree.tiles.parent_of(current_child) {
+        let Some(parent_tile) = tree.tiles.get(parent_id) else {
+            current_child = parent_id;
+            continue;
+        };
+        let Tile::Container(container) = parent_tile else {
+            current_child = parent_id;
+            continue;
+        };
+        if let Container::Linear(linear) = container {
+            if let Some(split) =
+                ancestor_split_from_linear(tree, parent_id, linear, desired_dir, current_child)
+            {
+                return Some(split);
+            }
+        }
+        current_child = parent_id;
+    }
+    None
+}
+
+fn choose_perpendicular_split<Pane>(
+    tree: &Tree<Pane>,
+    descendant: Option<AncestorSplitInfo>,
+    ancestor: Option<AncestorSplitInfo>,
+    anchor: egui::Pos2,
+) -> Option<AncestorSplitInfo> {
+    match (descendant, ancestor) {
+        (Some(desc), Some(anc)) => {
+            let desc_distance = split_distance_to_point(tree, &desc, anchor);
+            let ancestor_distance = split_distance_to_point(tree, &anc, anchor);
+            if desc_distance <= ancestor_distance {
+                Some(desc)
+            } else {
+                Some(anc)
+            }
+        }
+        (Some(desc), None) => Some(desc),
+        (None, Some(anc)) => Some(anc),
+        (None, None) => None,
+    }
+}
+
+fn split_distance_to_point<Pane>(
+    tree: &Tree<Pane>,
+    split: &AncestorSplitInfo,
+    point: egui::Pos2,
+) -> f32 {
+    let child_rect = tree.tiles.rect_or_die(split.visible_children[split.index]);
+    match split.dir {
+        LinearDir::Horizontal => (point.x - child_rect.max.x).abs(),
+        LinearDir::Vertical => (point.y - child_rect.max.y).abs(),
+    }
+}
+
+fn apply_resize_for_split<Pane>(
+    tree: &mut Tree<Pane>,
+    _behavior: &mut dyn Behavior<Pane>,
+    split: &AncestorSplitInfo,
+    response: &egui::Response,
+    delta: f32,
+    notify_edit: bool,
+) -> ResizeState {
+    schedule_pending_resize(tree, split, response, delta, notify_edit)
+}
+
+fn schedule_pending_resize<Pane>(
+    tree: &mut Tree<Pane>,
+    split: &AncestorSplitInfo,
+    response: &egui::Response,
+    delta: f32,
+    notify_edit: bool,
+) -> ResizeState {
+    if response.double_clicked() {
+        tree.enqueue_pending_linear_resize(
+            split.into_pending(PendingResizeAction::Reset, notify_edit),
+        );
+        ResizeState::Hovering
+    } else if response.dragged() {
+        tree.enqueue_pending_linear_resize(
+            split.into_pending(PendingResizeAction::Drag { delta }, notify_edit),
+        );
+        ResizeState::Dragging
+    } else if response.hovered() {
+        ResizeState::Hovering
+    } else {
+        ResizeState::Idle
+    }
+}
+
+fn combine_resize_states(a: ResizeState, b: ResizeState) -> ResizeState {
+    use ResizeState::*;
+
+    if matches!(a, Dragging) || matches!(b, Dragging) {
+        Dragging
+    } else if matches!(a, Hovering) || matches!(b, Hovering) {
+        Hovering
+    } else {
+        Idle
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Container, Tile, Tiles};
+    use egui::{Rect, pos2};
+
+    #[test]
+    fn find_descendant_split_locates_nested_linear_split() {
+        let mut tiles = Tiles::default();
+        let top = tiles.insert_pane(());
+        let bottom = tiles.insert_pane(());
+        let right = tiles.insert_pane(());
+
+        let vertical_id = tiles.insert_container(Container::new_vertical(vec![top, bottom]));
+        let horizontal_id =
+            tiles.insert_container(Container::new_horizontal(vec![vertical_id, right]));
+
+        let mut tree = Tree::new("descendant_split", horizontal_id, tiles);
+
+        tree.tiles.rects.insert(
+            horizontal_id,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(200.0, 200.0)),
+        );
+        tree.tiles.rects.insert(
+            vertical_id,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(120.0, 200.0)),
+        );
+        tree.tiles
+            .rects
+            .insert(top, Rect::from_min_max(pos2(0.0, 0.0), pos2(120.0, 100.0)));
+        tree.tiles.rects.insert(
+            bottom,
+            Rect::from_min_max(pos2(0.0, 100.0), pos2(120.0, 200.0)),
+        );
+        tree.tiles.rects.insert(
+            right,
+            Rect::from_min_max(pos2(120.0, 0.0), pos2(200.0, 200.0)),
+        );
+
+        let pointer = pos2(118.0, 105.0);
+        let split =
+            find_descendant_split(&tree, vertical_id, LinearDir::Vertical, pointer).unwrap();
+
+        assert_eq!(split.container_id, vertical_id);
+        assert_eq!(split.dir, LinearDir::Vertical);
+        assert_eq!(split.visible_children, vec![top, bottom]);
+        assert_eq!(split.index, 0);
+    }
+
+    #[test]
+    fn find_ancestor_split_remains_available() {
+        let mut tiles = Tiles::default();
+        let top = tiles.insert_pane(());
+        let bottom = tiles.insert_pane(());
+        let right = tiles.insert_pane(());
+
+        let vertical_id = tiles.insert_container(Container::new_vertical(vec![top, bottom]));
+        let horizontal_id =
+            tiles.insert_container(Container::new_horizontal(vec![vertical_id, right]));
+
+        let tree = Tree::new("ancestor_split", horizontal_id, tiles);
+
+        let Some(Tile::Container(Container::Linear(vertical_linear))) = tree.tiles.get(vertical_id)
+        else {
+            panic!("missing vertical container");
+        };
+
+        let split = find_ancestor_split(
+            &tree,
+            top,
+            LinearDir::Horizontal,
+            Some((vertical_linear, vertical_id)),
+        )
+        .expect("expected ancestor split");
+
+        assert_eq!(split.container_id, horizontal_id);
+        assert_eq!(split.dir, LinearDir::Horizontal);
+        assert_eq!(split.visible_children, vec![vertical_id, right]);
+        assert_eq!(split.index, 0);
+    }
+
+    #[test]
+    fn find_descendant_split_prefers_previous_child_when_pointer_on_shared_edge() {
+        let mut tiles = Tiles::default();
+        let top = tiles.insert_pane(());
+        let middle = tiles.insert_pane(());
+        let bottom = tiles.insert_pane(());
+
+        let vertical_id =
+            tiles.insert_container(Container::new_vertical(vec![top, middle, bottom]));
+
+        let mut tree = Tree::new("descendant_split_edge_case", vertical_id, tiles);
+
+        tree.tiles.rects.insert(
+            vertical_id,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 300.0)),
+        );
+        tree.tiles
+            .rects
+            .insert(top, Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 100.0)));
+        tree.tiles.rects.insert(
+            middle,
+            Rect::from_min_max(pos2(0.0, 100.0), pos2(100.0, 200.0)),
+        );
+        tree.tiles.rects.insert(
+            bottom,
+            Rect::from_min_max(pos2(0.0, 200.0), pos2(100.0, 300.0)),
+        );
+
+        let pointer = pos2(50.0, 100.0);
+        let split =
+            find_descendant_split(&tree, vertical_id, LinearDir::Vertical, pointer).unwrap();
+
+        assert_eq!(split.container_id, vertical_id);
+        assert_eq!(split.dir, LinearDir::Vertical);
+        assert_eq!(split.index, 0);
+        assert_eq!(split.visible_children[split.index], top);
+        assert_eq!(split.visible_children[split.index + 1], middle);
+    }
+
+    #[test]
+    fn find_descendant_split_stops_when_pointer_leaves_container() {
+        let mut tiles = Tiles::default();
+        let top = tiles.insert_pane(());
+        let bottom = tiles.insert_pane(());
+
+        let vertical_id = tiles.insert_container(Container::new_vertical(vec![top, bottom]));
+
+        let mut tree = Tree::new("descendant_split_outside", vertical_id, tiles);
+
+        tree.tiles.rects.insert(
+            vertical_id,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 200.0)),
+        );
+        tree.tiles
+            .rects
+            .insert(top, Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 100.0)));
+        tree.tiles.rects.insert(
+            bottom,
+            Rect::from_min_max(pos2(0.0, 100.0), pos2(100.0, 200.0)),
+        );
+
+        let pointer_below = pos2(50.0, 250.0);
+        assert!(
+            find_descendant_split(&tree, vertical_id, LinearDir::Vertical, pointer_below).is_none()
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn resize_interaction<Pane>(
     behavior: &mut dyn Behavior<Pane>,
@@ -391,9 +1213,12 @@ fn resize_interaction<Pane>(
     dx: f32,
     i: usize,
     tile_width: impl Fn(TileId) -> f32,
+    notify_edit: bool,
 ) -> ResizeState {
     if splitter_response.double_clicked() {
-        behavior.on_edit(EditAction::TileResized);
+        if notify_edit {
+            behavior.on_edit(EditAction::TileResized);
+        }
 
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
@@ -401,7 +1226,9 @@ fn resize_interaction<Pane>(
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
-        behavior.on_edit(EditAction::TileResized);
+        if notify_edit {
+            behavior.on_edit(EditAction::TileResized);
+        }
 
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:

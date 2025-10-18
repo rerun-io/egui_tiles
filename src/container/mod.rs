@@ -9,6 +9,7 @@ mod linear;
 mod tabs;
 
 pub use grid::{Grid, GridLayout};
+pub(crate) use linear::{AncestorSplitInfo, PendingLinearResize};
 pub use linear::{Linear, LinearDir, Shares};
 pub use tabs::Tabs;
 
@@ -240,7 +241,7 @@ impl Container {
         }
     }
 
-    pub(super) fn ui<Pane>(
+    pub(crate) fn ui<Pane>(
         &mut self,
         tree: &mut Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,

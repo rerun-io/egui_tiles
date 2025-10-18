@@ -319,6 +319,8 @@ struct DropContext {
     best_insertion: Option<InsertionPoint>,
     best_dist_sq: f32,
     preview_rect: Option<Rect>,
+    /// When true, dragging is limited to within tab containers (floating mode).
+    tabs_only_dragging: bool,
 }
 
 impl DropContext {
@@ -334,33 +336,37 @@ impl DropContext {
             return;
         }
 
-        if tile.kind() != Some(ContainerKind::Horizontal) {
-            self.suggest_rect(
-                InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(0)),
-                rect.split_left_right_at_fraction(0.5).0,
-            );
-            self.suggest_rect(
-                InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(usize::MAX)),
-                rect.split_left_right_at_fraction(0.5).1,
-            );
+        if !self.tabs_only_dragging {
+            if tile.kind() != Some(ContainerKind::Horizontal) {
+                self.suggest_rect(
+                    InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(0)),
+                    rect.split_left_right_at_fraction(0.5).0,
+                );
+                self.suggest_rect(
+                    InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(usize::MAX)),
+                    rect.split_left_right_at_fraction(0.5).1,
+                );
+            }
+
+            if tile.kind() != Some(ContainerKind::Vertical) {
+                self.suggest_rect(
+                    InsertionPoint::new(parent_id, ContainerInsertion::Vertical(0)),
+                    rect.split_top_bottom_at_fraction(0.5).0,
+                );
+                self.suggest_rect(
+                    InsertionPoint::new(parent_id, ContainerInsertion::Vertical(usize::MAX)),
+                    rect.split_top_bottom_at_fraction(0.5).1,
+                );
+            }
         }
 
-        if tile.kind() != Some(ContainerKind::Vertical) {
+        if behavior.allow_creating_tabs_on_drop() {
             self.suggest_rect(
-                InsertionPoint::new(parent_id, ContainerInsertion::Vertical(0)),
-                rect.split_top_bottom_at_fraction(0.5).0,
-            );
-            self.suggest_rect(
-                InsertionPoint::new(parent_id, ContainerInsertion::Vertical(usize::MAX)),
-                rect.split_top_bottom_at_fraction(0.5).1,
+                InsertionPoint::new(parent_id, ContainerInsertion::Tabs(usize::MAX)),
+                rect.split_top_bottom_at_y(rect.top() + behavior.tab_bar_height(style))
+                    .1,
             );
         }
-
-        self.suggest_rect(
-            InsertionPoint::new(parent_id, ContainerInsertion::Tabs(usize::MAX)),
-            rect.split_top_bottom_at_y(rect.top() + behavior.tab_bar_height(style))
-                .1,
-        );
     }
 
     fn suggest_rect(&mut self, insertion: InsertionPoint, preview_rect: Rect) {

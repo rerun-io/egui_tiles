@@ -1,6 +1,6 @@
 use egui::{
     Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetText,
-    vec2,
+    emath::GuiRounding, vec2,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -418,6 +418,52 @@ pub trait Behavior<Pane> {
     /// When using [`crate::GridLayout::Auto`], what is the ideal aspect ratio of a tile?
     fn ideal_tile_aspect_ratio(&self) -> f32 {
         4.0 / 3.0
+    }
+
+    /// Allow creating tab layouts by dropping tiles into the tab area of other tiles.
+    ///
+    /// If `false`, dragging a tile over the tab area of another tile will not create a new tab layout.
+    /// The tile will only be inserted as a horizontal or vertical split.
+    fn allow_creating_tabs_on_drop(&self) -> bool {
+        true
+    }
+
+    /// Allow the user to resize tiles diagonally using the corner handles.
+    ///
+    /// Return `false` to disable the diagonal resize interaction completely.
+    fn allow_diagonal_resize(&self) -> bool {
+        true
+    }
+
+    /// Paint a hint in the corner of grid tiles that can be used for resizing.
+    ///
+    /// The default implementation paints diagonal lines in the bottom-right corner.
+    fn paint_corner_hint(&self, ui: &egui::Ui, response: &egui::Response, rect: Rect) {
+        let style_stroke = ui.style().interact(response).fg_stroke;
+        let painter = ui.painter();
+        let corner = egui::Align2::RIGHT_BOTTOM;
+        let corner_pos = corner
+            .pos_in_rect(&rect)
+            .round_to_pixels(ui.pixels_per_point());
+
+        let mut w = 2.0;
+        let stroke = egui::Stroke {
+            width: 1.0,
+            color: style_stroke.color,
+        };
+
+        while w <= rect.width() && w <= rect.height() {
+            let x_dir = corner.x().to_sign();
+            let y_dir = corner.y().to_sign();
+            painter.line_segment(
+                [
+                    egui::pos2(corner_pos.x - w * x_dir, corner_pos.y),
+                    egui::pos2(corner_pos.x, corner_pos.y - w * y_dir),
+                ],
+                stroke,
+            );
+            w += 4.0;
+        }
     }
 
     // Callbacks:

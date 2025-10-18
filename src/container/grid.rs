@@ -88,6 +88,55 @@ impl Grid {
         self.children.iter().filter_map(|c| c.as_ref())
     }
 
+    /// Find the index of a child tile if present.
+    pub fn child_index(&self, tile_id: TileId) -> Option<usize> {
+        self.children().position(|&id| id == tile_id)
+    }
+
+    /// Transfer column share from one column to another, keeping shares positive.
+    pub fn transfer_col_share(&mut self, from: usize, to: usize, amount: f32) -> bool {
+        if from == to || from >= self.col_shares.len() || to >= self.col_shares.len() {
+            return false;
+        }
+        let transfer = amount.abs();
+        if transfer == 0.0 {
+            return false;
+        }
+        let available = (self.col_shares[from] - 0.01).max(0.0);
+        if available <= 0.0 {
+            return false;
+        }
+        let delta = transfer.min(available);
+        if delta <= 0.0 {
+            return false;
+        }
+        self.col_shares[from] -= delta;
+        self.col_shares[to] += delta;
+        true
+    }
+
+    /// Transfer row share from one row to another, keeping shares positive.
+    pub fn transfer_row_share(&mut self, from: usize, to: usize, amount: f32) -> bool {
+        if from == to || from >= self.row_shares.len() || to >= self.row_shares.len() {
+            return false;
+        }
+        let transfer = amount.abs();
+        if transfer == 0.0 {
+            return false;
+        }
+        let available = (self.row_shares[from] - 0.01).max(0.0);
+        if available <= 0.0 {
+            return false;
+        }
+        let delta = transfer.min(available);
+        if delta <= 0.0 {
+            return false;
+        }
+        self.row_shares[from] -= delta;
+        self.row_shares[to] += delta;
+        true
+    }
+
     pub fn add_child(&mut self, child: TileId) {
         self.children.push(Some(child));
     }
@@ -126,7 +175,10 @@ impl Grid {
         self.children.retain(|child| child.is_some());
     }
 
-    fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
+    pub(crate) fn visible_children_and_holes<Pane>(
+        &self,
+        tiles: &Tiles<Pane>,
+    ) -> Vec<Option<TileId>> {
         self.children
             .iter()
             .filter(|id| id.is_none_or(|id| tiles.is_visible(id)))
@@ -250,12 +302,12 @@ impl Grid {
         ui: &egui::Ui,
         tile_id: TileId,
     ) {
-        for &child in &self.children {
+        let visible_children_and_holes = self.visible_children_and_holes(&tree.tiles);
+
+        for &child in &visible_children_and_holes {
             if let Some(child) = child {
-                if tree.is_visible(child) {
-                    tree.tile_ui(behavior, drop_context, ui, child);
-                    crate::cover_tile_if_dragged(tree, behavior, ui, child);
-                }
+                tree.tile_ui(behavior, drop_context, ui, child);
+                crate::cover_tile_if_dragged(tree, behavior, ui, child);
             }
         }
 
@@ -272,6 +324,9 @@ impl Grid {
 
         self.resize_columns(&tree.tiles, behavior, ui, tile_id);
         self.resize_rows(&tree.tiles, behavior, ui, tile_id);
+        if !tree.is_maximized() {
+            self.resize_corners(behavior, ui, tile_id, &visible_children_and_holes);
+        }
     }
 
     fn resize_columns<Pane>(
@@ -362,6 +417,97 @@ impl Grid {
         }
     }
 
+    /// Draw a diagonal handle that resizes both the column and row in a single drag.
+    fn resize_corners<Pane>(
+        &mut self,
+        behavior: &mut dyn Behavior<Pane>,
+        ui: &egui::Ui,
+        parent_id: TileId,
+        visible_children_and_holes: &[Option<TileId>],
+    ) {
+        if !behavior.allow_diagonal_resize() {
+            return;
+        }
+
+        let num_cols = self.col_ranges.len();
+        let num_rows = self.row_ranges.len();
+
+        if num_cols < 2 || num_rows < 2 {
+            return;
+        }
+
+        let handle_extent = ui.style().interaction.resize_grab_radius_corner;
+        if handle_extent <= 0.0 {
+            return;
+        }
+
+        for (index, child_opt) in visible_children_and_holes.iter().enumerate() {
+            let Some(child) = child_opt else {
+                continue;
+            };
+
+            let col = index % num_cols;
+            let row = index / num_cols;
+
+            if col + 1 >= num_cols || row + 1 >= num_rows {
+                continue;
+            }
+
+            let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
+
+            let handle_size = vec2(handle_extent, handle_extent);
+            let handle_min = child_rect.max - handle_size;
+            let corner_rect = Rect::from_min_size(handle_min, handle_size);
+
+            if !ui.is_rect_visible(corner_rect) {
+                continue;
+            }
+
+            let corner_id = ui.id().with((parent_id, child, "resize_corner"));
+            let response = ui.interact(corner_rect, corner_id, egui::Sense::click_and_drag());
+
+            if response.hovered() || response.dragged() || response.double_clicked() {
+                if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                    let pointer = pointer.round_to_pixels(ui.pixels_per_point());
+                    let split_x =
+                        egui::lerp(self.col_ranges[col].max..=self.col_ranges[col + 1].min, 0.5);
+                    let split_y =
+                        egui::lerp(self.row_ranges[row].max..=self.row_ranges[row + 1].min, 0.5);
+
+                    let dx = pointer.x - split_x;
+                    let dy = pointer.y - split_y;
+
+                    let col_state = resize_interaction_impl(
+                        behavior,
+                        &self.col_ranges,
+                        &mut self.col_shares,
+                        &response,
+                        dx,
+                        col,
+                        true,
+                    );
+                    let row_state = resize_interaction_impl(
+                        behavior,
+                        &self.row_ranges,
+                        &mut self.row_shares,
+                        &response,
+                        dy,
+                        row,
+                        col_state == ResizeState::Idle,
+                    );
+
+                    let corner_state = combine_resize_states(col_state, row_state);
+
+                    if corner_state != ResizeState::Idle {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                    }
+                }
+            }
+
+            behavior.paint_corner_hint(ui, &response, corner_rect);
+        }
+    }
+
     pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
         for child_opt in &mut self.children {
             if let Some(child) = *child_opt {
@@ -397,6 +543,78 @@ impl Grid {
         self.children[index] = None;
         Some(index)
     }
+
+    /// Adjust the share of a column by delta, clamped to positive.
+    pub fn adjust_col_share(&mut self, col: usize, delta: f32) {
+        if col < self.col_shares.len() {
+            self.col_shares[col] = (self.col_shares[col] + delta).max(0.01);
+        }
+    }
+
+    /// Adjust the share of a row by delta, clamped to positive.
+    pub fn adjust_row_share(&mut self, row: usize, delta: f32) {
+        if row < self.row_shares.len() {
+            self.row_shares[row] = (self.row_shares[row] + delta).max(0.01);
+        }
+    }
+
+    /// Get the number of columns in the grid.
+    pub fn num_cols(&self) -> usize {
+        self.col_shares.len()
+    }
+
+    /// Clone the column shares.
+    pub fn clone_col_shares(&self) -> Vec<f32> {
+        self.col_shares.clone()
+    }
+
+    /// Clone the row shares.
+    pub fn clone_row_shares(&self) -> Vec<f32> {
+        self.row_shares.clone()
+    }
+
+    /// Set the column shares.
+    pub fn set_col_shares(&mut self, shares: Vec<f32>) {
+        self.col_shares = shares;
+    }
+
+    /// Set the row shares.
+    pub fn set_row_shares(&mut self, shares: Vec<f32>) {
+        self.row_shares = shares;
+    }
+
+    /// Set a specific column share.
+    pub fn set_col_share(&mut self, col: usize, share: f32) {
+        if col < self.col_shares.len() {
+            self.col_shares[col] = share.max(0.01);
+        }
+    }
+
+    /// Set a specific row share.
+    pub fn set_row_share(&mut self, row: usize, share: f32) {
+        if row < self.row_shares.len() {
+            self.row_shares[row] = share.max(0.01);
+        }
+    }
+
+    /// Swap two children by index.
+    pub fn swap_children(&mut self, i: usize, j: usize) {
+        if i < self.children.len() && j < self.children.len() {
+            self.children.swap(i, j);
+        }
+    }
+}
+
+fn combine_resize_states(a: ResizeState, b: ResizeState) -> ResizeState {
+    use ResizeState::*;
+
+    if matches!(a, Dragging) || matches!(b, Dragging) {
+        Dragging
+    } else if matches!(a, Hovering) || matches!(b, Hovering) {
+        Hovering
+    } else {
+        Idle
+    }
 }
 
 fn resize_interaction<Pane>(
@@ -407,6 +625,18 @@ fn resize_interaction<Pane>(
     dx: f32,
     i: usize,
 ) -> ResizeState {
+    resize_interaction_impl(behavior, ranges, shares, splitter_response, dx, i, true)
+}
+
+fn resize_interaction_impl<Pane>(
+    behavior: &mut dyn Behavior<Pane>,
+    ranges: &[Rangef],
+    shares: &mut [f32],
+    splitter_response: &egui::Response,
+    dx: f32,
+    i: usize,
+    notify_edit: bool,
+) -> ResizeState {
     assert_eq!(ranges.len(), shares.len(), "Bug in egui_tiles::Grid");
     let num = ranges.len();
     let tile_width = |i: usize| ranges[i].span();
@@ -415,7 +645,9 @@ fn resize_interaction<Pane>(
     let right = i + 1;
 
     if splitter_response.double_clicked() {
-        behavior.on_edit(EditAction::TileResized);
+        if notify_edit {
+            behavior.on_edit(EditAction::TileResized);
+        }
 
         // double-click to center the split between left and right:
         let mean = 0.5 * (shares[left] + shares[right]);
@@ -423,7 +655,9 @@ fn resize_interaction<Pane>(
         shares[right] = mean;
         ResizeState::Hovering
     } else if splitter_response.dragged() {
-        behavior.on_edit(EditAction::TileResized);
+        if notify_edit {
+            behavior.on_edit(EditAction::TileResized);
+        }
 
         if dx < 0.0 {
             // Expand right, shrink stuff to the left:

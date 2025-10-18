@@ -189,60 +189,65 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct MyApp {
     tree: egui_tiles::Tree<Pane>,
+    next_pane_nr: usize,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     behavior: TreeBehavior,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    continuous_render: bool,
+    #[cfg_attr(feature = "serde", serde(skip, default = "MyApp::fps_history_default"))]
+    fps_history: egui::emath::History<f32>,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
-        let mut next_view_nr = 0;
-        let mut gen_view = || {
-            let view = Pane::with_nr(next_view_nr);
-            next_view_nr += 1;
-            view
-        };
-
-        let mut tiles = egui_tiles::Tiles::default();
-
-        let mut tabs = vec![];
-        let tab_tile = {
-            let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
-            tiles.insert_tab_tile(children)
-        };
-        tabs.push(tab_tile);
-        tabs.push({
-            let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
-            tiles.insert_horizontal_tile(children)
-        });
-        tabs.push({
-            let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
-            tiles.insert_vertical_tile(children)
-        });
-        tabs.push({
-            let cells = (0..11).map(|_| tiles.insert_pane(gen_view())).collect();
-            tiles.insert_grid_tile(cells)
-        });
-        tabs.push(tiles.insert_pane(gen_view()));
-
-        let root = tiles.insert_tab_tile(tabs);
-
-        let tree = egui_tiles::Tree::new("my_tree", root, tiles);
-
+        let (tree, next_pane_nr) = create_initial_tree();
         Self {
             tree,
+            next_pane_nr,
             behavior: Default::default(),
+            continuous_render: false,
+            fps_history: Self::fps_history_default(),
         }
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let (fps_instant, now) = ctx.input(|i| {
+            let dt = i.stable_dt;
+            let fps = if dt > f32::EPSILON { 1.0 / dt } else { 0.0 };
+            (fps, i.time)
+        });
+        if fps_instant.is_finite() && now.is_finite() {
+            self.fps_history.add(now, fps_instant);
+        }
+        let fps_display = self
+            .fps_history
+            .average()
+            .filter(|v| v.is_finite())
+            .unwrap_or(fps_instant);
+
         egui::SidePanel::left("tree").show(ctx, |ui| {
             if ui.button("Reset").clicked() {
                 *self = Default::default();
             }
             self.behavior.ui(ui);
+
+            if ui.button("Add pane to root").clicked() {
+                self.add_pane_to_root();
+            }
+            ui.label(format!("FPS: {:.1}", fps_display));
+            ui.checkbox(&mut self.continuous_render, "Continuous render");
+            let mut floating = self.tree.floating;
+            if ui.checkbox(&mut floating, "Floating mode").changed() {
+                self.tree.set_floating(floating);
+            }
+            ui.label(if self.tree.floating {
+                "Floating Mode"
+            } else {
+                "Tiled Mode"
+            });
 
             ui.separator();
 
@@ -270,19 +275,17 @@ impl eframe::App for MyApp {
             }
 
             if let Some(parent) = self.behavior.add_child_to.take() {
-                let new_child = self.tree.tiles.insert_pane(Pane::with_nr(100));
-                if let Some(egui_tiles::Tile::Container(egui_tiles::Container::Tabs(tabs))) =
-                    self.tree.tiles.get_mut(parent)
-                {
-                    tabs.add_child(new_child);
-                    tabs.set_active(new_child);
-                }
+                self.add_pane_to_tabs(parent);
             }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.tree.ui(&mut self.behavior, ui);
         });
+
+        if self.continuous_render {
+            ctx.request_repaint();
+        }
     }
 
     fn save(&mut self, _storage: &mut dyn eframe::Storage) {
@@ -345,4 +348,123 @@ fn tree_ui(
 
     // Put the tile back
     tiles.insert(tile_id, tile);
+}
+
+fn create_initial_tree() -> (egui_tiles::Tree<Pane>, usize) {
+    let mut next_view_nr = 0;
+    let mut gen_view = || {
+        let view = Pane::with_nr(next_view_nr);
+        next_view_nr += 1;
+        view
+    };
+
+    let mut tiles = egui_tiles::Tiles::default();
+
+    let mut tabs = vec![];
+    let tab_tile = {
+        let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
+        tiles.insert_tab_tile(children)
+    };
+    tabs.push(tab_tile);
+    tabs.push({
+        let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
+        tiles.insert_horizontal_tile(children)
+    });
+    tabs.push({
+        let children = (0..7).map(|_| tiles.insert_pane(gen_view())).collect();
+        tiles.insert_vertical_tile(children)
+    });
+    tabs.push({
+        let cells = (0..11).map(|_| tiles.insert_pane(gen_view())).collect();
+        tiles.insert_grid_tile(cells)
+    });
+    tabs.push(tiles.insert_pane(gen_view()));
+
+    let root = tiles.insert_tab_tile(tabs);
+
+    let tree = egui_tiles::Tree::new("my_tree", root, tiles);
+    (tree, next_view_nr)
+}
+
+impl MyApp {
+    fn fps_history_default() -> egui::emath::History<f32> {
+        egui::emath::History::new(5..120, 1.5)
+    }
+
+    fn add_pane_to_tabs(&mut self, tabs_id: egui_tiles::TileId) {
+        let pane_nr = self.next_pane_nr;
+        self.next_pane_nr += 1;
+
+        let pane_id = self.tree.tiles.insert_pane(Pane::with_nr(pane_nr));
+        if let Some(egui_tiles::Tile::Container(egui_tiles::Container::Tabs(tabs))) =
+            self.tree.tiles.get_mut(tabs_id)
+        {
+            tabs.add_child(pane_id);
+            tabs.set_active(pane_id);
+        } else {
+            self.tree.tiles.remove(pane_id);
+        }
+    }
+
+    fn add_pane_to_root(&mut self) {
+        if let Some(root_id) = self.tree.root() {
+            let root_is_tabs = matches!(
+                self.tree.tiles.get(root_id),
+                Some(egui_tiles::Tile::Container(egui_tiles::Container::Tabs(_)))
+            );
+            if root_is_tabs {
+                self.add_pane_to_tabs(root_id);
+                return;
+            }
+        }
+
+        let pane_nr = self.next_pane_nr;
+        self.next_pane_nr += 1;
+        let pane_id = self.tree.tiles.insert_pane(Pane::with_nr(pane_nr));
+
+        match self.tree.root() {
+            Some(root_id) => {
+                let mut wrap_in_tabs = false;
+                let mut handled = false;
+
+                if let Some(tile) = self.tree.tiles.get_mut(root_id) {
+                    match tile {
+                        egui_tiles::Tile::Container(egui_tiles::Container::Linear(linear)) => {
+                            linear.add_child(pane_id);
+                            handled = true;
+                        }
+                        egui_tiles::Tile::Container(egui_tiles::Container::Grid(grid)) => {
+                            grid.add_child(pane_id);
+                            handled = true;
+                        }
+                        egui_tiles::Tile::Container(egui_tiles::Container::Tabs(_)) => {
+                            handled = true;
+                        }
+                        egui_tiles::Tile::Pane(_) => {
+                            wrap_in_tabs = true;
+                        }
+                    }
+                }
+
+                if wrap_in_tabs {
+                    let new_root = self.tree.tiles.insert_tab_tile(vec![root_id, pane_id]);
+
+                    if let Some(egui_tiles::Tile::Container(egui_tiles::Container::Tabs(tabs))) =
+                        self.tree.tiles.get_mut(new_root)
+                    {
+                        tabs.set_active(pane_id);
+                    }
+                    self.tree.root = Some(new_root);
+                    handled = true;
+                }
+
+                if !handled {
+                    self.tree.root = Some(pane_id);
+                }
+            }
+            None => {
+                self.tree.root = Some(pane_id);
+            }
+        }
+    }
 }
