@@ -8,12 +8,17 @@ use egui::{
 
 const TREE_ID: &str = "my_tree";
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct Pane {
     nr: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct TreeBehavior {
+    simplification_options: egui_tiles::SimplificationOptions,
+    tab_bar_height: f32,
+    gap_width: f32,
+    closable_tabs: bool,
     selected_pane: Option<usize>,
     add_child_to: Option<egui_tiles::TileId>,
 }
@@ -21,9 +26,39 @@ struct TreeBehavior {
 impl TreeBehavior {
     fn new(selected_pane: Option<usize>) -> Self {
         Self {
+            simplification_options: Default::default(),
+            tab_bar_height: 24.0,
+            gap_width: 2.0,
+            closable_tabs: true,
             selected_pane,
             add_child_to: None,
         }
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("behavior_ui_simple")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("All panes must have tabs:");
+                ui.checkbox(&mut self.simplification_options.all_panes_must_have_tabs, "");
+                ui.end_row();
+
+                ui.label("Join nested containers:");
+                ui.checkbox(&mut self.simplification_options.join_nested_linear_containers, "");
+                ui.end_row();
+
+                ui.label("Tab bar height:");
+                ui.add(egui::DragValue::new(&mut self.tab_bar_height).range(0.0..=100.0).speed(1.0));
+                ui.end_row();
+
+                ui.label("Gap width:");
+                ui.add(egui::DragValue::new(&mut self.gap_width).range(0.0..=20.0).speed(1.0));
+                ui.end_row();
+
+                ui.label("Closable tabs:");
+                ui.checkbox(&mut self.closable_tabs, "");
+                ui.end_row();
+            });
     }
 }
 
@@ -116,16 +151,56 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         if ui.small_button("+").clicked() {
             self.add_child_to = Some(tile_id);
         }
+        // rely on built-in close buttons from egui_tiles using is_tab_closable + on_tab_close
+    }
+
+    fn tab_bar_height(&self, _style: &egui::Style) -> f32 { self.tab_bar_height }
+    fn gap_width(&self, _style: &egui::Style) -> f32 { self.gap_width }
+    fn simplification_options(&self) -> egui_tiles::SimplificationOptions { self.simplification_options }
+    fn is_tab_closable(&self, _tiles: &egui_tiles::Tiles<Pane>, _tile_id: egui_tiles::TileId) -> bool { self.closable_tabs }
+
+    fn on_tab_close(&mut self, tiles: &mut egui_tiles::Tiles<Pane>, tile_id: egui_tiles::TileId) -> bool {
+        if let Some(tile) = tiles.get(tile_id) {
+            match tile {
+                egui_tiles::Tile::Pane(pane) => {
+                    let title = self.tab_title_for_pane(pane);
+                    log::debug!("Closing pane: {} - {tile_id:?}", title.text());
+                    if self.selected_pane == Some(pane.nr) {
+                        self.selected_pane = None;
+                    }
+                }
+                egui_tiles::Tile::Container(container) => {
+                    log::debug!("Closing container: {:?} - {tile_id:?}", container.kind());
+                    for child in container.children() {
+                        if let Some(egui_tiles::Tile::Pane(pane)) = tiles.get(*child) {
+                            let title = self.tab_title_for_pane(pane);
+                            log::debug!("Closing pane in container: {} - {child:?}", title.text());
+                            if self.selected_pane == Some(pane.nr) {
+                                self.selected_pane = None;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        true
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 struct SimpleApp {
     tree: egui_tiles::Tree<Pane>,
     selected_pane: Option<usize>,
     fully_maximize: bool,
     next_pane_nr: usize,
     continuous_render: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
     fps_history: History<f32>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    behavior: TreeBehavior,
+    show_sidebar: bool,
+    show_tabs: bool,
 }
 
 impl SimpleApp {
@@ -138,8 +213,15 @@ impl SimpleApp {
             next_pane_nr,
             continuous_render: false,
             fps_history: History::new(5..120, 1.5),
+            behavior: TreeBehavior::new(None),
+            show_sidebar: true,
+            show_tabs: true,
         }
     }
+}
+
+impl Default for SimpleApp {
+    fn default() -> Self { Self::new() }
 }
 
 impl eframe::App for SimpleApp {
@@ -158,57 +240,68 @@ impl eframe::App for SimpleApp {
             .filter(|v| v.is_finite())
             .unwrap_or(fps_instant);
 
+        if self.show_sidebar {
+            egui::SidePanel::left("tree_sidebar_simple").show(ctx, |ui| {
+                if ui.button("Reset").clicked() { *self = SimpleApp::new(); }
+                if ui.button("Toggle Sidebar").clicked() { self.show_sidebar = !self.show_sidebar; }
+                ui.checkbox(&mut self.show_tabs, "Show Tabs for all panes");
+                self.behavior.simplification_options.all_panes_must_have_tabs = self.show_tabs;
+                self.behavior.ui(ui);
+                if ui.button("Add pane to root").clicked() { self.add_pane_to_root(); }
+                ui.label(format!("FPS: {:.1}", fps_display));
+                ui.checkbox(&mut self.continuous_render, "Continuous render");
+                let mut floating = self.tree.floating;
+                if ui.checkbox(&mut floating, "Floating mode").changed() { self.tree.set_floating(floating); }
+                ui.label(if self.tree.floating {"Floating Mode"} else {"Tiled Mode"});
+                ui.separator();
+                ui.collapsing("Active tiles", |ui| {
+                    let active = self.tree.active_tiles();
+                    for tile_id in active { use egui_tiles::Behavior as _; let name = self.behavior.tab_title_for_tile(&self.tree.tiles, tile_id); ui.label(format!("{} - {tile_id:?}", name.text())); }
+                });
+                ui.separator();
+                if let Some(root) = self.tree.root() { tree_ui(ui, &mut self.behavior, &mut self.tree.tiles, root); }
+                if let Some(parent) = self.behavior.add_child_to.take() { self.add_pane_to_tabs(parent); }
+            });
+        } else {
+            egui::TopBottomPanel::top("top_controls_simple").show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("Show Sidebar").clicked() { self.show_sidebar = true; }
+                    ui.checkbox(&mut self.show_tabs, "Show Tabs for all panes");
+                    self.behavior.simplification_options.all_panes_must_have_tabs = self.show_tabs;
+                    if ui.button("Add Pane").clicked() { self.add_pane_to_root(); }
+                    ui.label(format!("FPS: {:.1}", fps_display));
+                    ui.checkbox(&mut self.continuous_render, "Continuous render");
+                });
+            });
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                if ui.button("Toggle Floating").clicked() {
-                    self.tree.set_floating(!self.tree.floating);
-                }
-                if ui.button("Add Pane").clicked() {
-                    self.add_pane_to_root();
-                }
-                if ui.button("Clear Tiles").clicked() {
-                    self.clear_all_tiles();
-                }
+                if ui.button("Toggle Floating").clicked() { self.tree.set_floating(!self.tree.floating); }
+                if ui.button("Add Pane").clicked() { self.add_pane_to_root(); }
+                if ui.button("Clear Tiles").clicked() { self.clear_all_tiles(); }
                 ui.label(format!("FPS: {:.1}", fps_display));
                 ui.checkbox(&mut self.continuous_render, "Continuous Render");
-                ui.label(if self.tree.floating {
-                    "Floating Mode"
-                } else {
-                    "Tiled Mode"
-                });
+                ui.label(if self.tree.floating {"Floating Mode"} else {"Tiled Mode"});
                 ui.checkbox(&mut self.fully_maximize, "Fully maximize");
-
-                let button_text = if self.tree.is_maximized() {
-                    "Restore Layout"
-                } else if self.fully_maximize {
-                    "Fully Maximize Selected"
-                } else {
-                    "Maximize Selected"
-                };
+                let button_text = if self.tree.is_maximized() {"Restore Layout"} else if self.fully_maximize {"Fully Maximize Selected"} else {"Maximize Selected"};
                 let can_toggle = self.tree.is_maximized() || self.selected_pane.is_some();
-                if ui
-                    .add_enabled(can_toggle, egui::Button::new(button_text))
-                    .clicked()
-                {
-                    self.toggle_maximize();
-                }
+                if ui.add_enabled(can_toggle, egui::Button::new(button_text)).clicked() { self.toggle_maximize(); }
             });
-
-            // Handle keyboard resize for selected pane
             self.handle_resize_keys(ui);
-
-            let mut behavior = TreeBehavior::new(self.selected_pane);
-            self.tree.ui(&mut behavior, ui);
-            let add_child_to = behavior.add_child_to.take();
-            self.selected_pane = behavior.selected_pane;
-            if let Some(tabs_id) = add_child_to {
-                self.add_pane_to_tabs(tabs_id);
-            }
+            // Use persistent behavior instance
+            self.behavior.selected_pane = self.selected_pane;
+            self.tree.ui(&mut self.behavior, ui);
+            if let Some(tabs_id) = self.behavior.add_child_to.take() { self.add_pane_to_tabs(tabs_id); }
+            self.selected_pane = self.behavior.selected_pane;
         });
 
-        if self.continuous_render {
-            ctx.request_repaint();
-        }
+        if self.continuous_render { ctx.request_repaint(); }
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        #[cfg(feature = "serde")]
+        eframe::set_value(storage, eframe::APP_KEY, &self);
     }
 }
 
@@ -607,8 +700,51 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "My egui App",
         options,
-        Box::new(|_cc| Ok(Box::new(SimpleApp::new()))),
+        Box::new(|cc| {
+            let mut app = SimpleApp::new();
+            #[cfg(feature = "serde")]
+            if let Some(storage) = cc.storage { if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) { app = state; } }
+            Ok(Box::new(app))
+        }),
     )
+}
+
+fn tree_ui(
+    ui: &mut egui::Ui,
+    behavior: &mut dyn egui_tiles::Behavior<Pane>,
+    tiles: &mut egui_tiles::Tiles<Pane>,
+    tile_id: egui_tiles::TileId,
+) {
+    let text = format!("{} - {tile_id:?}", behavior.tab_title_for_tile(tiles, tile_id).text());
+    let Some(mut tile) = tiles.remove(tile_id) else { return; };
+    let default_open = true;
+    egui::collapsing_header::CollapsingState::load_with_default_open(
+        ui.ctx(),
+        ui.id().with((tile_id, "tree_simple")),
+        default_open,
+    )
+    .show_header(ui, |ui| {
+        ui.label(text);
+        let mut visible = tiles.is_visible(tile_id);
+        ui.checkbox(&mut visible, "Visible");
+        tiles.set_visible(tile_id, visible);
+    })
+    .body(|ui| match &mut tile {
+        egui_tiles::Tile::Pane(_) => {}
+        egui_tiles::Tile::Container(container) => {
+            let mut kind = container.kind();
+            egui::ComboBox::from_label("Kind")
+                .selected_text(format!("{kind:?}"))
+                .show_ui(ui, |ui| {
+                    for alternative in egui_tiles::ContainerKind::ALL {
+                        ui.selectable_value(&mut kind, alternative, format!("{alternative:?}"));
+                    }
+                });
+            if kind != container.kind() { container.set_kind(kind); }
+            for &child in container.children() { tree_ui(ui, behavior, tiles, child); }
+        }
+    });
+    tiles.insert(tile_id, tile);
 }
 
 fn create_tree() -> (egui_tiles::Tree<Pane>, usize) {
