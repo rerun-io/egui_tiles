@@ -435,6 +435,27 @@ pub trait Behavior<Pane> {
         true
     }
 
+    /// Whether floating panes should have borders.
+    ///
+    /// Return `true` to enable borders for floating panes.
+    fn floating_pane_border_enabled(&self) -> bool {
+        false
+    }
+
+    /// The stroke used for floating pane borders.
+    ///
+    /// Only used if [`Self::floating_pane_border_enabled`] returns `true`.
+    fn floating_pane_border_stroke(&self, visuals: &Visuals) -> Stroke {
+        Stroke::new(1.0, visuals.widgets.noninteractive.bg_stroke.color)
+    }
+
+    /// The rounding used for floating pane borders.
+    ///
+    /// Only used if [`Self::floating_pane_border_enabled`] returns `true`.
+    fn floating_pane_border_rounding(&self, _visuals: &Visuals) -> f32 {
+        4.0
+    }
+
     /// Paint a hint in the corner of grid tiles that can be used for resizing.
     ///
     /// The default implementation paints diagonal lines in the bottom-right corner.

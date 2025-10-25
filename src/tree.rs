@@ -1,4 +1,4 @@
-use egui::{Id, NumExt as _, Rect, Ui, Vec2};
+use egui::{Id, NumExt as _, Pos2, Rect, Ui, Vec2};
 
 use crate::behavior::EditAction;
 use crate::{ContainerInsertion, ContainerKind, GridLayout, LinearDir, UiResponse};
@@ -893,7 +893,10 @@ impl<Pane> Tree<Pane> {
             tabs_only_dragging: true,
         };
 
-        let available_rect = ui.available_rect_before_wrap();
+        let mut available_rect = ui.available_rect_before_wrap();
+        if !available_rect.is_finite() {
+            available_rect = ui.ctx().content_rect();
+        }
         let default_size = {
             let size = available_rect.size();
             let default_width = if size.x.is_finite() && size.x > 0.0 {
@@ -942,10 +945,11 @@ impl<Pane> Tree<Pane> {
         let mut defaults_assigned = 0usize;
 
         for &tile_id in &floating_tiles {
-            let area = egui::Area::new(tile_id.egui_id(self.id));
+            let area = egui::Area::new(tile_id.egui_id(self.id)).constrain_to(available_rect);
             let (rect_opt, mut area) = if let Some(rect) = self.floating_positions.get(&tile_id) {
+                let rect = Self::clamp_rect_to_bounds(*rect, available_rect);
                 (
-                    Some(*rect),
+                    Some(rect),
                     area.current_pos(rect.min).default_size(rect.size()),
                 )
             } else {
@@ -961,7 +965,10 @@ impl<Pane> Tree<Pane> {
                     position.y = 0.0;
                 }
 
-                let rect = Rect::from_min_size(position, default_size);
+                let rect = Self::clamp_rect_to_bounds(
+                    Rect::from_min_size(position, default_size),
+                    available_rect,
+                );
                 (
                     Some(rect),
                     area.current_pos(rect.min).default_size(rect.size()),
@@ -976,14 +983,81 @@ impl<Pane> Tree<Pane> {
                     area_ui.set_min_size(rect.size());
                 }
 
-                let rect = area_ui.available_rect_before_wrap();
+                let mut rect = area_ui.available_rect_before_wrap();
+
+                // Apply inner margin equal to gap width when borders are enabled
+                if behavior.floating_pane_border_enabled() {
+                    let gap = behavior.gap_width(area_ui.style());
+                    rect = rect.shrink(gap);
+                }
+
                 self.tiles
                     .layout_tile(area_ui.style(), behavior, rect, tile_id);
 
                 self.tile_ui(behavior, &mut drop_context, area_ui, tile_id);
+
+                // Add resize handle in bottom-right corner
+                let resize_handle_size = 16.0;
+                let handle_rect = if behavior.floating_pane_border_enabled() {
+                    // Position handle relative to the full area when borders are enabled
+                    area_ui.available_rect_before_wrap()
+                } else {
+                    rect
+                };
+                let resize_handle_rect = Rect::from_min_size(
+                    handle_rect.max - Vec2::splat(resize_handle_size),
+                    Vec2::splat(resize_handle_size),
+                );
+
+                let resize_id = area_ui.id().with("resize_handle");
+                let resize_response =
+                    area_ui.interact(resize_handle_rect, resize_id, egui::Sense::drag());
+
+                // Change cursor when hovering over resize handle
+                if resize_response.hovered() {
+                    area_ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                }
+
+                // Paint corner hint for resize handle
+                behavior.paint_corner_hint(area_ui, &resize_response, resize_handle_rect);
+
+                // Draw border AFTER content to ensure it's visible
+                if behavior.floating_pane_border_enabled() {
+                    let stroke = behavior.floating_pane_border_stroke(area_ui.visuals());
+                    let rounding = behavior.floating_pane_border_rounding(area_ui.visuals());
+                    let border_rect = area_ui.available_rect_before_wrap();
+                    area_ui.painter().rect_stroke(
+                        border_rect,
+                        rounding,
+                        stroke,
+                        egui::StrokeKind::Inside,
+                    );
+                }
+
+                resize_response
             });
-            self.floating_positions
-                .insert(tile_id, response.response.rect);
+
+            // Handle resizing by updating the stored position for next frame
+            let resize_response = response.inner;
+            if resize_response.dragged() && resize_response.drag_delta() != Vec2::ZERO {
+                let delta = resize_response.drag_delta();
+                let current_rect = response.response.rect;
+                let mut new_size =
+                    (current_rect.size() + delta).max(Vec2::splat(behavior.min_size()));
+                let max_width =
+                    (available_rect.max.x - current_rect.min.x).at_least(behavior.min_size());
+                let max_height =
+                    (available_rect.max.y - current_rect.min.y).at_least(behavior.min_size());
+                new_size.x = new_size.x.min(max_width);
+                new_size.y = new_size.y.min(max_height);
+                let new_rect = Rect::from_min_size(current_rect.min, new_size);
+                let clamped = Self::clamp_rect_to_bounds(new_rect, available_rect);
+                self.floating_positions.insert(tile_id, clamped);
+            } else {
+                // Normal case: update with actual area rect
+                let clamped = Self::clamp_rect_to_bounds(response.response.rect, available_rect);
+                self.floating_positions.insert(tile_id, clamped);
+            }
         }
 
         if self.floating_reset_pending {
@@ -991,6 +1065,28 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+    }
+
+    fn clamp_rect_to_bounds(rect: Rect, bounds: Rect) -> Rect {
+        if !bounds.is_finite() {
+            return rect;
+        }
+
+        let clamp_axis = |min: f32, length: f32, bounds_min: f32, bounds_max: f32| -> (f32, f32) {
+            let bounds_len = (bounds_max - bounds_min).at_least(0.0);
+            let length = length.clamp(0.0, bounds_len);
+            let max_min = bounds_max - length;
+            if bounds_len == 0.0 {
+                (bounds_min, 0.0)
+            } else {
+                (min.clamp(bounds_min, max_min), length)
+            }
+        };
+
+        let (min_x, width) = clamp_axis(rect.min.x, rect.width(), bounds.min.x, bounds.max.x);
+        let (min_y, height) = clamp_axis(rect.min.y, rect.height(), bounds.min.y, bounds.max.y);
+
+        Rect::from_min_size(Pos2::new(min_x, min_y), Vec2::new(width, height))
     }
 
     /// Sets the exact height that can be used by the tree.
