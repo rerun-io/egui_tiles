@@ -462,20 +462,30 @@ pub trait Behavior<Pane> {
     fn paint_corner_hint(&self, ui: &egui::Ui, response: &egui::Response, rect: Rect) {
         let style_stroke = ui.style().interact(response).fg_stroke;
         let painter = ui.painter();
-        let corner = egui::Align2::RIGHT_BOTTOM;
-        let corner_pos = corner
-            .pos_in_rect(&rect)
-            .round_to_pixels(ui.pixels_per_point());
-
-        let mut w = 2.0;
+        let stroke_width = style_stroke.width.max(1.0);
         let stroke = egui::Stroke {
-            width: 1.0,
+            width: stroke_width,
             color: style_stroke.color,
         };
+        let stroke_half = stroke.width * 0.5;
+        let rect = rect.shrink(stroke_half + 0.5);
+        if !rect.is_positive() {
+            return;
+        }
+        let corner = egui::Align2::RIGHT_BOTTOM;
+        let mut corner_pos = corner
+            .pos_in_rect(&rect)
+            .round_to_pixels(ui.pixels_per_point());
+        let x_dir = corner.x().to_sign();
+        let y_dir = corner.y().to_sign();
+        corner_pos.x -= stroke_half * x_dir;
+        corner_pos.y -= stroke_half * y_dir;
 
-        while w <= rect.width() && w <= rect.height() {
-            let x_dir = corner.x().to_sign();
-            let y_dir = corner.y().to_sign();
+        let mut w = 2.0;
+
+        let max_w = rect.width().min(rect.height());
+
+        while w + stroke_half <= max_w {
             painter.line_segment(
                 [
                     egui::pos2(corner_pos.x - w * x_dir, corner_pos.y),
