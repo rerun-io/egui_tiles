@@ -227,11 +227,11 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     }
 
     fn floating_pane_border_stroke(&self, _visuals: &egui::Visuals) -> egui::Stroke {
-        Stroke::new(5.0, egui::Color32::RED)
+        Stroke::new(2.0, egui::Color32::RED)
     }
 
     fn floating_pane_border_rounding(&self, _visuals: &egui::Visuals) -> f32 {
-        0.0 // Remove rounding for now to make it more obvious
+        2.0 
     }
 }
 

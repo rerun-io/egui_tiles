@@ -985,10 +985,12 @@ impl<Pane> Tree<Pane> {
 
                 let mut rect = area_ui.available_rect_before_wrap();
 
-                // Apply inner margin equal to gap width when borders are enabled
                 if behavior.floating_pane_border_enabled() {
-                    let gap = behavior.gap_width(area_ui.style());
-                    rect = rect.shrink(gap);
+                    let border_width =
+                        behavior.floating_pane_border_stroke(area_ui.visuals()).width;
+                    if border_width > 0.0 {
+                        rect = rect.shrink(border_width * 0.5);
+                    }
                 }
 
                 self.tiles
