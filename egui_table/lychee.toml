@@ -73,4 +73,5 @@ exclude = [
   'https://crates.io/crates/.*',                       # Avoid crates.io rate-limiting
   'https://github.com/rerun-io/egui_table/commit/\.*', # Ignore links to our own commits (typically in changelog).
   'https://github.com/rerun-io/egui_table/pull/\.*',   # Ignore links to our own pull requests (typically in changelog).
+  'https://www.unicode.org/.*',                        # Avoid unicode.org rate-limiting
 ]
