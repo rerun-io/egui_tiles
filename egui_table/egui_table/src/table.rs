@@ -4,7 +4,8 @@ use std::{
 };
 
 use egui::{
-    Align, Context, Id, IdMap, NumExt as _, Rangef, Rect, Ui, UiBuilder, Vec2, Vec2b, vec2,
+    Align, Context, Id, IdMap, NumExt as _, Rangef, Rect, Response, Ui, UiBuilder, Vec2, Vec2b,
+    vec2,
 };
 use vec1::Vec1;
 
@@ -349,7 +350,7 @@ impl Table {
         .saturating_sub(1)
     }
 
-    pub fn show(mut self, ui: &mut Ui, table_delegate: &mut dyn TableDelegate) {
+    pub fn show(mut self, ui: &mut Ui, table_delegate: &mut dyn TableDelegate) -> Response {
         self.num_sticky_cols = self.num_sticky_cols.at_most(self.columns.len());
 
         let id = TableState::id(ui, self.id_salt);
@@ -414,57 +415,60 @@ impl Table {
             ui_builder = ui_builder.sizing_pass().invisible();
             ui.ctx().request_discard("Full egui_table sizing");
         }
-        ui.scope_builder(ui_builder, |ui| {
-            // Don't wrap text in the table cells.
-            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend); // TODO: I think this is default for horizontal layouts anyway?
+        let response = ui
+            .scope_builder(ui_builder, |ui| {
+                // Don't wrap text in the table cells.
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend); // TODO: I think this is default for horizontal layouts anyway?
 
-            let num_columns = self.columns.len();
+                let num_columns = self.columns.len();
 
-            for (col_nr, column) in self.columns.iter_mut().enumerate() {
-                if column.resizable {
-                    let column_resize_id = id.with(column.id_for(col_nr)).with("resize");
-                    if let Some(response) = ui.ctx().read_response(column_resize_id) {
-                        if response.double_clicked() {
-                            column.auto_size_this_frame = true;
+                for (col_nr, column) in self.columns.iter_mut().enumerate() {
+                    if column.resizable {
+                        let column_resize_id = id.with(column.id_for(col_nr)).with("resize");
+                        if let Some(response) = ui.ctx().read_response(column_resize_id) {
+                            if response.double_clicked() {
+                                column.auto_size_this_frame = true;
+                            }
                         }
                     }
+                    if column.auto_size_this_frame {
+                        ui.ctx().request_discard("egui_table column sizing");
+                    }
                 }
-                if column.auto_size_this_frame {
-                    ui.ctx().request_discard("egui_table column sizing");
-                }
-            }
 
-            SplitScroll {
-                scroll_enabled: Vec2b::new(true, true),
-                fixed_size: sticky_size,
-                scroll_outer_size: (ui.available_size() - sticky_size).at_least(Vec2::ZERO),
-                scroll_content_size: Vec2::new(
-                    self.columns[self.num_sticky_cols..]
-                        .iter()
-                        .map(|c| c.current)
-                        .sum(),
-                    self.get_row_top_offset(ui.ctx(), id, table_delegate, self.num_rows),
-                ),
-            }
-            .show(
-                ui,
-                &mut TableSplitScrollDelegate {
-                    id,
-                    table_delegate,
-                    state: &mut state,
-                    table: &mut self,
-                    col_x,
-                    header_row_y,
-                    max_column_widths: vec![0.0; num_columns],
-                    visible_column_lines: Default::default(),
-                    do_full_sizing_pass,
-                    has_prefetched: false,
-                    egui_ctx: ui.ctx().clone(),
-                },
-            );
-        });
+                SplitScroll {
+                    scroll_enabled: Vec2b::new(true, true),
+                    fixed_size: sticky_size,
+                    scroll_outer_size: (ui.available_size() - sticky_size).at_least(Vec2::ZERO),
+                    scroll_content_size: Vec2::new(
+                        self.columns[self.num_sticky_cols..]
+                            .iter()
+                            .map(|c| c.current)
+                            .sum(),
+                        self.get_row_top_offset(ui.ctx(), id, table_delegate, self.num_rows),
+                    ),
+                }
+                .show(
+                    ui,
+                    &mut TableSplitScrollDelegate {
+                        id,
+                        table_delegate,
+                        state: &mut state,
+                        table: &mut self,
+                        col_x,
+                        header_row_y,
+                        max_column_widths: vec![0.0; num_columns],
+                        visible_column_lines: Default::default(),
+                        do_full_sizing_pass,
+                        has_prefetched: false,
+                        egui_ctx: ui.ctx().clone(),
+                    },
+                );
+            })
+            .response;
 
         state.store(ui.ctx(), id);
+        response
     }
 }
 
