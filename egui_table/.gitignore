@@ -11,3 +11,8 @@ target_wasm
 
 # https://github.com/lycheeverse/lychee
 .lycheecache
+
+# kittest
+**/tests/snapshots/**/*.diff.png
+**/tests/snapshots/**/*.new.png
+**/tests/snapshots/**/*.old.png

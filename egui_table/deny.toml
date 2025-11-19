@@ -30,7 +30,9 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  "RUSTSEC-2024-0436", # unmaintained paste pulled via metal/wgpu, see https://github.com/gfx-rs/metal-rs/issues/349
+]
 
 
 [bans]

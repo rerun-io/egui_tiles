@@ -61,12 +61,6 @@ jobs:
           command: check
           args: --no-default-features --lib --all-targets
 
-      - name: Test doc-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --doc --all-features
-
       - name: cargo doc --lib
         uses: actions-rs/cargo@v1
         with:
@@ -78,18 +72,6 @@ jobs:
         with:
           command: doc
           args: --document-private-items --no-deps --all-features
-
-      - name: Build tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --no-run
-
-      - name: Run test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
 
       - name: Clippy
         uses: actions-rs/cargo@v1
@@ -134,3 +116,41 @@ jobs:
         rust-version: "1.88.0"
         log-level: warn
         command: check
+
+
+  # ---------------------------------------------------------------------------
+
+  tests:
+    name: Run tests
+    # We run the tests on macOS because it will run with an actual GPU
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+      - name: Run doc-tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --doc --all-features
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/tests/snapshots"

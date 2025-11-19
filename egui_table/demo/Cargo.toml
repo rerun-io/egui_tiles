@@ -33,3 +33,6 @@ env_logger.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures.workspace = true
 web-sys.workspace = true              # to access the DOM (to hide the loading text)
+
+[dev-dependencies]
+egui_kittest = { workspace = true, features = ["wgpu", "snapshot", "eframe"]}
