@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use egui::{Align2, Context, Id, Margin, NumExt as _, Sense, Vec2};
+use egui::{Align2, Context, Id, Margin, NumExt as _, Sense, Ui, Vec2};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct TableDemo {
@@ -161,6 +161,18 @@ impl egui_table::TableDelegate for TableDemo {
                     }
                 }
             });
+    }
+
+    // You can use row_ui to add some style or interaction to the entire row.
+    fn row_ui(&mut self, ui: &mut Ui, _row_nr: u64) {
+        if ui.rect_contains_pointer(ui.max_rect()) {
+            ui.painter()
+                .rect_filled(ui.max_rect(), 0.0, ui.visuals().code_bg_color);
+        }
+
+        if ui.response().interact(Sense::click()).clicked() {
+            // Handle row clicks
+        }
     }
 
     fn cell_ui(&mut self, ui: &mut egui::Ui, cell_info: &egui_table::CellInfo) {

@@ -192,6 +192,14 @@ pub trait TableDelegate {
     /// The [`CellInfo::row_nr`] is which header row (usually 0).
     fn header_cell_ui(&mut self, ui: &mut Ui, cell: &HeaderCellInfo);
 
+    /// The contents of a row.
+    ///
+    /// Individual cell [`Ui`]s will be children of the ui passed to this fn, so you can e.g. use
+    /// [`Ui::style_mut`] to style the whole row.
+    ///
+    /// This might be called multiple times per row (e.g. for sticky and non-sticky columns).
+    fn row_ui(&mut self, _ui: &mut Ui, _row_nr: u64) {}
+
     /// The contents of a cell in the table.
     ///
     /// The [`CellInfo::row_nr`] is ignoring header rows.
@@ -678,6 +686,19 @@ impl TableSplitScrollDelegate<'_> {
                 self.header_row_y.last() + self.get_row_top_offset(row_nr + 1),
             );
 
+            let row_x_range = self.col_x[0]..=self.col_x[self.col_x.len() - 1];
+            let row_rect = Rect::from_x_y_ranges(row_x_range, y_range).translate(-offset);
+
+            let mut row_ui = ui.new_child(
+                UiBuilder::new()
+                    .max_rect(row_rect)
+                    .id_salt(("row", row_nr))
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+            );
+            row_ui.set_min_size(row_rect.size());
+
+            self.table_delegate.row_ui(&mut row_ui, row_nr);
+
             for col_nr in col_range.clone() {
                 let column = &self.table.columns[col_nr];
                 let mut cell_rect =
@@ -696,7 +717,7 @@ impl TableSplitScrollDelegate<'_> {
                 if column.auto_size_this_frame {
                     ui_builder = ui_builder.sizing_pass();
                 }
-                let mut cell_ui = ui.new_child(ui_builder);
+                let mut cell_ui = row_ui.new_child(ui_builder);
                 cell_ui.shrink_clip_rect(clip_rect);
 
                 self.table_delegate.cell_ui(
