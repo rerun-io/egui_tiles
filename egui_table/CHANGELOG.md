@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 - 2025-11-25
+* Change return type to `Response` in `Table::show` [#36](https://github.com/rerun-io/egui_table/pull/36) by [@TihonovNV](https://github.com/TihonovNV)
+* Add `row_ui` to allow interacting with the whole row at once [#38](https://github.com/rerun-io/egui_table/pull/38) by [@lucasmerlin](https://github.com/lucasmerlin)
+
 
 ## 0.5.0 - 2025-10-10
 * Update msrv to 1.88 [#32](https://github.com/rerun-io/egui_table/pull/32) by [@lucasmerlin](https://github.com/lucasmerlin)
