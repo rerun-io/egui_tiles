@@ -125,15 +125,15 @@ impl Container {
     ///
     /// For tabs, this is just the active tab.
     /// For other containers, it is all children.
-    pub fn active_children(&self) -> impl Iterator<Item = &TileId> {
+    pub fn active_children<Pane>(&self, tiles: &Tiles<Pane>) -> impl Iterator<Item = TileId> {
         match self {
-            Self::Tabs(tabs) => {
-                itertools::Either::Left(itertools::Either::Left(tabs.active.iter()))
-            }
+            Self::Tabs(tabs) => itertools::Either::Left(itertools::Either::Left(
+                tabs.next_active(tiles).into_iter(),
+            )),
             Self::Linear(linear) => {
-                itertools::Either::Left(itertools::Either::Right(linear.children.iter()))
+                itertools::Either::Left(itertools::Either::Right(linear.children.iter().copied()))
             }
-            Self::Grid(grid) => itertools::Either::Right(grid.children()),
+            Self::Grid(grid) => itertools::Either::Right(grid.children().copied()),
         }
     }
 

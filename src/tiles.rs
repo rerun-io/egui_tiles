@@ -168,7 +168,7 @@ impl<Pane> Tiles<Pane> {
         tiles.push(tile_id);
 
         if let Some(Tile::Container(container)) = self.get(tile_id) {
-            for &child_id in container.active_children() {
+            for child_id in container.active_children(self) {
                 self.collect_active_tiles(child_id, tiles);
             }
         }
