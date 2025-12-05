@@ -170,22 +170,20 @@ impl Tabs {
         }
     }
 
+    pub fn next_active<Pane>(&self, tiles: &Tiles<Pane>) -> Option<TileId> {
+        self.active
+            .filter(|active| tiles.is_visible(*active))
+            .or_else(|| {
+                self.children
+                    .iter()
+                    .copied()
+                    .find(|&child_id| tiles.is_visible(child_id))
+            })
+    }
+
     /// Make sure we have an active tab (or no visible tabs).
     pub fn ensure_active<Pane>(&mut self, tiles: &Tiles<Pane>) {
-        if let Some(active) = self.active {
-            if !tiles.is_visible(active) {
-                self.active = None;
-            }
-        }
-
-        if !self.children.iter().any(|&child| self.is_active(child)) {
-            // Make sure something is active:
-            self.active = self
-                .children
-                .iter()
-                .copied()
-                .find(|&child_id| tiles.is_visible(child_id));
-        }
+        self.active = self.next_active(tiles);
     }
 
     pub(super) fn ui<Pane>(
