@@ -172,7 +172,7 @@ impl Tabs {
 
     pub fn next_active<Pane>(&self, tiles: &Tiles<Pane>) -> Option<TileId> {
         self.active
-            .filter(|active| tiles.is_visible(*active))
+            .filter(|active| self.children.contains(active) && tiles.is_visible(*active))
             .or_else(|| {
                 self.children
                     .iter()
