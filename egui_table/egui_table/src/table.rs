@@ -4,8 +4,8 @@ use std::{
 };
 
 use egui::{
-    Align, Context, Id, IdMap, NumExt as _, Rangef, Rect, Response, Ui, UiBuilder, Vec2, Vec2b,
-    vec2,
+    Align, Context, Id, IdMap, Layout, NumExt as _, Rangef, Rect, Response, Ui, UiBuilder, Vec2,
+    Vec2b, vec2,
 };
 use vec1::Vec1;
 
@@ -418,7 +418,7 @@ impl Table {
             self.headers.iter().map(|h| h.height).sum(),
         );
 
-        let mut ui_builder = UiBuilder::new();
+        let mut ui_builder = UiBuilder::new().layout(Layout::top_down(Align::Min));
         if do_full_sizing_pass {
             ui_builder = ui_builder.sizing_pass().invisible();
             ui.ctx().request_discard("Full egui_table sizing");

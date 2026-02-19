@@ -72,6 +72,7 @@ impl SplitScroll {
             let mut rect = ui.cursor();
             rect.max = rect.min + fixed_size + scroll_outer_size;
             ui.shrink_clip_rect(rect);
+            let rect = rect;
 
             let bottom_right_rect = Rect::from_min_max(rect.min + fixed_size, rect.max);
 
@@ -148,6 +149,7 @@ impl SplitScroll {
             }
 
             delegate.finish(ui);
+            ui.advance_cursor_after_rect(rect);
         });
     }
 }
