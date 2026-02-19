@@ -1,12 +1,18 @@
-#!/usr/bin/env python3
-# Copied from https://github.com/rerun-io/rerun_template
-
 """
 Summarizes recent PRs based on their GitHub labels.
 
 The result can be copy-pasted into CHANGELOG.md,
 though it often needs some manual editing too.
 """
+
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "requests",
+#     "GitPython",
+#     "tqdm",
+# ]
+# ///
 
 from __future__ import annotations
 
@@ -106,7 +112,7 @@ def get_commit_info(commit: Any) -> CommitInfo:
 
 def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
-        return text[len(prefix) :]
+        return text[len(prefix):]
     return text  # or whatever
 
 
