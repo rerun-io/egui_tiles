@@ -301,17 +301,23 @@ impl TableDemo {
             self.prefetched.clear();
         });
 
+        let first_scrollable_col = self.num_sticky_cols;
+        let last_col = self.num_columns.saturating_sub(1);
+        let mid_col = (first_scrollable_col + last_col) / 2;
         let mut scroll_to_column = None;
         ui.horizontal(|ui| {
             ui.label("Scroll horizontally to…");
             if ui.button("left").clicked() {
-                scroll_to_column = Some(0);
+                scroll_to_column = Some(first_scrollable_col);
             }
             if ui.button("middle").clicked() {
-                scroll_to_column = Some(self.num_columns / 2);
+                scroll_to_column = Some(mid_col);
             }
             if ui.button("right").clicked() {
-                scroll_to_column = Some(self.num_columns.saturating_sub(1));
+                scroll_to_column = Some(last_col);
+            }
+            if ui.button(format!("column {mid_col}")).clicked() {
+                scroll_to_column = Some(mid_col);
             }
         });
 
@@ -326,6 +332,10 @@ impl TableDemo {
             }
             if ui.button("bottom").clicked() {
                 scroll_to_row = Some(self.num_rows.saturating_sub(1));
+            }
+            let mid_row = self.num_rows / 2;
+            if ui.button(format!("row {mid_row}")).clicked() {
+                scroll_to_row = Some(mid_row);
             }
         });
 
