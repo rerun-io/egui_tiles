@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 - 2026-02-19
+* Fix  `scroll_to_row` not taking the header into account [#44](https://github.com/rerun-io/egui_table/pull/44) by [@abey79](https://github.com/abey79)
+* Fix table placement within containers [#43](https://github.com/rerun-io/egui_table/pull/43) by [@agalakhov](https://github.com/agalakhov)
+
 ## 0.6.0 - 2025-11-25
 * Change return type to `Response` in `Table::show` [#36](https://github.com/rerun-io/egui_table/pull/36) by [@TihonovNV](https://github.com/TihonovNV)
 * Add `row_ui` to allow interacting with the whole row at once [#38](https://github.com/rerun-io/egui_table/pull/38) by [@lucasmerlin](https://github.com/lucasmerlin)

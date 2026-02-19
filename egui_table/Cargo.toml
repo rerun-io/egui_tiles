@@ -7,7 +7,7 @@ members = ["egui_table", "demo"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.88"
-version = "0.6.0"
+version = "0.7.0"
 
 
 [profile.release]
@@ -15,7 +15,7 @@ opt-level = 2 # fast and small wasm
 
 
 [workspace.dependencies]
-egui_table = { version = "0.6.0", path = "egui_table", default-features = false }
+egui_table = { version = "0.7.0", path = "egui_table", default-features = false }
 
 eframe = { version = "0.33.0", default-features = false }
 egui = { version = "0.33.0", default-features = false }
@@ -82,7 +82,7 @@ disallowed_methods = "warn"                 # See clippy.toml
 disallowed_names = "warn"                   # See clippy.toml
 disallowed_script_idents = "warn"           # See clippy.toml
 disallowed_types = "warn"                   # See clippy.toml
-doc_include_without_cfg  = "warn"
+doc_include_without_cfg = "warn"
 doc_link_with_quotes = "warn"
 doc_markdown = "warn"
 empty_enum = "warn"
