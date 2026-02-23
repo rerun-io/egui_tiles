@@ -15,6 +15,7 @@ impl SplitScrollDemo {
             fixed_size: vec2(123.0, 37.0),
             scroll_outer_size: vec2(600.0, 400.0),
             scroll_content_size: vec2(10_000.0, 10_000.0),
+            stick_to_bottom: false,
         }
         .show(ui, &mut delegate);
     }

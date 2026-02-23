@@ -35,6 +35,9 @@ pub struct SplitScroll {
 
     /// Size of the large contents of the right bottom region, ignoring the left/top fixed regions.
     pub scroll_content_size: Vec2,
+
+    /// If true, the vertical scrollbar will stick to the bottom as the content grows.
+    pub stick_to_bottom: bool,
 }
 
 /// The contents of a [`SplitScroll`].
@@ -64,6 +67,7 @@ impl SplitScroll {
             fixed_size,
             scroll_outer_size,
             scroll_content_size,
+            stick_to_bottom,
         } = self;
 
         ui.scope(|ui| {
@@ -88,6 +92,7 @@ impl SplitScroll {
                 egui::ScrollArea::new(scroll_enabled)
                     .auto_shrink(false)
                     .scroll_bar_rect(bottom_right_rect)
+                    .stick_to_bottom(stick_to_bottom)
                     .show_viewport(&mut scroll_ui, |ui, scroll_offset| {
                         ui.set_min_size(fixed_size + scroll_content_size);
 

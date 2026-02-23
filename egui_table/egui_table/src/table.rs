@@ -118,6 +118,11 @@ pub struct Table {
 
     scroll_to_columns: Option<(RangeInclusive<usize>, Option<Align>)>,
     scroll_to_rows: Option<(RangeInclusive<u64>, Option<Align>)>,
+
+    /// If true, the vertical scrollbar will stick to the bottom as the content grows.
+    ///
+    /// Useful for log views or terminal emulation.
+    stick_to_bottom: bool,
 }
 
 impl Default for Table {
@@ -131,6 +136,7 @@ impl Default for Table {
             auto_size_mode: AutoSizeMode::default(),
             scroll_to_columns: None,
             scroll_to_rows: None,
+            stick_to_bottom: false,
         }
     }
 }
@@ -274,6 +280,18 @@ impl Table {
     #[inline]
     pub fn auto_size_mode(mut self, auto_size_mode: AutoSizeMode) -> Self {
         self.auto_size_mode = auto_size_mode;
+        self
+    }
+
+    /// The scroll handle will stick to the bottom position even while the content size
+    /// changes dynamically.
+    ///
+    /// This can be useful to simulate terminal UIs or log/info scrollers.
+    /// The scroll handle remains stuck until user manually changes position. Once "unstuck"
+    /// it will remain focused on whatever content viewport the user left it on.
+    #[inline]
+    pub fn stick_to_bottom(mut self, stick: bool) -> Self {
+        self.stick_to_bottom = stick;
         self
     }
 
@@ -455,6 +473,7 @@ impl Table {
                             .sum(),
                         self.get_row_top_offset(ui.ctx(), id, table_delegate, self.num_rows),
                     ),
+                    stick_to_bottom: self.stick_to_bottom,
                 }
                 .show(
                     ui,
