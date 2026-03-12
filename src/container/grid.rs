@@ -270,18 +270,20 @@ impl Grid {
             );
         }
 
-        self.resize_columns(&tree.tiles, behavior, ui, tile_id);
-        self.resize_rows(&tree.tiles, behavior, ui, tile_id);
+        if !tree.is_previewing() {
+            self.resize_columns(tree, behavior, ui, tile_id);
+            self.resize_rows(tree, behavior, ui, tile_id);
+        }
     }
 
     fn resize_columns<Pane>(
         &mut self,
-        tiles: &Tiles<Pane>,
+        tree: &Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
-        let parent_rect = tiles.rect_or_die(parent_id);
+        let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_col", i));
 
@@ -320,12 +322,12 @@ impl Grid {
 
     fn resize_rows<Pane>(
         &mut self,
-        tiles: &Tiles<Pane>,
+        tree: &Tree<Pane>,
         behavior: &mut dyn Behavior<Pane>,
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
-        let parent_rect = tiles.rect_or_die(parent_id);
+        let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_row", i));
 

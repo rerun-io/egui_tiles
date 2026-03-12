@@ -260,6 +260,14 @@ pub trait Behavior<Pane> {
         32.0
     }
 
+    /// Whether to show a live animated preview of the full layout during
+    /// drag-and-drop, or just a simple highlighted drop zone.
+    ///
+    /// Default: `true`.
+    fn live_drag_preview(&self) -> bool {
+        true
+    }
+
     /// Show we preview panes that are being dragged,
     /// i.e. show their ui in the region where they will end up?
     fn preview_dragged_panes(&self) -> bool {

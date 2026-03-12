@@ -254,12 +254,16 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tree.tiles.rect_or_die(parent_id);
+        if tree.is_previewing() {
+            return;
+        }
+
+        let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
 
-            let left_rect = tree.tiles.rect_or_die(left);
-            let right_rect = tree.tiles.rect_or_die(right);
+            let left_rect = tree.display_rect_or_die(left);
+            let right_rect = tree.display_rect_or_die(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
 
             let mut resize_state = ResizeState::Idle;
@@ -320,12 +324,16 @@ impl Linear {
         // ------------------------
         // resizing:
 
-        let parent_rect = tree.tiles.rect_or_die(parent_id);
+        if tree.is_previewing() {
+            return;
+        }
+
+        let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
 
-            let top_rect = tree.tiles.rect_or_die(top);
-            let bottom_rect = tree.tiles.rect_or_die(bottom);
+            let top_rect = tree.display_rect_or_die(top);
+            let bottom_rect = tree.display_rect_or_die(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
 
             let mut resize_state = ResizeState::Idle;

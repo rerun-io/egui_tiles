@@ -1,7 +1,19 @@
 use egui::{NumExt as _, Rect, Ui};
 
+/// How quickly animated rects converge (0..1, higher = faster).
+const PREVIEW_SMOOTH_DAMPING: f32 = 0.9;
+/// Smooth factor speed parameter.
+const PREVIEW_SMOOTH_SPEED: f32 = 0.05;
+/// Rects closer than this (in pixels, sum of min+max distances) are considered converged.
+const RECT_CONVERGENCE_THRESHOLD: f32 = 0.5;
+
+/// Returns true if `a` and `b` are close enough to be considered the same rect.
+fn rects_close_enough(a: Rect, b: Rect) -> bool {
+    a.min.distance(b.min) + a.max.distance(b.max) < RECT_CONVERGENCE_THRESHOLD
+}
+
 use crate::behavior::EditAction;
-use crate::{ContainerInsertion, ContainerKind, UiResponse};
+use crate::{ContainerInsertion, ContainerKind, MoveJournal, UiResponse};
 
 use super::{
     Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
@@ -26,7 +38,7 @@ use super::{
 ///
 /// let tree = Tree::new("my_tree", root, tiles);
 /// ```
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Tree<Pane> {
     /// The constant, globally unique id of this tree.
@@ -53,6 +65,28 @@ pub struct Tree<Pane> {
         serde(deserialize_with = "deserialize_f32_null_as_infinity")
     )]
     width: f32,
+
+    /// The best insertion point from the previous frame's drop context.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    preview_insertion: Option<InsertionPoint>,
+
+    /// Rects for every tile as they would be after the pending move.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    preview_rects: ahash::HashMap<TileId, Rect>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    preview_lerp_t: f32,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    smoothed_preview_rects: ahash::HashMap<TileId, Rect>,
+
+    /// During preview, the tab children each Tabs container would have after the move.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    preview_tab_children: ahash::HashMap<TileId, Vec<TileId>>,
+
+    /// During preview, which tab should appear active in each Tabs container.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    preview_active_tabs: ahash::HashMap<TileId, Option<TileId>>,
 }
 
 // Workaround for JSON which doesn't support infinity, because JSON is stupid.
@@ -74,6 +108,17 @@ fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
 ) -> Result<f32, D::Error> {
     use serde::Deserialize as _;
     Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
+}
+
+impl<Pane: PartialEq> PartialEq for Tree<Pane> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.root == other.root
+            && self.tiles == other.tiles
+            && self.height == other.height
+            && self.width == other.width
+        // preview is transient, excluded
+    }
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -116,6 +161,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             tiles,
             width,
             height,
+            ..
         } = self;
 
         if let Some(root) = root {
@@ -145,6 +191,12 @@ impl<Pane> Tree<Pane> {
             tiles: Default::default(),
             width: f32::INFINITY,
             height: f32::INFINITY,
+            preview_insertion: None,
+            preview_rects: Default::default(),
+            preview_lerp_t: 0.0,
+            smoothed_preview_rects: Default::default(),
+            preview_tab_children: Default::default(),
+            preview_active_tabs: Default::default(),
         }
     }
 
@@ -160,6 +212,12 @@ impl<Pane> Tree<Pane> {
             tiles,
             width: f32::INFINITY,
             height: f32::INFINITY,
+            preview_insertion: None,
+            preview_rects: Default::default(),
+            preview_lerp_t: 0.0,
+            smoothed_preview_rects: Default::default(),
+            preview_tab_children: Default::default(),
+            preview_active_tabs: Default::default(),
         }
     }
 
@@ -312,14 +370,24 @@ impl<Pane> Tree<Pane> {
         self.tiles.rects.clear();
 
         // Check if anything is being dragged:
+        let dragged_id = self.dragged_id(ui.ctx());
         let mut drop_context = DropContext {
             enabled: true,
-            dragged_tile_id: self.dragged_id(ui.ctx()),
+            dragged_tile_id: dragged_id,
             mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
             preview_rect: None,
         };
+
+        if dragged_id.is_none() {
+            // smoothed_preview_rects is kept so
+            // update_preview_lerp animates tiles back on cancel.
+            self.preview_insertion = None;
+            self.preview_rects.clear();
+            self.preview_tab_children.clear();
+            self.preview_active_tabs.clear();
+        }
 
         let mut rect = ui.available_rect_before_wrap();
         if self.height.is_finite() {
@@ -328,9 +396,18 @@ impl<Pane> Tree<Pane> {
         if self.width.is_finite() {
             rect.set_width(self.width);
         }
+
+        if behavior.live_drag_preview() {
+            self.compute_preview_rects(dragged_id, behavior, ui.style(), rect);
+        }
+
         if let Some(root) = self.root {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
+        }
 
+        self.update_preview_lerp(ui.ctx());
+
+        if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
@@ -374,7 +451,7 @@ impl<Pane> Tree<Pane> {
         }
         // NOTE: important that we get the rect and tile in two steps,
         // otherwise we could loose the tile when there is no rect.
-        let Some(rect) = self.tiles.rect(tile_id) else {
+        let Some(rect) = self.display_rect(tile_id) else {
             log::debug!("Failed to find rect for tile {tile_id:?} during ui");
             return;
         };
@@ -388,7 +465,9 @@ impl<Pane> Tree<Pane> {
             // Can't drag a tile onto self or any children
             drop_context.enabled = false;
         }
-        drop_context.on_tile(behavior, ui.style(), tile_id, rect, &tile);
+        // Use actual (non-animated) rect for drop zones to prevent a feedback loop
+        let drop_rect = self.tiles.rect(tile_id).unwrap_or(rect);
+        drop_context.on_tile(behavior, ui.style(), tile_id, drop_rect, &tile);
 
         // Each tile gets its own `Ui`, nested inside each other, with proper clip rectangles.
         let enabled = ui.is_enabled();
@@ -400,23 +479,30 @@ impl<Pane> Tree<Pane> {
                 .max_rect(rect),
         );
 
-        ui.add_enabled_ui(enabled, |ui| {
-            match &mut tile {
-                Tile::Pane(pane) => {
-                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
-                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
-                    }
-                }
-                Tile::Container(container) => {
-                    container.ui(self, behavior, drop_context, ui, rect, tile_id);
-                }
-            };
+        let is_being_dragged_tile = Some(tile_id) == drop_context.dragged_tile_id;
 
-            behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
-
+        if is_being_dragged_tile && self.is_previewing() {
             self.tiles.insert(tile_id, tile);
             drop_context.enabled = drop_context_was_enabled;
-        });
+        } else {
+            ui.add_enabled_ui(enabled, |ui| {
+                match &mut tile {
+                    Tile::Pane(pane) => {
+                        if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                            ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                        }
+                    }
+                    Tile::Container(container) => {
+                        container.ui(self, behavior, drop_context, ui, rect, tile_id);
+                    }
+                };
+
+                behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
+
+                self.tiles.insert(tile_id, tile);
+                drop_context.enabled = drop_context_was_enabled;
+            });
+        }
     }
 
     /// Recursively "activate" the ancestors of the tiles that matches the given predicate.
@@ -447,6 +533,9 @@ impl<Pane> Tree<Pane> {
             return;
         };
 
+        // Store for next frame's speculative layout.
+        self.preview_insertion = drop_context.best_insertion;
+
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
         // Preview what is being dragged:
@@ -458,27 +547,35 @@ impl<Pane> Tree<Pane> {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
-        if let Some(preview_rect) = drop_context.preview_rect {
-            let preview_rect = smooth_preview_rect(ui.ctx(), dragged_tile_id, preview_rect);
+        // Use the dragged tile's smoothed rect so the
+        // highlight matches the animated layout
+        let preview_rect = self
+            .smoothed_preview_rects
+            .get(&dragged_tile_id)
+            .copied()
+            .or_else(|| {
+                drop_context
+                    .preview_rect
+                    .map(|r| smooth_preview_rect(ui.ctx(), dragged_tile_id, r))
+            });
 
+        if let Some(preview_rect) = preview_rect {
             let parent_rect = drop_context
                 .best_insertion
-                .and_then(|insertion_point| self.tiles.rect(insertion_point.parent_id));
+                .and_then(|insertion_point| self.display_rect(insertion_point.parent_id));
 
             behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
 
-            if behavior.preview_dragged_panes() {
-                // TODO(emilk): add support for previewing containers too.
-                if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
-                    if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
-                        // Intentionally ignore the response, since the user cannot possibly
-                        // begin a drag on the preview pane.
-                        let _ignored: UiResponse = behavior.pane_ui(
-                            &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
-                            dragged_tile_id,
-                            pane,
-                        );
-                    }
+            if behavior.preview_dragged_panes()
+                && preview_rect.width() > 32.0
+                && preview_rect.height() > 32.0
+            {
+                if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
+                    let _ignored: UiResponse = behavior.pane_ui(
+                        &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
+                        dragged_tile_id,
+                        pane,
+                    );
                 }
             }
         }
@@ -486,9 +583,10 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             if let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit(EditAction::TileDropped);
-                self.move_tile(dragged_tile_id, insertion_point, false);
+                let _journal = self.move_tile(dragged_tile_id, insertion_point, false);
             }
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
+            self.clear_preview_state();
         }
     }
 
@@ -566,7 +664,7 @@ impl<Pane> Tree<Pane> {
                 ContainerKind::Grid => ContainerInsertion::Grid(insertion_index),
             };
 
-            self.move_tile(
+            let _journal = self.move_tile(
                 moved_tile_id,
                 InsertionPoint {
                     parent_id: destination_container,
@@ -589,7 +687,9 @@ impl<Pane> Tree<Pane> {
         moved_tile_id: TileId,
         insertion_point: InsertionPoint,
         reflow_grid: bool,
-    ) {
+    ) -> MoveJournal {
+        let mut journal = MoveJournal::new();
+
         log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
@@ -598,7 +698,6 @@ impl<Pane> Tree<Pane> {
         if let Some((prev_parent_id, source_index)) = self.remove_tile_id_from_parent(moved_tile_id)
         {
             // Check to see if we are moving a tile within the same container:
-
             if prev_parent_id == insertion_point.parent_id {
                 let parent_tile = self.tiles.get_mut(prev_parent_id);
 
@@ -608,8 +707,8 @@ impl<Pane> Tree<Pane> {
                         log::trace!(
                             "Moving within the same parent: {source_index} -> {dest_index}"
                         );
-                        // lets swap the two indices
 
+                        // lets swap the two indices
                         let adjusted_index = if source_index < dest_index {
                             // We removed an earlier element, so we need to adjust the index:
                             dest_index - 1
@@ -629,7 +728,11 @@ impl<Pane> Tree<Pane> {
                             }
                             Container::Grid(grid) => {
                                 if reflow_grid {
-                                    self.tiles.insert_at(insertion_point, moved_tile_id);
+                                    self.tiles.insert_at(
+                                        insertion_point,
+                                        moved_tile_id,
+                                        &mut journal,
+                                    );
                                 } else {
                                     let dest_tile = grid.replace_at(dest_index, moved_tile_id);
                                     if let Some(dest) = dest_tile {
@@ -638,14 +741,17 @@ impl<Pane> Tree<Pane> {
                                 };
                             }
                         }
-                        return; // done
+                        return journal; // done
                     }
                 }
             }
         }
 
         // Moving to a new parent
-        self.tiles.insert_at(insertion_point, moved_tile_id);
+        self.tiles
+            .insert_at(insertion_point, moved_tile_id, &mut journal);
+
+        journal
     }
 
     /// Find the currently dragged tile, if any.
@@ -684,8 +790,10 @@ impl<Pane> Tree<Pane> {
 
         for (parent_id, parent) in self.tiles.iter_mut() {
             if let Tile::Container(container) = parent {
-                if let Some(child_index) = container.remove_child(remove_me) {
-                    result = Some((*parent_id, child_index));
+                if container.has_child(remove_me) {
+                    if let Some(child_index) = container.remove_child(remove_me) {
+                        result = Some((*parent_id, child_index));
+                    }
                 }
             }
         }
@@ -704,6 +812,239 @@ impl<Pane> Tree<Pane> {
         }
 
         result
+    }
+
+    /// Exponentially smooth each tile's displayed rect toward its target.
+    fn update_preview_lerp(&mut self, ctx: &egui::Context) {
+        if self.preview_rects.is_empty() && self.smoothed_preview_rects.is_empty() {
+            self.preview_lerp_t = 0.0;
+            return;
+        }
+
+        let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
+        let t = egui::emath::exponential_smooth_factor(
+            PREVIEW_SMOOTH_DAMPING,
+            PREVIEW_SMOOTH_SPEED,
+            dt,
+        );
+
+        // Start tracking tiles that appear in preview_rects but aren't smoothed yet.
+        let new_tiles: Vec<(TileId, Rect)> = self
+            .preview_rects
+            .keys()
+            .filter(|id| !self.smoothed_preview_rects.contains_key(id))
+            .filter_map(|&id| self.tiles.rect(id).map(|r| (id, r)))
+            .collect();
+        for (tile_id, start) in new_tiles {
+            self.smoothed_preview_rects.insert(tile_id, start);
+        }
+
+        // Smooth each tracked tile toward its target.
+        let mut any_animating = false;
+        #[allow(clippy::iter_over_hash_type)] // Order doesn't matter; each tile is independent.
+        for (&tile_id, smoothed) in &mut self.smoothed_preview_rects {
+            let target = self
+                .preview_rects
+                .get(&tile_id)
+                .copied()
+                .or_else(|| self.tiles.rect(tile_id));
+            let Some(target) = target else { continue };
+
+            *smoothed = smoothed.lerp_towards(&target, t);
+
+            if rects_close_enough(*smoothed, target) {
+                *smoothed = target;
+            } else {
+                any_animating = true;
+            }
+        }
+
+        // Remove entries that have converged to their actual rect and have no preview target.
+        self.smoothed_preview_rects.retain(|tile_id, smoothed| {
+            if self.preview_rects.contains_key(tile_id) {
+                return true;
+            }
+            let Some(actual) = self.tiles.rect(*tile_id) else {
+                return false;
+            };
+            !rects_close_enough(*smoothed, actual)
+        });
+
+        if self.smoothed_preview_rects.is_empty() {
+            self.preview_lerp_t = 0.0;
+        } else if any_animating {
+            self.preview_lerp_t = 0.5; // non-zero to gate resize handles
+            ctx.request_repaint();
+        } else {
+            self.preview_lerp_t = 1.0;
+        }
+    }
+
+    /// Speculatively apply the pending move, run simplification and layout,
+    /// capture the resulting rects as preview targets, then fully restore the tree.
+    fn compute_preview_rects(
+        &mut self,
+        dragged_id: Option<TileId>,
+        behavior: &mut dyn Behavior<Pane>,
+        style: &egui::Style,
+        rect: Rect,
+    ) {
+        let (Some(dragged_id), Some(insertion)) = (dragged_id, self.preview_insertion) else {
+            self.preview_rects.clear();
+            return;
+        };
+
+        self.preview_rects.clear();
+
+        // Save full state for restoration after speculative pass.
+        // NOTE: must restore all state mutated by move_tile/simplify/layout_tile.
+        let saved_root = self.root;
+        let saved_next_tile_id = self.tiles.next_tile_id();
+        let original_tile_ids: ahash::HashSet<TileId> = self.tiles.tile_ids().collect();
+        let saved_containers: Vec<(TileId, Container)> = self
+            .tiles
+            .iter()
+            .filter_map(|(&id, tile)| match tile {
+                Tile::Container(c) => Some((id, c.clone())),
+                Tile::Pane(_) => None,
+            })
+            .collect();
+
+        let journal = self.move_tile(dragged_id, insertion, false);
+        self.simplify(&behavior.simplification_options());
+
+        if let Some(root) = self.root {
+            self.tiles.layout_tile(style, behavior, rect, root);
+        }
+        self.preview_rects = self.tiles.rects.clone();
+
+        // Remap displaced tile rects to their original IDs.
+        for &(original_id, displaced_to_id) in journal.displaced_tiles() {
+            if let Some(rect) = self.preview_rects.remove(&displaced_to_id) {
+                self.preview_rects.insert(original_id, rect);
+            }
+        }
+        self.preview_rects
+            .retain(|id, _| original_tile_ids.contains(id));
+
+        // Snapshot tabs from the speculative state
+        self.preview_tab_children.clear();
+        self.preview_active_tabs.clear();
+        let displaced_map: ahash::HashMap<TileId, TileId> = journal
+            .displaced_tiles()
+            .iter()
+            .map(|&(orig, disp)| (disp, orig))
+            .collect();
+
+        #[allow(clippy::iter_over_hash_type)]
+        for (&tile_id, tile) in self.tiles.iter() {
+            if let Tile::Container(Container::Tabs(tabs)) = tile {
+                let real_id = displaced_map.get(&tile_id).copied().unwrap_or(tile_id);
+                let children: Vec<TileId> = tabs
+                    .children
+                    .iter()
+                    .map(|&c| displaced_map.get(&c).copied().unwrap_or(c))
+                    .collect();
+                let active = tabs
+                    .active
+                    .map(|a| displaced_map.get(&a).copied().unwrap_or(a));
+                if original_tile_ids.contains(&real_id) {
+                    self.preview_tab_children.insert(real_id, children);
+                    self.preview_active_tabs.insert(real_id, active);
+                }
+            }
+        }
+
+        // Ensure containers that were simplified away in
+        // the speculative state still get entries.
+        for (id, container) in &saved_containers {
+            if let Container::Tabs(tabs) = container {
+                if !self.preview_tab_children.contains_key(id) {
+                    let children: Vec<TileId> = tabs
+                        .children
+                        .iter()
+                        .copied()
+                        .filter(|&c| c != dragged_id)
+                        .collect();
+                    self.preview_tab_children.insert(*id, children.clone());
+                    // Pick the first remaining child as active, or keep original
+                    let active = tabs
+                        .active
+                        .filter(|a| children.contains(a))
+                        .or_else(|| children.first().copied());
+                    self.preview_active_tabs.insert(*id, active);
+                }
+            }
+        }
+
+        // Full restore
+        self.root = saved_root;
+        self.tiles.set_next_tile_id(saved_next_tile_id);
+
+        for &(original_id, displaced_to_id) in journal.displaced_tiles() {
+            if let Some(tile) = self.tiles.remove(displaced_to_id) {
+                self.tiles.insert(original_id, tile);
+            }
+        }
+
+        for tile_id in self.tiles.tile_ids().collect::<Vec<_>>() {
+            if !original_tile_ids.contains(&tile_id) {
+                self.tiles.remove(tile_id);
+            }
+        }
+
+        for (id, container) in saved_containers {
+            self.tiles.insert(id, Tile::Container(container));
+        }
+
+        self.tiles.rects.clear();
+    }
+
+    fn clear_preview_state(&mut self) {
+        self.preview_insertion = None;
+        self.preview_rects.clear();
+        self.smoothed_preview_rects.clear();
+        self.preview_lerp_t = 0.0;
+        self.preview_tab_children.clear();
+        self.preview_active_tabs.clear();
+    }
+
+    pub(crate) fn display_rect(&self, tile_id: TileId) -> Option<Rect> {
+        let actual = self.tiles.rect(tile_id)?;
+        // Use the smoothed rect if this tile is being animated
+        Some(
+            self.smoothed_preview_rects
+                .get(&tile_id)
+                .copied()
+                .unwrap_or(actual),
+        )
+    }
+
+    pub(crate) fn display_rect_or_die(&self, tile_id: TileId) -> Rect {
+        self.display_rect(tile_id)
+            .unwrap_or(Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::ZERO))
+    }
+
+    /// Whether tiles are currently being animated for a drag preview.
+    pub(crate) fn is_previewing(&self) -> bool {
+        self.preview_lerp_t != 0.0
+    }
+
+    /// Get the preview tab children for a container, if any.
+    pub(crate) fn preview_tab_children(&self, tile_id: TileId) -> Option<&Vec<TileId>> {
+        self.preview_tab_children.get(&tile_id)
+    }
+
+    /// Check if a child is the preview-active tab in a container.
+    /// Returns `None` if there is no preview for this container.
+    pub(crate) fn is_preview_active_tab(
+        &self,
+        container_id: TileId,
+        child_id: TileId,
+    ) -> Option<bool> {
+        self.preview_active_tabs
+            .get(&container_id)
+            .map(|active| *active == Some(child_id))
     }
 }
 
@@ -731,12 +1072,15 @@ fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: R
     let smoothed = ctx.data_mut(|data| {
         let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
 
-        let t = egui::emath::exponential_smooth_factor(0.9, 0.05, dt);
+        let t = egui::emath::exponential_smooth_factor(
+            PREVIEW_SMOOTH_DAMPING,
+            PREVIEW_SMOOTH_SPEED,
+            dt,
+        );
 
         *smoothed = smoothed.lerp_towards(&new_rect, t);
 
-        let diff = smoothed.min.distance(new_rect.min) + smoothed.max.distance(new_rect.max);
-        if diff < 0.5 {
+        if rects_close_enough(*smoothed, new_rect) {
             *smoothed = new_rect;
         } else {
             requires_repaint = true;
