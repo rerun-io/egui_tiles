@@ -405,7 +405,7 @@ impl<Pane> Tree<Pane> {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
         }
 
-        self.update_preview_lerp(ui.ctx());
+        self.update_preview_lerp(ui.ctx(), dragged_id);
 
         if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
@@ -815,7 +815,7 @@ impl<Pane> Tree<Pane> {
     }
 
     /// Exponentially smooth each tile's displayed rect toward its target.
-    fn update_preview_lerp(&mut self, ctx: &egui::Context) {
+    fn update_preview_lerp(&mut self, ctx: &egui::Context, dragged_id: Option<TileId>) {
         if self.preview_rects.is_empty() && self.smoothed_preview_rects.is_empty() {
             self.preview_lerp_t = 0.0;
             return;
@@ -833,7 +833,14 @@ impl<Pane> Tree<Pane> {
             .preview_rects
             .keys()
             .filter(|id| !self.smoothed_preview_rects.contains_key(id))
-            .filter_map(|&id| self.tiles.rect(id).map(|r| (id, r)))
+            .filter_map(|&id| {
+                let start = if Some(id) == dragged_id {
+                    self.preview_rects.get(&id).copied()
+                } else {
+                    self.tiles.rect(id)
+                };
+                start.map(|r| (id, r))
+            })
             .collect();
         for (tile_id, start) in new_tiles {
             self.smoothed_preview_rects.insert(tile_id, start);
@@ -916,6 +923,14 @@ impl<Pane> Tree<Pane> {
         if let Some(root) = self.root {
             self.tiles.layout_tile(style, behavior, rect, root);
         }
+
+        // Grids defers hole collapse to the end of each pass. Run a
+        // second pass of simplify + layout to reach the true state.
+        self.simplify(&behavior.simplification_options());
+        if let Some(root) = self.root {
+            self.tiles.layout_tile(style, behavior, rect, root);
+        }
+
         self.preview_rects = self.tiles.rects.clone();
 
         // Remap displaced tile rects to their original IDs.
