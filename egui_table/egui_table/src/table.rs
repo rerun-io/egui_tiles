@@ -855,6 +855,8 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
                 .entry(column_id)
                 .or_insert(column.current);
 
+            let layout_width = *column_width; // Width used when computing col_x
+
             if ui.is_sizing_pass() || column.auto_size_this_frame {
                 // Shrink to fit the widest element in the column:
                 *column_width = used_width;
@@ -865,7 +867,8 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
 
             let column_resize_id = self.id.with(column.id_for(col_nr)).with("resize");
 
-            let mut x = self.col_x[col_nr + 1] - scroll_offset.x; // Right side of the column
+            // Right side of the column, adjusted for any width change since layout:
+            let mut x = self.col_x[col_nr + 1] - scroll_offset.x + (*column_width - layout_width);
             let yrange = Rangef::new(*top, ui.clip_rect().bottom());
             let line_rect = egui::Rect::from_x_y_ranges(x..=x, yrange)
                 .expand(ui.style().interaction.resize_grab_radius_side);
@@ -876,25 +879,13 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
             if resize_response.dragged()
                 && let Some(pointer) = ui.ctx().pointer_latest_pos()
             {
-                let desired_new_width = *column_width + pointer.x - x;
-                let desired_new_width = column.range.clamp(desired_new_width);
-
-                // We don't want to shrink below the size that was actually used.
-                // However, we still want to allow content that shrinks when you try
-                // to make the column less wide, so we allow some small shrinkage each frame:
-                // big enough to allow shrinking over time, small enough not to look ugly when
-                // shrinking fails. This is a bit of a HACK around immediate mode.
-                // TODO: do something smarter by remembering success/failure to resize from one frame to the next.
-                // Probably best solved by implementing `ui.intrinsic_size`.
-                let max_shrinkage_per_frame = 8.0;
-                let new_width = desired_new_width.at_least(used_width - max_shrinkage_per_frame);
+                // Drag-to-resize.
+                // TODO: use `ui.intrinsic_size` (once it exist) to prevent
+                // resizing below what the content can fit within.
+                let new_width = *column_width + pointer.x - x;
                 let new_width = column.range.clamp(new_width);
                 x += new_width - *column_width;
                 *column_width = new_width;
-
-                if new_width != desired_new_width {
-                    ui.ctx().request_repaint(); // Get there faster
-                }
             }
 
             let dragging_something_else =

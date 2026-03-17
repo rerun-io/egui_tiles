@@ -76,7 +76,7 @@ impl TableDemo {
                             // During a sizing pass we don't truncate!
                             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                         }
-                        ui.label("Extra long cell!");
+                        ui.label("Extra long cell that will be truncated with an ellipsis character because it is so long");
                     }
                 });
 
