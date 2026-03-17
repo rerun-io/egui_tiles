@@ -501,7 +501,7 @@ impl Table {
 
 #[derive(Clone, Copy, Debug)]
 struct ColumnResizer {
-    offset: Vec2,
+    scroll_offset: Vec2,
 
     top: f32,
 }
@@ -555,7 +555,7 @@ impl TableSplitScrollDelegate<'_> {
             .get_row_nr_at_y_offset(&self.egui_ctx, self.id, self.table_delegate, y_offset)
     }
 
-    fn header_ui(&mut self, ui: &mut Ui, offset: Vec2) {
+    fn header_ui(&mut self, ui: &mut Ui, scroll_offset: Vec2) {
         for (row_nr, header_row) in self.table.headers.iter().enumerate() {
             let groups = if header_row.groups.is_empty() {
                 (0..self.table.columns.len()).map(|i| i..i + 1).collect()
@@ -571,7 +571,7 @@ impl TableSplitScrollDelegate<'_> {
 
                 let mut header_rect =
                     Rect::from_x_y_ranges(self.col_x[start]..=self.col_x[end], y_range)
-                        .translate(-offset);
+                        .translate(-scroll_offset);
 
                 if 0 < start
                     && self.table.columns[start - 1].resizable
@@ -582,7 +582,7 @@ impl TableSplitScrollDelegate<'_> {
                         &mut self.visible_column_lines,
                         start - 1,
                         ColumnResizer {
-                            offset,
+                            scroll_offset,
                             top: header_rect.top(),
                         },
                     );
@@ -635,7 +635,7 @@ impl TableSplitScrollDelegate<'_> {
                             &mut self.visible_column_lines,
                             col_nr,
                             ColumnResizer {
-                                offset,
+                                scroll_offset,
                                 top: header_rect.top(),
                             },
                         );
@@ -645,9 +645,9 @@ impl TableSplitScrollDelegate<'_> {
         }
     }
 
-    fn region_ui(&mut self, ui: &mut Ui, offset: Vec2, do_prefetch: bool) {
+    fn region_ui(&mut self, ui: &mut Ui, scroll_offset: Vec2, do_prefetch: bool) {
         // Used to find the visible range of columns and rows:
-        let viewport = ui.clip_rect().translate(offset);
+        let viewport = ui.clip_rect().translate(scroll_offset);
 
         let col_range = if self.table.columns.is_empty() || viewport.left() == viewport.right() {
             0..0
@@ -706,7 +706,7 @@ impl TableSplitScrollDelegate<'_> {
             );
 
             let row_x_range = self.col_x[0]..=self.col_x[self.col_x.len() - 1];
-            let row_rect = Rect::from_x_y_ranges(row_x_range, y_range).translate(-offset);
+            let row_rect = Rect::from_x_y_ranges(row_x_range, y_range).translate(-scroll_offset);
 
             let mut row_ui = ui.new_child(
                 UiBuilder::new()
@@ -722,7 +722,7 @@ impl TableSplitScrollDelegate<'_> {
                 let column = &self.table.columns[col_nr];
                 let mut cell_rect =
                     Rect::from_x_y_ranges(self.col_x[col_nr]..=self.col_x[col_nr + 1], y_range)
-                        .translate(-offset);
+                        .translate(-scroll_offset);
                 let clip_rect = cell_rect;
                 if column.auto_size_this_frame {
                     // Note: we shrink the cell rect when auto-sizing, but not the clip rect! This is to avoid flicker.
@@ -761,7 +761,7 @@ impl TableSplitScrollDelegate<'_> {
                     &mut self.visible_column_lines,
                     col_nr,
                     ColumnResizer {
-                        offset,
+                        scroll_offset,
                         top: *self.header_row_y.last(),
                     },
                 );
@@ -813,7 +813,8 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
             ui.scroll_to_rect(target_rect, target_align);
         }
 
-        self.region_ui(ui, ui.clip_rect().min - ui.min_rect().min, true);
+        let scroll_offset = ui.clip_rect().min - ui.min_rect().min;
+        self.region_ui(ui, scroll_offset, true);
     }
 
     fn left_top_ui(&mut self, ui: &mut Ui) {
@@ -821,7 +822,8 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
     }
 
     fn right_top_ui(&mut self, ui: &mut Ui) {
-        self.header_ui(ui, vec2(ui.clip_rect().min.x - ui.min_rect().min.x, 0.0));
+        let scroll_offset = vec2(ui.clip_rect().min.x - ui.min_rect().min.x, 0.0);
+        self.header_ui(ui, scroll_offset);
     }
 
     fn left_bottom_ui(&mut self, ui: &mut Ui) {
@@ -835,7 +837,7 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
     fn finish(&mut self, ui: &mut Ui) {
         // Paint column resize lines
 
-        for (col_nr, ColumnResizer { offset, top }) in &self.visible_column_lines {
+        for (col_nr, ColumnResizer { scroll_offset, top }) in &self.visible_column_lines {
             let col_nr = *col_nr;
             let Some(column) = self.table.columns.get(col_nr) else {
                 continue;
@@ -863,7 +865,7 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
 
             let column_resize_id = self.id.with(column.id_for(col_nr)).with("resize");
 
-            let mut x = self.col_x[col_nr + 1] - offset.x; // Right side of the column
+            let mut x = self.col_x[col_nr + 1] - scroll_offset.x; // Right side of the column
             let yrange = Rangef::new(*top, ui.clip_rect().bottom());
             let line_rect = egui::Rect::from_x_y_ranges(x..=x, yrange)
                 .expand(ui.style().interaction.resize_grab_radius_side);
@@ -883,6 +885,7 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
                 // big enough to allow shrinking over time, small enough not to look ugly when
                 // shrinking fails. This is a bit of a HACK around immediate mode.
                 // TODO: do something smarter by remembering success/failure to resize from one frame to the next.
+                // Probably best solved by implementing `ui.intrinsic_size`.
                 let max_shrinkage_per_frame = 8.0;
                 let new_width = desired_new_width.at_least(used_width - max_shrinkage_per_frame);
                 let new_width = column.range.clamp(new_width);
