@@ -5,7 +5,7 @@ on:
     types: [opened, reopened, synchronize]
 
 permissions:
-  pull-requests: write
+  issues: write
 
 jobs:
   check-source-branch:
