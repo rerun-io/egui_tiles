@@ -351,7 +351,7 @@ impl Table {
     /// The top y coordinate offset of a specific row nr.
     ///
     /// `get_row_top_offset(0)` should always return 0.0.
-    #[allow(clippy::unused_self)] // for uniformity
+    #[expect(clippy::unused_self)] // for uniformity
     fn get_row_top_offset(
         &self,
         ctx: &Context,
@@ -451,10 +451,10 @@ impl Table {
                 for (col_nr, column) in self.columns.iter_mut().enumerate() {
                     if column.resizable {
                         let column_resize_id = id.with(column.id_for(col_nr)).with("resize");
-                        if let Some(response) = ui.ctx().read_response(column_resize_id) {
-                            if response.double_clicked() {
-                                column.auto_size_this_frame = true;
-                            }
+                        if let Some(response) = ui.ctx().read_response(column_resize_id)
+                            && response.double_clicked()
+                        {
+                            column.auto_size_this_frame = true;
                         }
                     }
                     if column.auto_size_this_frame {
@@ -871,27 +871,26 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
             let resize_response =
                 ui.interact(line_rect, column_resize_id, egui::Sense::click_and_drag());
 
-            if resize_response.dragged() {
-                if let Some(pointer) = ui.ctx().pointer_latest_pos() {
-                    let desired_new_width = *column_width + pointer.x - x;
-                    let desired_new_width = column.range.clamp(desired_new_width);
+            if resize_response.dragged()
+                && let Some(pointer) = ui.ctx().pointer_latest_pos()
+            {
+                let desired_new_width = *column_width + pointer.x - x;
+                let desired_new_width = column.range.clamp(desired_new_width);
 
-                    // We don't want to shrink below the size that was actually used.
-                    // However, we still want to allow content that shrinks when you try
-                    // to make the column less wide, so we allow some small shrinkage each frame:
-                    // big enough to allow shrinking over time, small enough not to look ugly when
-                    // shrinking fails. This is a bit of a HACK around immediate mode.
-                    // TODO: do something smarter by remembering success/failure to resize from one frame to the next.
-                    let max_shrinkage_per_frame = 8.0;
-                    let new_width =
-                        desired_new_width.at_least(used_width - max_shrinkage_per_frame);
-                    let new_width = column.range.clamp(new_width);
-                    x += new_width - *column_width;
-                    *column_width = new_width;
+                // We don't want to shrink below the size that was actually used.
+                // However, we still want to allow content that shrinks when you try
+                // to make the column less wide, so we allow some small shrinkage each frame:
+                // big enough to allow shrinking over time, small enough not to look ugly when
+                // shrinking fails. This is a bit of a HACK around immediate mode.
+                // TODO: do something smarter by remembering success/failure to resize from one frame to the next.
+                let max_shrinkage_per_frame = 8.0;
+                let new_width = desired_new_width.at_least(used_width - max_shrinkage_per_frame);
+                let new_width = column.range.clamp(new_width);
+                x += new_width - *column_width;
+                *column_width = new_width;
 
-                    if new_width != desired_new_width {
-                        ui.ctx().request_repaint(); // Get there faster
-                    }
+                if new_width != desired_new_width {
+                    ui.ctx().request_repaint(); // Get there faster
                 }
             }
 

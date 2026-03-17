@@ -71,7 +71,7 @@ impl TableDemo {
                 ui.horizontal(|ui| {
                     ui.label(format!("({row_nr}, {col_nr})"));
 
-                    if (row_nr + col_nr as u64) % 27 == 0 {
+                    if (row_nr + col_nr as u64).is_multiple_of(27) {
                         if !ui.is_sizing_pass() {
                             // During a sizing pass we don't truncate!
                             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
@@ -113,7 +113,7 @@ impl egui_table::TableDelegate for TableDemo {
         egui::Frame::NONE
             .inner_margin(Margin::symmetric(margin, 0))
             .show(ui, |ui| {
-                #[allow(clippy::collapsible_else_if)]
+                #[expect(clippy::collapsible_else_if)]
                 if *row_nr == 0 {
                     if 0 < col_range.start {
                         // Our special grouped column.
@@ -303,7 +303,7 @@ impl TableDemo {
 
         let first_scrollable_col = self.num_sticky_cols;
         let last_col = self.num_columns.saturating_sub(1);
-        let mid_col = (first_scrollable_col + last_col) / 2;
+        let mid_col = usize::midpoint(first_scrollable_col, last_col);
         let mut scroll_to_column = None;
         ui.horizontal(|ui| {
             ui.label("Scroll horizontally to…");

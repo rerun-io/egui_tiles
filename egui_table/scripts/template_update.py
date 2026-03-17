@@ -51,6 +51,7 @@ PYTHON_FILES = {
     ".github/workflows/python.yml",
     ".mypy.ini",
     "main.py",
+    "new_project_name/__init__.py",
     "pixi.lock",  # Pixi is only C++ & Python - For Rust we only use cargo
     "pixi.toml",  # Pixi is only C++ & Python - For Rust we only use cargo
     "pyproject.toml",
