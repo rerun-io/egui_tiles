@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
+permissions:
+  issues: write
+
 jobs:
   check-source-branch:
     runs-on: ubuntu-latest
