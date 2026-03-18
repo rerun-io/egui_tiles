@@ -1,4 +1,4 @@
-use egui::{NumExt as _, Rect, Ui};
+use egui::{NumExt as _, Pos2, Rect, Ui, ViewportBuilder, ViewportId};
 
 use crate::behavior::EditAction;
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
@@ -7,6 +7,18 @@ use super::{
     Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
     TileId, Tiles,
 };
+
+/// Tile that has its own egui viewport (native window).
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct ViewportTile {
+    pub root: TileId,
+
+    /// monitor-space position of the window.
+    pub screen_pos: Pos2,
+
+    pub dragged: bool,
+}
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
 ///
@@ -37,6 +49,10 @@ pub struct Tree<Pane> {
 
     /// All the tiles in the tree.
     pub tiles: Tiles<Pane>,
+
+    /// Tiles that have their own viewports (native windows).
+    /// They form their own roots.
+    pub viewport_tiles: Vec<ViewportTile>,
 
     /// When finite, this values contains the exact height of this tree
     #[cfg_attr(
@@ -114,6 +130,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             id,
             root,
             tiles,
+            viewport_tiles,
             width,
             height,
         } = self;
@@ -121,6 +138,7 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
         if let Some(root) = root {
             writeln!(f, "Tree {{")?;
             writeln!(f, "    id: {id:?}")?;
+            writeln!(f, "    viewport_tiles: {viewport_tiles:?}")?;
             writeln!(f, "    width: {width:?}")?;
             writeln!(f, "    height: {height:?}")?;
             format_tile(f, tiles, 1, *root)?;
@@ -143,6 +161,7 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: None,
             tiles: Default::default(),
+            viewport_tiles: Default::default(),
             width: f32::INFINITY,
             height: f32::INFINITY,
         }
@@ -158,6 +177,7 @@ impl<Pane> Tree<Pane> {
             id: id.into(),
             root: Some(root),
             tiles,
+            viewport_tiles: Default::default(),
             width: f32::INFINITY,
             height: f32::INFINITY,
         }
@@ -246,12 +266,25 @@ impl<Pane> Tree<Pane> {
     /// Check if [`Self::root`] is [`None`].
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.root.is_none()
+        self.root.is_none() && self.viewport_tiles.is_empty()
     }
 
     #[inline]
     pub fn root(&self) -> Option<TileId> {
         self.root
+    }
+
+    #[inline]
+    pub fn roots(&self) -> Vec<TileId> {
+        let mut roots = self
+            .viewport_tiles
+            .iter()
+            .map(|t| t.root)
+            .collect::<Vec<_>>();
+        if let Some(root) = self.root {
+            roots.push(root);
+        }
+        roots
     }
 
     #[inline]
@@ -262,6 +295,7 @@ impl<Pane> Tree<Pane> {
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
+    #[inline]
     pub fn is_visible(&self, tile_id: TileId) -> bool {
         self.tiles.is_visible(tile_id)
     }
@@ -332,6 +366,56 @@ impl<Pane> Tree<Pane> {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
 
             self.tile_ui(behavior, &mut drop_context, ui, root);
+        }
+
+        for ViewportTile {
+            root,
+            screen_pos,
+            mut dragged,
+        } in std::mem::take(&mut self.viewport_tiles)
+        {
+            let viewport_id = ViewportId::from_hash_of(root);
+            let title = behavior.tab_title_for_tile(&self.tiles, root);
+
+            if dragged {
+                ui.ctx()
+                    .send_viewport_cmd_to(viewport_id, egui::ViewportCommand::StartDrag);
+            }
+
+            let close_requested = ui.ctx().show_viewport_immediate(
+                viewport_id,
+                ViewportBuilder::default()
+                    .with_title(title.text())
+                    .with_position(screen_pos)
+                    .with_inner_size([480.0, 320.0]),
+                |ctx, _class| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        self.tiles.layout_tile(
+                            ui.style(),
+                            behavior,
+                            ui.available_rect_before_wrap(),
+                            root,
+                        );
+                        self.tile_ui(behavior, &mut drop_context, ui, root);
+                    });
+
+                    dragged &= !ui.input(|i| i.pointer.any_released());
+
+                    ctx.input(|i| i.viewport().close_requested())
+                },
+            );
+
+            dragged &= !ui.input(|i| i.pointer.any_released());
+
+            if close_requested {
+                // Drop the whole tree
+            } else {
+                self.viewport_tiles.push(ViewportTile {
+                    root,
+                    screen_pos,
+                    dragged,
+                });
+            }
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
@@ -447,16 +531,40 @@ impl<Pane> Tree<Pane> {
             return;
         };
 
-        ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
-
         // Preview what is being dragged:
-        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
-            .pivot(egui::Align2::CENTER_CENTER)
-            .current_pos(mouse_pos)
-            .interactable(false)
-            .show(ui.ctx(), |ui| {
-                behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
+        let preview_size = egui::vec2(300.0, 200.0);
+        let preview_id = egui::Id::new((dragged_tile_id, "preview"));
+        if ui.ctx().screen_rect().contains(mouse_pos) {
+            // Dragging within the original viewport:
+            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
+            egui::Area::new(preview_id)
+                .pivot(egui::Align2::CENTER_CENTER)
+                .current_pos(mouse_pos)
+                .interactable(false)
+                .show(ui.ctx(), |ui| {
+                    // ui.set_min_size(preview_size);
+                    // ui.set_max_size(preview_size);
+                    behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
+                });
+        } else {
+            // Detach into own viewport:
+            let screen_pos = if let Some(inner_rect) = ui.ctx().input(|i| i.viewport().inner_rect) {
+                mouse_pos + inner_rect.min.to_vec2() + egui::vec2(-0.5 * preview_size.x, -16.0)
+            } else {
+                mouse_pos
+            };
+
+            // Spawn the new viewport tile right away, to get a nice preview for it:
+            ui.ctx().stop_dragging();
+
+            behavior.on_edit(EditAction::TileDragged);
+            self.remove_tile_id_from_parent(dragged_tile_id);
+            self.viewport_tiles.push(ViewportTile {
+                root: dragged_tile_id,
+                screen_pos,
+                dragged: true,
             });
+        }
 
         if let Some(preview_rect) = drop_context.preview_rect {
             let preview_rect = smooth_preview_rect(ui.ctx(), dragged_tile_id, preview_rect);
@@ -484,10 +592,13 @@ impl<Pane> Tree<Pane> {
         }
 
         if ui.input(|i| i.pointer.any_released()) {
+            ui.ctx().stop_dragging();
+
             if let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }
+
             clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
         }
     }
@@ -496,7 +607,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// This is also called at the start of [`Self::ui`].
     pub fn simplify(&mut self, options: &SimplificationOptions) {
-        if let Some(root) = self.root {
+        for root in self.roots() {
             match self.tiles.simplify(options, root, None) {
                 SimplifyAction::Keep => {}
                 SimplifyAction::Remove => {
@@ -508,8 +619,8 @@ impl<Pane> Tree<Pane> {
             }
 
             if options.all_panes_must_have_tabs {
-                if let Some(tile_id) = self.root {
-                    self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                for root in self.roots() {
+                    self.tiles.make_all_panes_children_of_tabs(false, root);
                 }
             }
         }
@@ -528,7 +639,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
     pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
-        self.tiles.gc_root(behavior, self.root);
+        self.tiles.gc_roots(behavior, &self.roots());
     }
 
     /// Move a tile to a new container, at the specified insertion index.
