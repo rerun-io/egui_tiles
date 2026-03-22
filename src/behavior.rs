@@ -212,7 +212,7 @@ pub trait Behavior<Pane> {
     /// Called by the default implementation of [`Self::tab_ui`] for each added button
     fn on_tab_button(
         &mut self,
-        _tiles: &Tiles<Pane>,
+        _tiles: &mut Tiles<Pane>,
         _tile_id: TileId,
         button_response: Response,
     ) -> Response {
