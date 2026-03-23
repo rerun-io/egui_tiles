@@ -119,9 +119,18 @@ pub trait Behavior<Pane> {
             + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
         let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
 
-        let tab_response = ui
-            .interact(tab_rect, id, Sense::click_and_drag())
-            .on_hover_cursor(self.tab_hover_cursor_icon());
+        let draggable = self.is_tile_draggable(tiles, tile_id);
+        let sense = if draggable {
+            Sense::click_and_drag()
+        } else {
+            Sense::click()
+        };
+        let tab_response = ui.interact(tab_rect, id, sense);
+        let tab_response = if draggable {
+            tab_response.on_hover_cursor(self.tab_hover_cursor_icon())
+        } else {
+            tab_response
+        };
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
@@ -418,6 +427,25 @@ pub trait Behavior<Pane> {
     /// When using [`crate::GridLayout::Auto`], what is the ideal aspect ratio of a tile?
     fn ideal_tile_aspect_ratio(&self) -> f32 {
         4.0 / 3.0
+    }
+
+    /// Can this tile be dragged?
+    ///
+    /// If `false`, the tile cannot be dragged by the user.
+    /// This affects both tab dragging and pane dragging.
+    ///
+    /// Default: `true` (all tiles are draggable).
+    fn is_tile_draggable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// Can the children of this container be resized by dragging the separator?
+    ///
+    /// Only applies to [`crate::Linear`] and [`crate::Grid`] containers.
+    ///
+    /// Default: `true` (all containers are resizable).
+    fn is_container_resizable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
     }
 
     // Callbacks:

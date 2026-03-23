@@ -403,7 +403,9 @@ impl<Pane> Tree<Pane> {
         ui.add_enabled_ui(enabled, |ui| {
             match &mut tile {
                 Tile::Pane(pane) => {
-                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted
+                        && behavior.is_tile_draggable(&self.tiles, tile_id)
+                    {
                         ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
                     }
                 }

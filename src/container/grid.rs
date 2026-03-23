@@ -281,11 +281,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(tiles, parent_id);
+
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().vline(x, parent_rect.y_range(), stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -325,11 +333,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(tiles, parent_id);
+
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().hline(parent_rect.x_range(), y, stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(

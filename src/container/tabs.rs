@@ -266,7 +266,9 @@ impl Tabs {
                         .horizontal_scroll_offset(scroll_state.offset);
 
                     let output = scroll_area.show(ui, |ui| {
-                        if !tree.is_root(tile_id) {
+                        if !tree.is_root(tile_id)
+                            && behavior.is_tile_draggable(&tree.tiles, tile_id)
+                        {
                             // Make the background behind the buttons draggable (to drag the parent container tile).
                             // We also sense clicks to avoid eager-dragging on mouse-down.
                             let sense = egui::Sense::click_and_drag();

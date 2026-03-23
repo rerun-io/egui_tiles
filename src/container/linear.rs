@@ -254,6 +254,8 @@ impl Linear {
         // ------------------------
         // resizing:
 
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
@@ -261,6 +263,12 @@ impl Linear {
             let left_rect = tree.tiles.rect_or_die(left);
             let right_rect = tree.tiles.rect_or_die(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().vline(x, parent_rect.y_range(), stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -320,6 +328,8 @@ impl Linear {
         // ------------------------
         // resizing:
 
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
@@ -327,6 +337,12 @@ impl Linear {
             let top_rect = tree.tiles.rect_or_die(top);
             let bottom_rect = tree.tiles.rect_or_die(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().hline(parent_rect.x_range(), y, stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
