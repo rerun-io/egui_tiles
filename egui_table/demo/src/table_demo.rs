@@ -208,7 +208,7 @@ impl TableDemo {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("settings").show(ui, |ui| {
             ui.label("Columns");
-            ui.add(egui::DragValue::new(&mut self.num_columns));
+            ui.add(egui::DragValue::new(&mut self.num_columns).range(12..=usize::MAX));
             ui.end_row();
 
             ui.label("Rows");
