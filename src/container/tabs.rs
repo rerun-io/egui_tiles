@@ -207,7 +207,6 @@ impl Tabs {
     }
 
     /// Returns the next active tab (e.g. the one clicked, or the current).
-    #[expect(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
         tree: &mut Tree<Pane>,

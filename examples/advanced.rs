@@ -16,10 +16,10 @@ fn main() -> Result<(), eframe::Error> {
             #[cfg_attr(not(feature = "serde"), allow(unused_mut))]
             let mut app = MyApp::default();
             #[cfg(feature = "serde")]
-            if let Some(storage) = _cc.storage {
-                if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
-                    app = state;
-                }
+            if let Some(storage) = _cc.storage
+                && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
+            {
+                app = state;
             }
             Ok(Box::new(app))
         }),
