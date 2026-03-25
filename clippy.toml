@@ -28,10 +28,7 @@ too-many-lines-threshold = 200
 # -----------------------------------------------------------------------------
 
 # https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_macros
-disallowed-macros = [
-  'std::dbg',
-  'std::unimplemented',
-]
+disallowed-macros = ['std::dbg', 'std::unimplemented']
 
 # https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_methods
 disallowed-methods = [
