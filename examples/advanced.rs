@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![allow(clippy::allow_attributes, unused_mut, clippy::useless_let_if_seq)]
 
 use eframe::egui;
 use egui_tiles::{Tile, TileId, Tiles};
@@ -13,17 +14,13 @@ fn main() -> Result<(), eframe::Error> {
         "egui_tiles example",
         options,
         Box::new(|_cc| {
-            #[expect(clippy::useless_let_if_seq)]
-            let app = {
-                let mut app = MyApp::default();
-                #[cfg(feature = "serde")]
-                if let Some(storage) = _cc.storage
-                    && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
-                {
-                    app = state;
-                }
-                app
-            };
+            let mut app = MyApp::default();
+            #[cfg(feature = "serde")]
+            if let Some(storage) = _cc.storage
+                && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
+            {
+                app = state;
+            }
             Ok(Box::new(app))
         }),
     )
