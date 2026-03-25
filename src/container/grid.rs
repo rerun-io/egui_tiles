@@ -251,11 +251,11 @@ impl Grid {
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            if let Some(child) = child {
-                if tree.is_visible(child) {
-                    tree.tile_ui(behavior, drop_context, ui, child);
-                    crate::cover_tile_if_dragged(tree, behavior, ui, child);
-                }
+            if let Some(child) = child
+                && tree.is_visible(child)
+            {
+                tree.tile_ui(behavior, drop_context, ui, child);
+                crate::cover_tile_if_dragged(tree, behavior, ui, child);
             }
         }
 
@@ -396,10 +396,10 @@ impl Grid {
 
     pub(super) fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
         for child_opt in &mut self.children {
-            if let Some(child) = *child_opt {
-                if !retain(child) {
-                    *child_opt = None;
-                }
+            if let Some(child) = *child_opt
+                && !retain(child)
+            {
+                *child_opt = None;
             }
         }
     }
