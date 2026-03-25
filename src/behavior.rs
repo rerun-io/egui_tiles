@@ -180,7 +180,9 @@ pub trait Behavior<Pane> {
 
                 // Give the user a chance to react to the close button being clicked
                 // Only close if the user returns true (handled)
-                if close_btn_response.clicked() {
+                if close_btn_response.clicked()
+                    || tab_response.clicked_by(egui::PointerButton::Middle)
+                {
                     log::debug!("Tab close requested for tile: {tile_id:?}");
 
                     // Close the tab if the implementation wants to
