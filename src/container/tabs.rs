@@ -207,7 +207,7 @@ impl Tabs {
     }
 
     /// Returns the next active tab (e.g. the one clicked, or the current).
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
         tree: &mut Tree<Pane>,
@@ -305,14 +305,13 @@ impl Tabs {
                                 next_active = Some(child_id);
                             }
 
-                            if let Some(mouse_pos) = drop_context.mouse_pos {
-                                if drop_context.dragged_tile_id.is_some()
-                                    && response.rect.contains(mouse_pos)
-                                {
-                                    // Expand this tab - maybe the user wants to drop something into it!
-                                    behavior.on_edit(EditAction::TabSelected);
-                                    next_active = Some(child_id);
-                                }
+                            if let Some(mouse_pos) = drop_context.mouse_pos
+                                && drop_context.dragged_tile_id.is_some()
+                                && response.rect.contains(mouse_pos)
+                            {
+                                // Expand this tab - maybe the user wants to drop something into it!
+                                behavior.on_edit(EditAction::TabSelected);
+                                next_active = Some(child_id);
                             }
 
                             button_rects.insert(child_id, response.rect);

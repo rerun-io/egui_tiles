@@ -297,11 +297,11 @@ fn cover_tile_if_dragged<Pane>(
     ui: &egui::Ui,
     tile_id: TileId,
 ) {
-    if is_being_dragged(ui.ctx(), tree.id, tile_id) {
-        if let Some(child_rect) = tree.tiles.rect(tile_id) {
-            let overlay_color = behavior.dragged_overlay_color(ui.visuals());
-            ui.painter().rect_filled(child_rect, 0.0, overlay_color);
-        }
+    if is_being_dragged(ui.ctx(), tree.id, tile_id)
+        && let Some(child_rect) = tree.tiles.rect(tile_id)
+    {
+        let overlay_color = behavior.dragged_overlay_color(ui.visuals());
+        ui.painter().rect_filled(child_rect, 0.0, overlay_color);
     }
 }
 

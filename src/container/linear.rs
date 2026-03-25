@@ -381,7 +381,7 @@ impl Linear {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn resize_interaction<Pane>(
     behavior: &mut dyn Behavior<Pane>,
     shares: &mut Shares,
