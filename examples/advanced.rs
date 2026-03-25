@@ -13,14 +13,17 @@ fn main() -> Result<(), eframe::Error> {
         "egui_tiles example",
         options,
         Box::new(|_cc| {
-            #[cfg_attr(not(feature = "serde"), allow(unused_mut))]
-            let mut app = MyApp::default();
-            #[cfg(feature = "serde")]
-            if let Some(storage) = _cc.storage
-                && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
-            {
-                app = state;
-            }
+            #[expect(clippy::useless_let_if_seq)]
+            let app = {
+                let mut app = MyApp::default();
+                #[cfg(feature = "serde")]
+                if let Some(storage) = _cc.storage
+                    && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
+                {
+                    app = state;
+                }
+                app
+            };
             Ok(Box::new(app))
         }),
     )
