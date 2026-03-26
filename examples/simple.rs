@@ -45,8 +45,8 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut tree = create_tree();
 
-    eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    eframe::run_ui_native("My egui App", options, move |ui, _frame| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let mut behavior = TreeBehavior {};
             tree.ui(&mut behavior, ui);
         });

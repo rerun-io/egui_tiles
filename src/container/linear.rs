@@ -244,7 +244,7 @@ impl Linear {
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
-        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui, tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(i)),
                 rect,
@@ -285,7 +285,7 @@ impl Linear {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
@@ -298,7 +298,7 @@ impl Linear {
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
                 }
             }
 
@@ -322,7 +322,7 @@ impl Linear {
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
-        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui, tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Vertical(i)),
                 rect,
@@ -363,7 +363,7 @@ impl Linear {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
@@ -376,7 +376,7 @@ impl Linear {
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeVertical);
                 }
             }
 

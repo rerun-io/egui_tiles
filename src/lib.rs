@@ -297,7 +297,7 @@ fn cover_tile_if_dragged<Pane>(
     ui: &egui::Ui,
     tile_id: TileId,
 ) {
-    if is_being_dragged(ui.ctx(), tree.id, tile_id)
+    if is_being_dragged(ui, tree.id, tile_id)
         && !tree.is_previewing()
         && let Some(child_rect) = tree.display_rect(tile_id)
     {

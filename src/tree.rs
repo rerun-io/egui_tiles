@@ -395,7 +395,7 @@ impl<Pane> Tree<Pane> {
         self.tiles.rects.clear();
 
         // Check if anything is being dragged:
-        let dragged_id = self.dragged_id(ui.ctx());
+        let dragged_id = self.dragged_id(ui);
         let mut drop_context = DropContext {
             enabled: true,
             dragged_tile_id: dragged_id,
@@ -518,7 +518,7 @@ impl<Pane> Tree<Pane> {
                         if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted
                             && behavior.is_tile_draggable(&self.tiles, tile_id)
                         {
-                            ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                            ui.set_dragged_id(tile_id.egui_id(self.id));
                         }
                     }
                     Tile::Container(container) => {
@@ -572,7 +572,7 @@ impl<Pane> Tree<Pane> {
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
-            .show(ui.ctx(), |ui| {
+            .show(ui, |ui| {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
@@ -584,7 +584,7 @@ impl<Pane> Tree<Pane> {
             .copied()
             .or_else(|| {
                 drop_context.preview_rect.map(|r| {
-                    smooth_preview_rect(ui.ctx(), dragged_tile_id, r, &behavior.preview_options())
+                    smooth_preview_rect(ui, dragged_tile_id, r, &behavior.preview_options())
                 })
             });
 
@@ -617,7 +617,7 @@ impl<Pane> Tree<Pane> {
                 behavior.on_edit(EditAction::TileDropped);
                 let _journal = self.move_tile(dragged_tile_id, insertion_point, false);
             }
-            clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
+            clear_smooth_preview_rect(ui, dragged_tile_id);
             self.clear_preview_state();
         }
     }

@@ -237,8 +237,8 @@ impl Default for MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::left("tree").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::left("tree").show_inside(ui, |ui| {
             if ui.button("Reset").clicked() {
                 *self = Default::default();
             }
@@ -280,7 +280,7 @@ impl eframe::App for MyApp {
             }
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             self.tree.ui(&mut self.behavior, ui);
         });
     }
@@ -311,7 +311,7 @@ fn tree_ui(
 
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
-        ui.ctx(),
+        ui,
         ui.id().with((tile_id, "tree")),
         default_open,
     )
