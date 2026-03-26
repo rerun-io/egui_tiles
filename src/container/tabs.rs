@@ -92,7 +92,7 @@ impl ScrollState {
                 let movement = self.offset_debt.signum() * max_movement;
                 self.offset += movement;
                 self.offset_debt -= movement;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
         }
 
@@ -230,7 +230,7 @@ impl Tabs {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let scroll_state_id = ui.make_persistent_id(tile_id);
-            let mut scroll_state = ui.ctx().memory_mut(|m| {
+            let mut scroll_state = ui.memory_mut(|m| {
                 m.data
                     .get_temp::<ScrollState>(scroll_state_id)
                     .unwrap_or_default()
@@ -277,7 +277,7 @@ impl Tabs {
                                 .drag_started()
                             {
                                 behavior.on_edit(EditAction::TileDragged);
-                                ui.ctx().set_dragged_id(tile_id.egui_id(tree.id));
+                                ui.set_dragged_id(tile_id.egui_id(tree.id));
                             }
                         }
 
@@ -288,7 +288,7 @@ impl Tabs {
                                 continue;
                             }
 
-                            let is_being_dragged = is_being_dragged(ui.ctx(), tree.id, child_id);
+                            let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
 
                             let selected = self.is_active(child_id);
                             let id = child_id.egui_id(tree.id);
@@ -328,8 +328,7 @@ impl Tabs {
                 },
             );
 
-            ui.ctx()
-                .data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
+            ui.data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
         });
 
         // -----------
