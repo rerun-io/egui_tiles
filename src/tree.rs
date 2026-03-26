@@ -129,12 +129,20 @@ fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
 
 impl<Pane: PartialEq> PartialEq for Tree<Pane> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.root == other.root
-            && self.tiles == other.tiles
-            && self.height == other.height
-            && self.width == other.width
-        // preview is transient, excluded
+        let Self {
+            id,
+            root,
+            tiles,
+            height,
+            width,
+            preview: _, // transient, excluded
+        } = self;
+
+        *id == other.id
+            && *root == other.root
+            && *tiles == other.tiles
+            && *height == other.height
+            && *width == other.width
     }
 }
 
