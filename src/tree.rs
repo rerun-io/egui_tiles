@@ -314,7 +314,7 @@ impl<Pane> Tree<Pane> {
         // Check if anything is being dragged:
         let mut drop_context = DropContext {
             enabled: true,
-            dragged_tile_id: self.dragged_id(ui.ctx()),
+            dragged_tile_id: self.dragged_id(ui),
             mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
@@ -406,7 +406,7 @@ impl<Pane> Tree<Pane> {
                     if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted
                         && behavior.is_tile_draggable(&self.tiles, tile_id)
                     {
-                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                        ui.set_dragged_id(tile_id.egui_id(self.id));
                     }
                 }
                 Tile::Container(container) => {
@@ -456,12 +456,12 @@ impl<Pane> Tree<Pane> {
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
-            .show(ui.ctx(), |ui| {
+            .show(ui, |ui| {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
         if let Some(preview_rect) = drop_context.preview_rect {
-            let preview_rect = smooth_preview_rect(ui.ctx(), dragged_tile_id, preview_rect);
+            let preview_rect = smooth_preview_rect(ui, dragged_tile_id, preview_rect);
 
             let parent_rect = drop_context
                 .best_insertion
@@ -491,7 +491,7 @@ impl<Pane> Tree<Pane> {
                 behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }
-            clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
+            clear_smooth_preview_rect(ui, dragged_tile_id);
         }
     }
 

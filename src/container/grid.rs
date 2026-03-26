@@ -306,7 +306,7 @@ impl Grid {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.col_ranges,
@@ -317,7 +317,7 @@ impl Grid {
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
                 }
             }
 
@@ -358,7 +358,7 @@ impl Grid {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.row_ranges,
@@ -369,7 +369,7 @@ impl Grid {
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeVertical);
                 }
             }
 
