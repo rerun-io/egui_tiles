@@ -579,7 +579,8 @@ impl<Pane> Tree<Pane> {
         // Use the dragged tile's smoothed rect so the
         // highlight matches the animated layout
         let preview_rect = self
-            .preview.smoothed_rects
+            .preview
+            .smoothed_rects
             .get(&dragged_tile_id)
             .copied()
             .or_else(|| {
@@ -759,11 +760,8 @@ impl<Pane> Tree<Pane> {
                         }
                         Container::Grid(grid) => {
                             if reflow_grid {
-                                self.tiles.insert_at(
-                                    insertion_point,
-                                    moved_tile_id,
-                                    &mut journal,
-                                );
+                                self.tiles
+                                    .insert_at(insertion_point, moved_tile_id, &mut journal);
                             } else {
                                 let dest_tile = grid.replace_at(dest_index, moved_tile_id);
                                 if let Some(dest) = dest_tile {
@@ -863,7 +861,8 @@ impl<Pane> Tree<Pane> {
 
         // Start tracking tiles that appear in preview_rects but aren't smoothed yet.
         let new_tiles: Vec<(TileId, Rect)> = self
-            .preview.rects
+            .preview
+            .rects
             .keys()
             .filter(|id| !self.preview.smoothed_rects.contains_key(id))
             .filter_map(|&id| {
@@ -884,7 +883,8 @@ impl<Pane> Tree<Pane> {
         #[allow(clippy::iter_over_hash_type)] // Order doesn't matter; each tile is independent.
         for (&tile_id, smoothed) in &mut self.preview.smoothed_rects {
             let target = self
-                .preview.rects
+                .preview
+                .rects
                 .get(&tile_id)
                 .copied()
                 .or_else(|| self.tiles.rect(tile_id));
@@ -972,7 +972,8 @@ impl<Pane> Tree<Pane> {
                 self.preview.rects.insert(original_id, rect);
             }
         }
-        self.preview.rects
+        self.preview
+            .rects
             .retain(|id, _| original_tile_ids.contains(id));
 
         // Snapshot tabs from the speculative state
@@ -1056,7 +1057,8 @@ impl<Pane> Tree<Pane> {
         let actual = self.tiles.rect(tile_id)?;
         // Use the smoothed rect if this tile is being animated
         Some(
-            self.preview.smoothed_rects
+            self.preview
+                .smoothed_rects
                 .get(&tile_id)
                 .copied()
                 .unwrap_or(actual),
@@ -1085,7 +1087,8 @@ impl<Pane> Tree<Pane> {
         container_id: TileId,
         child_id: TileId,
     ) -> Option<bool> {
-        self.preview.active_tabs
+        self.preview
+            .active_tabs
             .get(&container_id)
             .map(|active| *active == Some(child_id))
     }
