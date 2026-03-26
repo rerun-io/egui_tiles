@@ -251,11 +251,11 @@ impl Grid {
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            if let Some(child) = child {
-                if tree.is_visible(child) {
-                    tree.tile_ui(behavior, drop_context, ui, child);
-                    crate::cover_tile_if_dragged(tree, behavior, ui, child);
-                }
+            if let Some(child) = child
+                && tree.is_visible(child)
+            {
+                tree.tile_ui(behavior, drop_context, ui, child);
+                crate::cover_tile_if_dragged(tree, behavior, ui, child);
             }
         }
 
@@ -283,11 +283,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().vline(x, parent_rect.y_range(), stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -327,11 +335,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.display_rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().hline(parent_rect.x_range(), y, stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -382,10 +398,10 @@ impl Grid {
 
     pub(super) fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
         for child_opt in &mut self.children {
-            if let Some(child) = *child_opt {
-                if !retain(child) {
-                    *child_opt = None;
-                }
+            if let Some(child) = *child_opt
+                && !retain(child)
+            {
+                *child_opt = None;
             }
         }
     }

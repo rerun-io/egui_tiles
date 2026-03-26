@@ -97,7 +97,6 @@ pub trait Behavior<Pane> {
     ///
     /// You can override the default implementation to add e.g. a close button.
     /// Make sure it is sensitive to clicks and drags (if you want to enable drag-and-drop of tabs).
-    #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
         tiles: &mut Tiles<Pane>,
@@ -119,9 +118,18 @@ pub trait Behavior<Pane> {
             + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
         let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
 
-        let tab_response = ui
-            .interact(tab_rect, id, Sense::click_and_drag())
-            .on_hover_cursor(self.tab_hover_cursor_icon());
+        let draggable = self.is_tile_draggable(tiles, tile_id);
+        let sense = if draggable {
+            Sense::click_and_drag()
+        } else {
+            Sense::click()
+        };
+        let tab_response = ui.interact(tab_rect, id, sense);
+        let tab_response = if draggable {
+            tab_response.on_hover_cursor(self.tab_hover_cursor_icon())
+        } else {
+            tab_response
+        };
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
@@ -180,7 +188,9 @@ pub trait Behavior<Pane> {
 
                 // Give the user a chance to react to the close button being clicked
                 // Only close if the user returns true (handled)
-                if close_btn_response.clicked() {
+                if close_btn_response.clicked()
+                    || tab_response.clicked_by(egui::PointerButton::Middle)
+                {
                     log::debug!("Tab close requested for tile: {tile_id:?}");
 
                     // Close the tab if the implementation wants to
@@ -212,7 +222,7 @@ pub trait Behavior<Pane> {
     /// Called by the default implementation of [`Self::tab_ui`] for each added button
     fn on_tab_button(
         &mut self,
-        _tiles: &Tiles<Pane>,
+        _tiles: &mut Tiles<Pane>,
         _tile_id: TileId,
         button_response: Response,
     ) -> Response {
@@ -426,6 +436,25 @@ pub trait Behavior<Pane> {
     /// When using [`crate::GridLayout::Auto`], what is the ideal aspect ratio of a tile?
     fn ideal_tile_aspect_ratio(&self) -> f32 {
         4.0 / 3.0
+    }
+
+    /// Can this tile be dragged?
+    ///
+    /// If `false`, the tile cannot be dragged by the user.
+    /// This affects both tab dragging and pane dragging.
+    ///
+    /// Default: `true` (all tiles are draggable).
+    fn is_tile_draggable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// Can the children of this container be resized by dragging the separator?
+    ///
+    /// Only applies to [`crate::Linear`] and [`crate::Grid`] containers.
+    ///
+    /// Default: `true` (all containers are resizable).
+    fn is_container_resizable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
     }
 
     // Callbacks:

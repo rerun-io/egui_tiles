@@ -363,10 +363,10 @@ impl<Pane> Tree<Pane> {
     /// The order of the returned tiles is arbitrary.
     pub fn active_tiles(&self) -> Vec<TileId> {
         let mut tiles = vec![];
-        if let Some(root) = self.root {
-            if self.is_visible(root) {
-                self.tiles.collect_active_tiles(root, &mut tiles);
-            }
+        if let Some(root) = self.root
+            && self.is_visible(root)
+        {
+            self.tiles.collect_active_tiles(root, &mut tiles);
         }
         tiles
     }
@@ -515,14 +515,16 @@ impl<Pane> Tree<Pane> {
             ui.add_enabled_ui(enabled, |ui| {
                 match &mut tile {
                     Tile::Pane(pane) => {
-                        if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
+                        if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted
+                            && behavior.is_tile_draggable(&self.tiles, tile_id)
+                        {
                             ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
                         }
                     }
                     Tile::Container(container) => {
                         container.ui(self, behavior, drop_context, ui, rect, tile_id);
                     }
-                };
+                }
 
                 behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
 
@@ -593,11 +595,14 @@ impl<Pane> Tree<Pane> {
 
             behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
 
-            if behavior.preview_dragged_panes()
-                && preview_rect.width() > 32.0
-                && preview_rect.height() > 32.0
-            {
-                if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
+            if behavior.preview_dragged_panes() {
+                // TODO(emilk): add support for previewing containers too.
+                if preview_rect.width() > 32.0
+                    && preview_rect.height() > 32.0
+                    && let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id)
+                {
+                    // Intentionally ignore the response, since the user cannot possibly
+                    // begin a drag on the preview pane.
                     let _ignored: UiResponse = behavior.pane_ui(
                         &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
                         dragged_tile_id,
@@ -632,10 +637,10 @@ impl<Pane> Tree<Pane> {
                 }
             }
 
-            if options.all_panes_must_have_tabs {
-                if let Some(tile_id) = self.root {
-                    self.tiles.make_all_panes_children_of_tabs(false, tile_id);
-                }
+            if options.all_panes_must_have_tabs
+                && let Some(tile_id) = self.root
+            {
+                self.tiles.make_all_panes_children_of_tabs(false, tile_id);
             }
         }
     }
@@ -728,48 +733,46 @@ impl<Pane> Tree<Pane> {
             if prev_parent_id == insertion_point.parent_id {
                 let parent_tile = self.tiles.get_mut(prev_parent_id);
 
-                if let Some(Tile::Container(container)) = parent_tile {
-                    if container.kind() == insertion_point.insertion.kind() {
-                        let dest_index = insertion_point.insertion.index();
-                        log::trace!(
-                            "Moving within the same parent: {source_index} -> {dest_index}"
-                        );
+                if let Some(Tile::Container(container)) = parent_tile
+                    && container.kind() == insertion_point.insertion.kind()
+                {
+                    let dest_index = insertion_point.insertion.index();
+                    log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
+                    // lets swap the two indices
 
-                        // lets swap the two indices
-                        let adjusted_index = if source_index < dest_index {
-                            // We removed an earlier element, so we need to adjust the index:
-                            dest_index - 1
-                        } else {
-                            dest_index
-                        };
+                    let adjusted_index = if source_index < dest_index {
+                        // We removed an earlier element, so we need to adjust the index:
+                        dest_index - 1
+                    } else {
+                        dest_index
+                    };
 
-                        match container {
-                            Container::Tabs(tabs) => {
-                                let insertion_index = adjusted_index.min(tabs.children.len());
-                                tabs.children.insert(insertion_index, moved_tile_id);
-                                tabs.active = Some(moved_tile_id);
-                            }
-                            Container::Linear(linear) => {
-                                let insertion_index = adjusted_index.min(linear.children.len());
-                                linear.children.insert(insertion_index, moved_tile_id);
-                            }
-                            Container::Grid(grid) => {
-                                if reflow_grid {
-                                    self.tiles.insert_at(
-                                        insertion_point,
-                                        moved_tile_id,
-                                        &mut journal,
-                                    );
-                                } else {
-                                    let dest_tile = grid.replace_at(dest_index, moved_tile_id);
-                                    if let Some(dest) = dest_tile {
-                                        grid.insert_at(source_index, dest);
-                                    }
-                                };
+                    match container {
+                        Container::Tabs(tabs) => {
+                            let insertion_index = adjusted_index.min(tabs.children.len());
+                            tabs.children.insert(insertion_index, moved_tile_id);
+                            tabs.active = Some(moved_tile_id);
+                        }
+                        Container::Linear(linear) => {
+                            let insertion_index = adjusted_index.min(linear.children.len());
+                            linear.children.insert(insertion_index, moved_tile_id);
+                        }
+                        Container::Grid(grid) => {
+                            if reflow_grid {
+                                self.tiles.insert_at(
+                                    insertion_point,
+                                    moved_tile_id,
+                                    &mut journal,
+                                );
+                            } else {
+                                let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                if let Some(dest) = dest_tile {
+                                    grid.insert_at(source_index, dest);
+                                }
                             }
                         }
-                        return journal; // done
                     }
+                    return journal; // done
                 }
             }
         }
@@ -816,12 +819,10 @@ impl<Pane> Tree<Pane> {
         let mut result = None;
 
         for (parent_id, parent) in self.tiles.iter_mut() {
-            if let Tile::Container(container) = parent {
-                if container.has_child(remove_me) {
-                    if let Some(child_index) = container.remove_child(remove_me) {
-                        result = Some((*parent_id, child_index));
-                    }
-                }
+            if let Tile::Container(container) = parent
+                && let Some(child_index) = container.remove_child(remove_me)
+            {
+                result = Some((*parent_id, child_index));
             }
         }
 
@@ -829,13 +830,13 @@ impl<Pane> Tree<Pane> {
         // that the tab container gets assigned another active tab.
         // If the tab is dragged to the same container, then it will become active again,
         // since all tabs become active when dragged, wherever they end up.
-        if let Some((parent_id, _)) = result {
-            if let Some(mut tile) = self.tiles.remove(parent_id) {
-                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
-                    tabs.ensure_active(&self.tiles);
-                }
-                self.tiles.insert(parent_id, tile);
+        if let Some((parent_id, _)) = result
+            && let Some(mut tile) = self.tiles.remove(parent_id)
+        {
+            if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                tabs.ensure_active(&self.tiles);
             }
+            self.tiles.insert(parent_id, tile);
         }
 
         result
