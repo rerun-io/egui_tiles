@@ -51,7 +51,7 @@ impl TableDemo {
             .get(&row_nr)
             .copied()
             .unwrap_or_default();
-        let expandedness = ui.ctx().animate_bool(Id::new(row_nr), is_expanded);
+        let expandedness = ui.animate_bool(Id::new(row_nr), is_expanded);
 
         ui.vertical(|ui| {
             if col_nr == 0 {
@@ -275,10 +275,10 @@ impl TableDemo {
             }
             if ui.button("Reset state").clicked() {
                 debug_assert!(
-                    egui_table::TableState::load(ui.ctx(), state_id).is_some(),
+                    egui_table::TableState::load(ui, state_id).is_some(),
                     "Wrong state_id"
                 );
-                egui_table::TableState::reset(ui.ctx(), state_id);
+                egui_table::TableState::reset(ui, state_id);
             }
         });
 

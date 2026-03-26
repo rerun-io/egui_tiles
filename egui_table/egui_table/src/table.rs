@@ -380,7 +380,7 @@ impl Table {
         self.num_sticky_cols = self.num_sticky_cols.at_most(self.columns.len());
 
         let id = TableState::id(ui, self.id_salt);
-        let state = TableState::load(ui.ctx(), id);
+        let state = TableState::load(ui, id);
         let is_new = state.is_none();
         let do_full_sizing_pass = is_new;
         let mut state = state.unwrap_or_default();
@@ -439,7 +439,7 @@ impl Table {
         let mut ui_builder = UiBuilder::new().layout(Layout::top_down(Align::Min));
         if do_full_sizing_pass {
             ui_builder = ui_builder.sizing_pass().invisible();
-            ui.ctx().request_discard("Full egui_table sizing");
+            ui.request_discard("Full egui_table sizing");
         }
         let response = ui
             .scope_builder(ui_builder, |ui| {
@@ -451,14 +451,14 @@ impl Table {
                 for (col_nr, column) in self.columns.iter_mut().enumerate() {
                     if column.resizable {
                         let column_resize_id = id.with(column.id_for(col_nr)).with("resize");
-                        if let Some(response) = ui.ctx().read_response(column_resize_id)
+                        if let Some(response) = ui.read_response(column_resize_id)
                             && response.double_clicked()
                         {
                             column.auto_size_this_frame = true;
                         }
                     }
                     if column.auto_size_this_frame {
-                        ui.ctx().request_discard("egui_table column sizing");
+                        ui.request_discard("egui_table column sizing");
                     }
                 }
 
@@ -471,7 +471,7 @@ impl Table {
                             .iter()
                             .map(|c| c.current)
                             .sum(),
-                        self.get_row_top_offset(ui.ctx(), id, table_delegate, self.num_rows),
+                        self.get_row_top_offset(ui, id, table_delegate, self.num_rows),
                     ),
                     stick_to_bottom: self.stick_to_bottom,
                 }
@@ -488,13 +488,13 @@ impl Table {
                         visible_column_lines: Default::default(),
                         do_full_sizing_pass,
                         has_prefetched: false,
-                        egui_ctx: ui.ctx().clone(),
+                        egui_ctx: ui.clone(),
                     },
                 );
             })
             .response;
 
-        state.store(ui.ctx(), id);
+        state.store(ui, id);
         response
     }
 }
@@ -877,7 +877,7 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
                 ui.interact(line_rect, column_resize_id, egui::Sense::click_and_drag());
 
             if resize_response.dragged()
-                && let Some(pointer) = ui.ctx().pointer_latest_pos()
+                && let Some(pointer) = ui.pointer_latest_pos()
             {
                 // Drag-to-resize.
                 // TODO: use `ui.intrinsic_size` (once it exist) to prevent
@@ -893,7 +893,7 @@ impl SplitScrollDelegate for TableSplitScrollDelegate<'_> {
             let resize_hover = resize_response.hovered() && !dragging_something_else;
 
             if resize_hover || resize_response.dragged() {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeColumn);
+                ui.set_cursor_icon(egui::CursorIcon::ResizeColumn);
             }
 
             let stroke = if resize_response.dragged() {

@@ -34,8 +34,8 @@ impl eframe::App for DemoApp {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
                 ui.add_space(16.0);
@@ -56,7 +56,7 @@ impl eframe::App for DemoApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.demo {
+        egui::CentralPanel::default().show_inside(ui, |ui| match self.demo {
             Demo::Table => self.table_demo.ui(ui),
             Demo::Scroll => self.scroll_demo.ui(ui),
         });

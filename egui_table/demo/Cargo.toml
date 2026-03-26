@@ -13,7 +13,7 @@ default-run = "demo"
 workspace = true
 
 [dependencies]
-egui_table = { workspace = true }
+egui_table.workspace = true
 
 egui.workspace = true
 eframe = { workspace = true, default-features = false, features = [
@@ -35,4 +35,4 @@ wasm-bindgen-futures.workspace = true
 web-sys.workspace = true              # to access the DOM (to hide the loading text)
 
 [dev-dependencies]
-egui_kittest = { workspace = true, features = ["wgpu", "snapshot", "eframe"]}
+egui_kittest = { workspace = true, features = ["wgpu", "snapshot", "eframe"] }
