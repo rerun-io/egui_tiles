@@ -126,7 +126,7 @@ pub use behavior::{Behavior, EditAction, TabState};
 pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Shares, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
-pub use tree::Tree;
+pub use tree::{PreviewOptions, Tree};
 
 // ----------------------------------------------------------------------------
 

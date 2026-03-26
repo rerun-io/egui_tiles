@@ -3,7 +3,7 @@ use egui::{
     vec2,
 };
 
-use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
+use super::{PreviewOptions, ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
 
 /// The kind of edit that triggered the call to [`Behavior::on_edit`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -266,6 +266,11 @@ pub trait Behavior<Pane> {
     /// Default: `true`.
     fn live_drag_preview(&self) -> bool {
         true
+    }
+
+    /// Options controlling the animated drag preview (smoothing speed, etc).
+    fn preview_options(&self) -> PreviewOptions {
+        PreviewOptions::default()
     }
 
     /// Show we preview panes that are being dragged,

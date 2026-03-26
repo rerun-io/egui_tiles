@@ -1,11 +1,26 @@
 use egui::{NumExt as _, Rect, Ui};
 
-/// How quickly animated rects converge (0..1, higher = faster).
-const PREVIEW_SMOOTH_DAMPING: f32 = 0.9;
-/// Smooth factor speed parameter.
-const PREVIEW_SMOOTH_SPEED: f32 = 0.05;
 /// Rects closer than this (in pixels, sum of min+max distances) are considered converged.
 const RECT_CONVERGENCE_THRESHOLD: f32 = 0.5;
+
+/// User-tunable parameters for the animated drag preview.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreviewOptions {
+    /// How quickly animated rects converge (0..1, higher = faster).
+    pub smooth_damping: f32,
+
+    /// Smooth factor speed parameter.
+    pub smooth_speed: f32,
+}
+
+impl Default for PreviewOptions {
+    fn default() -> Self {
+        Self {
+            smooth_damping: 0.9,
+            smooth_speed: 0.05,
+        }
+    }
+}
 
 /// Returns true if `a` and `b` are close enough to be considered the same rect.
 fn rects_close_enough(a: Rect, b: Rect) -> bool {
@@ -405,7 +420,8 @@ impl<Pane> Tree<Pane> {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
         }
 
-        self.update_preview_lerp(ui.ctx(), dragged_id);
+        let preview_options = behavior.preview_options();
+        self.update_preview_lerp(ui.ctx(), dragged_id, &preview_options);
 
         if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
@@ -554,9 +570,9 @@ impl<Pane> Tree<Pane> {
             .get(&dragged_tile_id)
             .copied()
             .or_else(|| {
-                drop_context
-                    .preview_rect
-                    .map(|r| smooth_preview_rect(ui.ctx(), dragged_tile_id, r))
+                drop_context.preview_rect.map(|r| {
+                    smooth_preview_rect(ui.ctx(), dragged_tile_id, r, &behavior.preview_options())
+                })
             });
 
         if let Some(preview_rect) = preview_rect {
@@ -815,7 +831,12 @@ impl<Pane> Tree<Pane> {
     }
 
     /// Exponentially smooth each tile's displayed rect toward its target.
-    fn update_preview_lerp(&mut self, ctx: &egui::Context, dragged_id: Option<TileId>) {
+    fn update_preview_lerp(
+        &mut self,
+        ctx: &egui::Context,
+        dragged_id: Option<TileId>,
+        options: &PreviewOptions,
+    ) {
         if self.preview_rects.is_empty() && self.smoothed_preview_rects.is_empty() {
             self.preview_lerp_t = 0.0;
             return;
@@ -823,8 +844,8 @@ impl<Pane> Tree<Pane> {
 
         let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
         let t = egui::emath::exponential_smooth_factor(
-            PREVIEW_SMOOTH_DAMPING,
-            PREVIEW_SMOOTH_SPEED,
+            options.smooth_damping,
+            options.smooth_speed,
             dt,
         );
 
@@ -1077,7 +1098,12 @@ fn clear_smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId) {
 }
 
 /// Take the preview rectangle and smooth it over time.
-fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: Rect) -> Rect {
+fn smooth_preview_rect(
+    ctx: &egui::Context,
+    dragged_tile_id: TileId,
+    new_rect: Rect,
+    options: &PreviewOptions,
+) -> Rect {
     let data_id = smooth_preview_rect_id(dragged_tile_id);
 
     let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
@@ -1088,8 +1114,8 @@ fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: R
         let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
 
         let t = egui::emath::exponential_smooth_factor(
-            PREVIEW_SMOOTH_DAMPING,
-            PREVIEW_SMOOTH_SPEED,
+            options.smooth_damping,
+            options.smooth_speed,
             dt,
         );
 
