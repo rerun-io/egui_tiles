@@ -260,15 +260,10 @@ pub trait Behavior<Pane> {
         32.0
     }
 
-    /// Whether to show a live animated preview of the full layout during
-    /// drag-and-drop, or just a simple highlighted drop zone.
+    /// Options controlling the animated drag preview.
     ///
-    /// Default: `true`.
-    fn live_drag_preview(&self) -> bool {
-        true
-    }
-
-    /// Options controlling the animated drag preview (smoothing speed, etc).
+    /// Set [`PreviewOptions::enabled`] to `false` to disable the animated
+    /// preview and show only a simple highlighted drop zone.
     fn preview_options(&self) -> PreviewOptions {
         PreviewOptions::default()
     }

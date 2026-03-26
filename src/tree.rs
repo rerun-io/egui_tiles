@@ -6,18 +6,28 @@ const RECT_CONVERGENCE_THRESHOLD: f32 = 0.5;
 /// User-tunable parameters for the animated drag preview.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreviewOptions {
-    /// How quickly animated rects converge (0..1, higher = faster).
-    pub smooth_damping: f32,
+    /// Whether the animated layout preview is enabled during drag-and-drop.
+    ///
+    /// When `false`, only a simple highlighted drop zone is shown.
+    pub enabled: bool,
 
-    /// Smooth factor speed parameter.
-    pub smooth_speed: f32,
+    /// How smooth the animation is (0..1, higher = smoother).
+    ///
+    /// This is the `smoothness` parameter of [`emath::exponential_smooth_factor`].
+    pub smoothness: f32,
+
+    /// The duration of the preview animation convergence (in seconds).
+    ///
+    /// This is the `half_time` parameter of [`emath::exponential_smooth_factor`].
+    pub smooth_duration_sec: f32,
 }
 
 impl Default for PreviewOptions {
     fn default() -> Self {
         Self {
-            smooth_damping: 0.9,
-            smooth_speed: 0.05,
+            enabled: true,
+            smoothness: 0.9,
+            smooth_duration_sec: 0.05,
         }
     }
 }
@@ -412,7 +422,9 @@ impl<Pane> Tree<Pane> {
             rect.set_width(self.width);
         }
 
-        if behavior.live_drag_preview() {
+        let preview_options = behavior.preview_options();
+
+        if preview_options.enabled {
             self.compute_preview_rects(dragged_id, behavior, ui.style(), rect);
         }
 
@@ -420,7 +432,6 @@ impl<Pane> Tree<Pane> {
             self.tiles.layout_tile(ui.style(), behavior, rect, root);
         }
 
-        let preview_options = behavior.preview_options();
         self.update_preview_lerp(ui.ctx(), dragged_id, &preview_options);
 
         if let Some(root) = self.root {
@@ -844,8 +855,8 @@ impl<Pane> Tree<Pane> {
 
         let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
         let t = egui::emath::exponential_smooth_factor(
-            options.smooth_damping,
-            options.smooth_speed,
+            options.smoothness,
+            options.smooth_duration_sec,
             dt,
         );
 
@@ -1109,8 +1120,8 @@ fn smooth_preview_rect(
         let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
 
         let t = egui::emath::exponential_smooth_factor(
-            options.smooth_damping,
-            options.smooth_speed,
+            options.smoothness,
+            options.smooth_duration_sec,
             dt,
         );
 
