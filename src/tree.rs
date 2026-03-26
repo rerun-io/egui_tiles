@@ -13,12 +13,12 @@ pub struct PreviewOptions {
 
     /// How smooth the animation is (0..1, higher = smoother).
     ///
-    /// This is the `smoothness` parameter of [`emath::exponential_smooth_factor`].
+    /// `smoothness` parameter of [`emath::exponential_smooth_factor`](https://docs.rs/emath/latest/emath/fn.exponential_smooth_factor.html).
     pub smoothness: f32,
 
     /// The duration of the preview animation convergence (in seconds).
     ///
-    /// This is the `half_time` parameter of [`emath::exponential_smooth_factor`].
+    /// `half_time` parameter of [`emath::exponential_smooth_factor`](https://docs.rs/emath/latest/emath/fn.exponential_smooth_factor.html).
     pub smooth_duration_sec: f32,
 }
 
@@ -880,7 +880,7 @@ impl<Pane> Tree<Pane> {
 
         // Smooth each tracked tile toward its target.
         let mut any_animating = false;
-        #[allow(clippy::iter_over_hash_type)] // Order doesn't matter; each tile is independent.
+        #[expect(clippy::iter_over_hash_type)] // Order doesn't matter; each tile is independent.
         for (&tile_id, smoothed) in &mut self.preview.smoothed_rects {
             let target = self
                 .preview
@@ -985,7 +985,6 @@ impl<Pane> Tree<Pane> {
             .map(|&(orig, disp)| (disp, orig))
             .collect();
 
-        #[allow(clippy::iter_over_hash_type)]
         for (&tile_id, tile) in self.tiles.iter() {
             if let Tile::Container(Container::Tabs(tabs)) = tile {
                 let real_id = displaced_map.get(&tile_id).copied().unwrap_or(tile_id);
@@ -1007,22 +1006,22 @@ impl<Pane> Tree<Pane> {
         // Ensure containers that were simplified away in
         // the speculative state still get entries.
         for (id, container) in &saved_containers {
-            if let Container::Tabs(tabs) = container {
-                if !self.preview.tab_children.contains_key(id) {
-                    let children: Vec<TileId> = tabs
-                        .children
-                        .iter()
-                        .copied()
-                        .filter(|&c| c != dragged_id)
-                        .collect();
-                    self.preview.tab_children.insert(*id, children.clone());
-                    // Pick the first remaining child as active, or keep original
-                    let active = tabs
-                        .active
-                        .filter(|a| children.contains(a))
-                        .or_else(|| children.first().copied());
-                    self.preview.active_tabs.insert(*id, active);
-                }
+            if let Container::Tabs(tabs) = container
+                && !self.preview.tab_children.contains_key(id)
+            {
+                let children: Vec<TileId> = tabs
+                    .children
+                    .iter()
+                    .copied()
+                    .filter(|&c| c != dragged_id)
+                    .collect();
+                self.preview.tab_children.insert(*id, children.clone());
+                // Pick the first remaining child as active, or keep original
+                let active = tabs
+                    .active
+                    .filter(|a| children.contains(a))
+                    .or_else(|| children.first().copied());
+                self.preview.active_tabs.insert(*id, active);
             }
         }
 
