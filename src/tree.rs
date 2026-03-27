@@ -480,9 +480,11 @@ impl<Pane> Tree<Pane> {
                 let color = behavior.drag_preview_color_rejected(ui.visuals());
                 let stroke = behavior.drag_preview_stroke_rejected(ui.visuals());
                 if let Some(parent_rect) = parent_rect {
-                    ui.painter().rect_stroke(parent_rect, 1.0, stroke, egui::StrokeKind::Inside);
+                    ui.painter()
+                        .rect_stroke(parent_rect, 1.0, stroke, egui::StrokeKind::Inside);
                 }
-                ui.painter().rect(preview_rect, 1.0, color, stroke, egui::StrokeKind::Inside);
+                ui.painter()
+                    .rect(preview_rect, 1.0, color, stroke, egui::StrokeKind::Inside);
             }
 
             if can_drop && behavior.preview_dragged_panes() {
@@ -503,9 +505,7 @@ impl<Pane> Tree<Pane> {
         }
 
         if ui.input(|i| i.pointer.any_released()) {
-            if can_drop
-                && let Some(insertion_point) = drop_context.best_insertion
-            {
+            if can_drop && let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }

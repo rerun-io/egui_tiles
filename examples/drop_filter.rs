@@ -64,10 +64,7 @@ impl Pane {
     fn rules(&self) -> &'static [&'static str] {
         match self.kind {
             PaneKind::Free => &["Drop anywhere, including splits"],
-            PaneKind::TabsOnly => &[
-                "Only into existing tabs",
-                "No horizontal/vertical splits",
-            ],
+            PaneKind::TabsOnly => &["Only into existing tabs", "No horizontal/vertical splits"],
             PaneKind::NoRight => &[
                 "Cannot drop into the right container",
                 "Splits and tabs in left — OK",
@@ -135,11 +132,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         }
     }
 
-    fn is_tile_draggable(
-        &self,
-        tiles: &Tiles<Pane>,
-        tile_id: TileId,
-    ) -> bool {
+    fn is_tile_draggable(&self, tiles: &Tiles<Pane>, tile_id: TileId) -> bool {
         if let Some(egui_tiles::Tile::Pane(pane)) = tiles.get(tile_id) {
             !matches!(pane.kind, PaneKind::Pinned)
         } else {
@@ -159,17 +152,35 @@ impl Default for MyApp {
 
         // Left side: one of each kind
         let left_children: Vec<TileId> = vec![
-            tiles.insert_pane(Pane { nr: 0, kind: PaneKind::Free }),
-            tiles.insert_pane(Pane { nr: 1, kind: PaneKind::TabsOnly }),
-            tiles.insert_pane(Pane { nr: 2, kind: PaneKind::NoRight }),
-            tiles.insert_pane(Pane { nr: 3, kind: PaneKind::Pinned }),
+            tiles.insert_pane(Pane {
+                nr: 0,
+                kind: PaneKind::Free,
+            }),
+            tiles.insert_pane(Pane {
+                nr: 1,
+                kind: PaneKind::TabsOnly,
+            }),
+            tiles.insert_pane(Pane {
+                nr: 2,
+                kind: PaneKind::NoRight,
+            }),
+            tiles.insert_pane(Pane {
+                nr: 3,
+                kind: PaneKind::Pinned,
+            }),
         ];
         let left = tiles.insert_tab_tile(left_children);
 
         // Right side: Free + TabsOnly
         let right_children: Vec<TileId> = vec![
-            tiles.insert_pane(Pane { nr: 4, kind: PaneKind::Free }),
-            tiles.insert_pane(Pane { nr: 5, kind: PaneKind::TabsOnly }),
+            tiles.insert_pane(Pane {
+                nr: 4,
+                kind: PaneKind::Free,
+            }),
+            tiles.insert_pane(Pane {
+                nr: 5,
+                kind: PaneKind::TabsOnly,
+            }),
         ];
         let right = tiles.insert_tab_tile(right_children);
 
