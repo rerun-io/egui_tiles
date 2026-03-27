@@ -3,7 +3,7 @@ use egui::{
     vec2,
 };
 
-use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
+use super::{InsertionPoint, ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
 
 /// The kind of edit that triggered the call to [`Behavior::on_edit`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -384,6 +384,16 @@ pub trait Behavior<Pane> {
         visuals.selection.stroke.color.gamma_multiply(0.5)
     }
 
+    /// Color for the drop preview when [`Self::is_drop_allowed`] returns `false`.
+    fn drag_preview_color_rejected(&self, _visuals: &Visuals) -> Color32 {
+        Color32::from_rgba_premultiplied(180, 40, 40, 100)
+    }
+
+    /// Stroke for the drop preview when [`Self::is_drop_allowed`] returns `false`.
+    fn drag_preview_stroke_rejected(&self, _visuals: &Visuals) -> Stroke {
+        Stroke::new(1.0, Color32::from_rgb(200, 60, 60))
+    }
+
     /// When drag-and-dropping a tile, how do we preview what is about to happen?
     fn paint_drag_preview(
         &self,
@@ -437,6 +447,22 @@ pub trait Behavior<Pane> {
     ///
     /// Default: `true` (all tiles are draggable).
     fn is_tile_draggable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// Can the dragged tile be dropped at the given insertion point?
+    ///
+    /// Called once per frame with the best (closest to cursor) candidate insertion point.
+    /// If `false`, the drop preview is drawn in the rejected color
+    /// (see [`Self::drag_preview_color_rejected`]) and the drop is not performed.
+    ///
+    /// Default: `true` (all drops are allowed).
+    fn is_drop_allowed(
+        &self,
+        _tiles: &Tiles<Pane>,
+        _dragged_tile_id: TileId,
+        _insertion: &InsertionPoint,
+    ) -> bool {
         true
     }
 
