@@ -283,14 +283,22 @@ impl Tabs {
 
                         ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
-                        for (i, &child_id) in self.children.iter().enumerate() {
+                        let tab_children = drop_context
+                            .dragged_tile_id
+                            .and_then(|_| tree.preview_tab_children(tile_id).cloned())
+                            .unwrap_or_else(|| self.children.clone());
+
+                        for (i, &child_id) in tab_children.iter().enumerate() {
                             if !tree.is_visible(child_id) {
                                 continue;
                             }
 
                             let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
 
-                            let selected = self.is_active(child_id);
+                            let selected = drop_context
+                                .dragged_tile_id
+                                .and_then(|_| tree.is_preview_active_tab(tile_id, child_id))
+                                .unwrap_or_else(|| self.is_active(child_id));
                             let id = child_id.egui_id(tree.id);
                             let tab_state = TabState {
                                 active: selected,
@@ -334,11 +342,19 @@ impl Tabs {
         // -----------
         // Drop zones:
 
+        let drop_children = drop_context
+            .dragged_tile_id
+            .and_then(|_| tree.preview_tab_children(tile_id).cloned())
+            .unwrap_or_else(|| self.children.clone());
+
         let preview_thickness = 6.0;
         let after_rect = |rect: Rect| {
             let dragged_size = if let Some(dragged_index) = dragged_index {
-                // We actually know the size of this thing
-                button_rects[&self.children[dragged_index]].size()
+                drop_children
+                    .get(dragged_index)
+                    .and_then(|id| button_rects.get(id))
+                    .map(|r| r.size())
+                    .unwrap_or_else(|| rect.size())
             } else {
                 rect.size() // guess that the size is the same as the last button
             };
@@ -349,7 +365,7 @@ impl Tabs {
         };
         super::linear::drop_zones(
             preview_thickness,
-            &self.children,
+            &drop_children,
             dragged_index,
             super::LinearDir::Horizontal,
             |tile_id| button_rects.get(&tile_id).copied(),
