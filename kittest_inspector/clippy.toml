@@ -1,0 +1,40 @@
+# Copied from https://github.com/rerun-io/rerun_template
+
+msrv = "1.94"
+
+allow-unwrap-in-tests = true
+
+avoid-breaking-exported-api = false
+
+excessive-nesting-threshold = 8
+
+max-fn-params-bools = 1
+
+max-include-file-size = 1000000
+
+stack-size-threshold = 512000
+
+too-many-lines-threshold = 200
+
+disallowed-macros = ['std::dbg']
+
+disallowed-methods = [
+  { path = "std::env::temp_dir", reason = "Use the tempdir crate instead" },
+  { path = "std::panic::catch_unwind", reason = "We compile with `panic = 'abort'`" },
+  { path = "std::thread::spawn", reason = "Use `std::thread::Builder` and name the thread" },
+]
+
+disallowed-names = []
+
+disallowed-types = [
+  { path = "std::sync::Condvar", reason = "Use parking_lot instead" },
+]
+
+doc-valid-idents = [
+  "AccessKit",
+  "GitHub",
+  "NaN",
+  "OpenGL",
+  "sRGB",
+  "sRGBA",
+]
