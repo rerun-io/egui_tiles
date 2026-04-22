@@ -40,11 +40,21 @@ fn make_synthetic_frame() -> Frame {
 
     let mut button = Node::new(Role::Button);
     button.set_label("Click me");
-    button.set_bounds(AkRect { x0: 10.0, y0: 10.0, x1: 110.0, y1: 40.0 });
+    button.set_bounds(AkRect {
+        x0: 10.0,
+        y0: 10.0,
+        x1: 110.0,
+        y1: 40.0,
+    });
 
     let mut label = Node::new(Role::Label);
     label.set_label("Hello, kittest!");
-    label.set_bounds(AkRect { x0: 10.0, y0: 60.0, x1: 180.0, y1: 90.0 });
+    label.set_bounds(AkRect {
+        x0: 10.0,
+        y0: 60.0,
+        x1: 180.0,
+        y1: 90.0,
+    });
 
     let accesskit = TreeUpdate {
         nodes: vec![(root_id, root), (button_id, button), (label_id, label)],
