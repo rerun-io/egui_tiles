@@ -5,3 +5,6 @@
 [default.extend-words]
 egui = "egui"
 accesskit = "accesskit"
+# `image::Delay::from_numer_denom_ms` — the `image` crate spells "numerator"
+# this way, so we can't rename it.
+numer = "numer"

@@ -370,10 +370,9 @@ fn controls_panel(app: &mut InspectorApp, ui: &mut egui::Ui) {
                 let _ = std::thread::Builder::new()
                     .name("kittest_inspector_copy_gif".into())
                     .spawn(move || match copy_history_as_gif(&history, 10.0) {
-                        Ok(path) => log_diag(&format!(
-                            "Copied GIF to clipboard: {}",
-                            path.display()
-                        )),
+                        Ok(path) => {
+                            log_diag(&format!("Copied GIF to clipboard: {}", path.display()));
+                        }
                         Err(err) => log_diag(&format!("Failed to copy GIF: {err}")),
                     });
                 app.status_message =
@@ -821,7 +820,11 @@ fn accesskit_tree(
                 children.insert(*c);
             }
         }
-        update.nodes.iter().map(|(id, _)| *id).find(|id| !children.contains(id))
+        update
+            .nodes
+            .iter()
+            .map(|(id, _)| *id)
+            .find(|id| !children.contains(id))
     });
 
     match root {
@@ -968,10 +971,7 @@ fn widget_details(ui: &mut egui::Ui, id: NodeId, node: &Node) {
 /// Pasting into Slack / Discord / GitHub / Finder etc. attaches the GIF with animation intact.
 /// Mirrors the recorder's GIF behaviour: animation plays at `frame_rate`, last frame held
 /// for one second so the loop point is obvious.
-fn copy_history_as_gif(
-    history: &[Frame],
-    frame_rate: f32,
-) -> Result<std::path::PathBuf, String> {
+fn copy_history_as_gif(history: &[Frame], frame_rate: f32) -> Result<std::path::PathBuf, String> {
     use image::codecs::gif::{GifEncoder, Repeat};
 
     if history.is_empty() {
@@ -999,10 +999,7 @@ fn copy_history_as_gif(
         .set_repeat(Repeat::Infinite)
         .map_err(|err| format!("set_repeat: {err}"))?;
 
-    let denom = frame_rate
-        .max(0.1)
-        .round()
-        .clamp(1.0, u32::MAX as f32) as u32;
+    let denom = frame_rate.max(0.1).round().clamp(1.0, u32::MAX as f32) as u32;
     let frame_delay = image::Delay::from_numer_denom_ms(1000, denom);
     let hold_delay = image::Delay::from_numer_denom_ms(1000, 1);
 

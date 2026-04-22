@@ -590,6 +590,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "cgl"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ced0551234e87afee12411d535648dd89d2e7f34c78b753395567aff3d447ff"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,6 +840,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "bytemuck",
  "emath",
@@ -840,6 +850,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -847,6 +858,9 @@ dependencies = [
  "egui",
  "egui-wgpu",
  "egui-winit",
+ "egui_glow",
+ "glutin",
+ "glutin-winit",
  "image",
  "js-sys",
  "log",
@@ -871,6 +885,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "accesskit",
  "ahash",
@@ -888,6 +903,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -906,6 +922,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -926,6 +943,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "ahash",
  "egui",
@@ -936,8 +954,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_glow"
+version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
+dependencies = [
+ "bytemuck",
+ "egui",
+ "glow",
+ "log",
+ "memoffset",
+ "profiling",
+ "winit",
+]
+
+[[package]]
 name = "egui_kittest"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "backtrace",
  "bincode",
@@ -964,6 +997,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "emath"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1030,6 +1064,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1054,6 +1089,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.34.1"
+source = "git+https://github.com/emilk/egui?branch=lucas%2Fkittest-inspect#0cefd89141a072119201b73984b6ca606ad933e6"
 
 [[package]]
 name = "equivalent"
@@ -1355,6 +1391,63 @@ dependencies = [
  "slotmap",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "glutin"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12124de845cacfebedff80e877bb37b5b75c34c5a4c89e47e1cdd67fb6041325"
+dependencies = [
+ "bitflags 2.11.1",
+ "cfg_aliases",
+ "cgl",
+ "dispatch2",
+ "glutin_egl_sys",
+ "glutin_glx_sys",
+ "glutin_wgl_sys",
+ "libloading",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-foundation 0.3.2",
+ "once_cell",
+ "raw-window-handle",
+ "wayland-sys",
+ "windows-sys 0.52.0",
+ "x11-dl",
+]
+
+[[package]]
+name = "glutin-winit"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85edca7075f8fc728f28cb8fbb111a96c3b89e930574369e3e9c27eb75d3788f"
+dependencies = [
+ "cfg_aliases",
+ "glutin",
+ "raw-window-handle",
+ "winit",
+]
+
+[[package]]
+name = "glutin_egl_sys"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c4680ba6195f424febdc3ba46e7a42a0e58743f2edb115297b86d7f8ecc02d2"
+dependencies = [
+ "gl_generator",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "glutin_glx_sys"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7bb2938045a88b612499fbcba375a77198e01306f52272e692f8c1f3751185"
+dependencies = [
+ "gl_generator",
+ "x11-dl",
 ]
 
 [[package]]
@@ -2029,6 +2122,7 @@ checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
 dependencies = [
  "bitflags 2.11.1",
  "objc2 0.6.4",
+ "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
 ]

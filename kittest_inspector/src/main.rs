@@ -11,10 +11,8 @@ use std::sync::mpsc;
 use std::thread;
 
 use eframe::egui;
-use egui_kittest::inspector_api::{
-    read_message, write_message, HarnessMessage, InspectorReply,
-};
-use kittest_inspector::{log_diag, InspectorApp, ReleaseRx, WorkerEvent};
+use egui_kittest::inspector_api::{HarnessMessage, InspectorReply, read_message, write_message};
+use kittest_inspector::{InspectorApp, ReleaseRx, WorkerEvent, log_diag};
 
 fn main() -> eframe::Result<()> {
     // Install a panic hook that writes to our own log file (not the inherited — and
