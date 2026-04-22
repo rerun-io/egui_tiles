@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Lucas Meurer <hi@lucasmerlin.me>", "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 description = "Live inspector eframe app for egui_kittest tests (frame + accesskit tree + step controls)"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.94"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/rerun-io/kittest_inspector"
 repository = "https://github.com/rerun-io/kittest_inspector"
@@ -14,35 +14,29 @@ readme = "README.md"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 publish = true
 
-[lib]
-name = "kittest_inspector"
-path = "src/lib.rs"
-
 [[bin]]
 name = "kittest_inspector"
 path = "src/main.rs"
-required-features = ["app"]
-
-[features]
-default = ["app"]
-
-## Build the eframe inspector binary.
-app = ["dep:eframe", "dep:egui_extras", "dep:fs4", "dep:image", "dep:arboard"]
 
 [dependencies]
-accesskit = { version = "0.24.0", features = ["serde"] }
-bincode = { version = "2.0.1", default-features = false, features = ["std", "serde"] }
-egui = { version = "0.34.1", default-features = false, features = ["serde"] }
-serde = { version = "1.0.228", features = ["derive"] }
+# `inspector_api` brings in the wire protocol (Frame, HarnessMessage, ...) plus a
+# serde-enabled `egui` re-export. The whole protocol lives in `egui_kittest` so the inspector
+# can be released independently — pin the egui version to whichever release you support.
+#
+# Local sibling path until `inspector_api` ships in a published `egui_kittest` release. Flip
+# to a plain `version = "..."` dep once that lands.
+egui_kittest = { version = "0.34.1", path = "../egui/crates/egui_kittest", default-features = false, features = ["inspector_api"] }
 
-# `app` feature dependencies:
-eframe = { version = "0.34.1", default-features = false, features = ["default_fonts", "wgpu"], optional = true }
-egui_extras = { version = "0.34.1", default-features = false, features = ["image"], optional = true }
-fs4 = { version = "0.13.1", default-features = false, features = ["sync"], optional = true }
-image = { version = "0.25.6", default-features = false, optional = true, features = ["gif"] }
+# eframe + egui_extras need to come from the same egui checkout so their `egui` matches the
+# one re-exported by `egui_kittest` above (otherwise we get two `egui::Event` types that
+# don't unify). Drop the `path = ...` once all four crates ship with `inspector_api`.
+eframe = { version = "0.34.1", path = "../egui/crates/eframe", default-features = false, features = ["default_fonts", "wgpu"] }
+egui_extras = { version = "0.34.1", path = "../egui/crates/egui_extras", default-features = false, features = ["image"] }
+fs4 = { version = "0.13.1", default-features = false, features = ["sync"] }
+image = { version = "0.25.6", default-features = false, features = ["gif"] }
 # Cross-platform clipboard — same crate eframe uses — with `set_file_list` so apps that
 # accept pasted files (Slack, Discord, Finder, etc.) attach the GIF with animation intact.
-arboard = { version = "3.6.1", default-features = false, optional = true }
+arboard = { version = "3.6.1", default-features = false }
 
 
 [profile.release]

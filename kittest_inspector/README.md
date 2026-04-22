@@ -35,10 +35,7 @@ Or call `.with_inspector()` on your `Harness` to opt in programmatically.
 
 ## Crate layout
 
-- **Library** (`kittest_inspector`) — wire protocol types (`Frame`, `HarnessMessage`,
-  `InspectorReply`) used by both the harness and the app. Small, no GUI deps.
-- **Binary** (`kittest_inspector`, gated behind the default `app` feature) — the
-  eframe window.
-
-`egui_kittest` depends on this crate with `default-features = false` so it only
-pulls in the protocol types.
+This crate is binary-only. The wire protocol lives in
+[`egui_kittest::inspector_api`](https://docs.rs/egui_kittest) so the inspector can be
+released on its own cadence — bump the `egui_kittest` version in `Cargo.toml` to follow a
+new egui release.

@@ -9,9 +9,11 @@ use std::sync::mpsc;
 use std::thread;
 
 use eframe::egui;
-use kittest_inspector::{read_message, write_message, Frame, HarnessMessage, InspectorReply};
+use egui_kittest::inspector_api::{
+    read_message, write_message, Frame, HarnessMessage, InspectorReply,
+};
 
-use accesskit::{Node, NodeId, Rect as AkRect};
+use egui::accesskit::{self, Node, NodeId, Rect as AkRect};
 
 /// Internal worker → UI message.
 enum WorkerEvent {
@@ -749,7 +751,7 @@ fn kv_grid(ui: &mut egui::Ui, id: &str, body: impl FnOnce(&mut egui::Ui)) {
 /// Render the "Source" section: the test file (topmost common ancestor across the call and
 /// its events), with the relevant lines highlighted and (once per new frame) the view
 /// scrolled to them.
-fn source_section(ui: &mut egui::Ui, frame: &kittest_inspector::Frame, scroll_pending: bool) {
+fn source_section(ui: &mut egui::Ui, frame: &Frame, scroll_pending: bool) {
     let Some(source) = &frame.source else {
         ui.weak("No source location for this frame.");
         return;
