@@ -1,12 +1,20 @@
 # kittest_inspector
 
-Live inspector eframe app for [`egui_kittest`](https://github.com/emilk/egui/tree/main/crates/egui_kittest) tests.
+Live inspector app for [`egui_kittest`](https://github.com/emilk/egui/tree/main/crates/egui_kittest) tests.
 
-When your harness is attached, the inspector shows every rendered frame, the full
-accesskit tree, the test source with step highlighting, and Play / Pause / Next
-controls for stepping through the run. You can also switch into **Control** mode
-and drive the tested app yourself — pointer & keyboard events are captured and
-forwarded to the harness on the next step.
+Allows you to debug your tests by stepping through it frame-by-frame, inspecting node roles and labels
+so you can know how to query widgets. You can also take control of the tested app if you need to quickly
+debug something. 
+
+See it in action:
+
+
+https://github.com/user-attachments/assets/0059a58b-e457-4f1b-91f2-7e0c05d409fb
+
+
+Up-to-date screenshot of the ui:
+
+![Screenshot of the inspector](tests/snapshots/inspector_renders_frame.png)
 
 ## Install
 
@@ -19,7 +27,7 @@ process and talks to it over stdin/stdout.
 
 ## Use
 
-In a test that uses `egui_kittest` with the `inspector` feature:
+In a test that uses `egui_kittest` with the `inspector` feature (Pending on the [PR](https://github.com/emilk/egui/pull/8119) being merged):
 
 ```sh
 KITTEST_INSPECTOR=1 cargo test my_test -- --nocapture
@@ -33,9 +41,9 @@ Or call `.with_inspector()` on your `Harness` to opt in programmatically.
 - `KITTEST_INSPECTOR_PATH=/path/to/kittest_inspector` — override the binary lookup
   (by default the harness looks for `kittest_inspector` on `PATH`).
 
-## Crate layout
+## Development
 
-This crate is binary-only. The wire protocol lives in
-[`egui_kittest::inspector_api`](https://docs.rs/egui_kittest) so the inspector can be
-released on its own cadence — bump the `egui_kittest` version in `Cargo.toml` to follow a
-new egui release.
+To build & run the example from this repo with an example test, you can use the following snippet:
+```bash
+cargo build && KITTEST_INSPECTOR=1 KITTEST_INSPECTOR_PATH=target/debug/kittest_inspector cargo test --test example_app
+```
