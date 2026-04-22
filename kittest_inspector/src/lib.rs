@@ -371,7 +371,7 @@ fn controls_panel(app: &mut InspectorApp, ui: &mut egui::Ui) {
                     .name("kittest_inspector_copy_gif".into())
                     .spawn(move || match copy_history_as_gif(&history, 10.0) {
                         Ok(path) => {
-                            log_diag(&format!("Copied GIF to clipboard: {}", path.display()))
+                            log_diag(&format!("Copied GIF to clipboard: {}", path.display()));
                         }
                         Err(err) => log_diag(&format!("Failed to copy GIF: {err}")),
                     });
