@@ -242,6 +242,13 @@ impl Tabs {
                     .unwrap_or_default()
             });
 
+            // Trailing custom slot — first call in a right-to-left layout
+            // means rightmost on screen, so this sits to the right of both
+            // `top_bar_right_ui` and the right scroll-arrow. The width it
+            // consumes is automatically excluded from `ui.available_width()`
+            // by the time `ScrollState::update` reads it below.
+            behavior.tab_bar_trailing_ui(&tree.tiles, ui, tile_id, self);
+
             // Allow user to add buttons such as "add new tab".
             // They can also read and modify the scroll state if they want.
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
@@ -255,7 +262,17 @@ impl Tabs {
                 ui.available_size(),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
+                    // Leading custom slot — first call in this LTR child layout
+                    // means leftmost on screen, so it sits to the left of the
+                    // left scroll-arrow.
+                    behavior.tab_bar_leading_ui(&tree.tiles, ui, tile_id, self);
+
                     scroll_state.left_arrow(ui, arrow_size);
+
+                    // Clamp the precomputed width so it can't exceed what's
+                    // left after the leading slot + left arrow consumed space
+                    // inside this LTR child ui.
+                    let scroll_area_width = scroll_area_width.min(ui.available_width()).max(0.0);
 
                     // Prepare to show the scroll area with the tabs:
 
