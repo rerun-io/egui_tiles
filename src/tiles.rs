@@ -201,6 +201,19 @@ impl<Pane> Tiles<Pane> {
 
         id
     }
+    /// Recomputes `next_tile_id` so that newly allocated tiles
+    /// will not collide with any existing `TileId` or any holes
+    /// left in the numbering.
+    ///
+    /// Note: this sets `next_tile_id` to the maximum existing `TileId`+1.
+    pub fn recompute_next_tile_id(&mut self) {
+        self.next_tile_id = self
+            .tiles
+            .keys()
+            .map(|tile_id| tile_id.0 + 1)
+            .max()
+            .unwrap_or(self.next_tile_id);
+    }
 
     #[must_use]
     pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
