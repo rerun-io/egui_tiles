@@ -256,19 +256,29 @@ impl ContainerInsertion {
 
 /// Where in the tree to insert a tile.
 #[derive(Clone, Copy, Debug)]
-struct InsertionPoint {
+pub struct InsertionPoint {
+    /// Which container will receive the dropped tile.
     pub parent_id: TileId,
 
     /// Where in the parent?
-    pub insertion: ContainerInsertion,
+    pub(crate) insertion: ContainerInsertion,
 }
 
 impl InsertionPoint {
-    pub fn new(parent_id: TileId, insertion: ContainerInsertion) -> Self {
+    pub(crate) fn new(parent_id: TileId, insertion: ContainerInsertion) -> Self {
         Self {
             parent_id,
             insertion,
         }
+    }
+
+    /// What kind of container layout the drop will create or insert into.
+    ///
+    /// If `parent_id` is a pane, this is the kind of container that will
+    /// **replace** it (splitting the pane). If `parent_id` is already a
+    /// container of this kind, the tile is inserted into it.
+    pub fn container_kind(&self) -> ContainerKind {
+        self.insertion.kind()
     }
 }
 

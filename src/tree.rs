@@ -460,6 +460,12 @@ impl<Pane> Tree<Pane> {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
+        // Check is_drop_allowed for the best candidate zone
+        let can_drop = drop_context
+            .best_insertion
+            .map(|ins| behavior.is_drop_allowed(&self.tiles, dragged_tile_id, &ins))
+            .unwrap_or(false);
+
         if let Some(preview_rect) = drop_context.preview_rect {
             let preview_rect = smooth_preview_rect(ui, dragged_tile_id, preview_rect);
 
@@ -467,9 +473,21 @@ impl<Pane> Tree<Pane> {
                 .best_insertion
                 .and_then(|insertion_point| self.tiles.rect(insertion_point.parent_id));
 
-            behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
+            if can_drop {
+                behavior.paint_drag_preview(ui.visuals(), ui.painter(), parent_rect, preview_rect);
+            } else {
+                // Rejected zone — red preview
+                let color = behavior.drag_preview_color_rejected(ui.visuals());
+                let stroke = behavior.drag_preview_stroke_rejected(ui.visuals());
+                if let Some(parent_rect) = parent_rect {
+                    ui.painter()
+                        .rect_stroke(parent_rect, 1.0, stroke, egui::StrokeKind::Inside);
+                }
+                ui.painter()
+                    .rect(preview_rect, 1.0, color, stroke, egui::StrokeKind::Inside);
+            }
 
-            if behavior.preview_dragged_panes() {
+            if can_drop && behavior.preview_dragged_panes() {
                 // TODO(emilk): add support for previewing containers too.
                 if preview_rect.width() > 32.0
                     && preview_rect.height() > 32.0
@@ -487,7 +505,7 @@ impl<Pane> Tree<Pane> {
         }
 
         if ui.input(|i| i.pointer.any_released()) {
-            if let Some(insertion_point) = drop_context.best_insertion {
+            if can_drop && let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }
