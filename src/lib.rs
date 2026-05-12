@@ -126,7 +126,7 @@ pub use behavior::{Behavior, EditAction, TabState};
 pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Shares, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
-pub use tree::Tree;
+pub use tree::{PreviewOptions, Tree};
 
 // ----------------------------------------------------------------------------
 
@@ -255,7 +255,7 @@ impl ContainerInsertion {
 }
 
 /// Where in the tree to insert a tile.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct InsertionPoint {
     pub parent_id: TileId,
 
@@ -298,7 +298,8 @@ fn cover_tile_if_dragged<Pane>(
     tile_id: TileId,
 ) {
     if is_being_dragged(ui, tree.id, tile_id)
-        && let Some(child_rect) = tree.tiles.rect(tile_id)
+        && !tree.is_previewing()
+        && let Some(child_rect) = tree.display_rect(tile_id)
     {
         let overlay_color = behavior.dragged_overlay_color(ui.visuals());
         ui.painter().rect_filled(child_rect, 0.0, overlay_color);
@@ -376,5 +377,26 @@ impl DropContext {
                 self.preview_rect = Some(preview_rect);
             }
         }
+    }
+}
+
+pub(crate) struct MoveJournal {
+    /// Tiles displaced by wrapping operations (`original_id`, `displaced_to_id`).
+    displaced_tiles: Vec<(TileId, TileId)>,
+}
+
+impl MoveJournal {
+    fn new() -> Self {
+        Self {
+            displaced_tiles: Vec::new(),
+        }
+    }
+
+    fn record_displaced_tile(&mut self, original_id: TileId, displaced_to_id: TileId) {
+        self.displaced_tiles.push((original_id, displaced_to_id));
+    }
+
+    pub(crate) fn displaced_tiles(&self) -> &[(TileId, TileId)] {
+        &self.displaced_tiles
     }
 }

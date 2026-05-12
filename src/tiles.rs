@@ -1,5 +1,7 @@
 use egui::{Pos2, Rect};
 
+use crate::MoveJournal;
+
 use super::{
     Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
@@ -261,7 +263,20 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
+    pub(super) fn next_tile_id(&self) -> u64 {
+        self.next_tile_id
+    }
+
+    pub(super) fn set_next_tile_id(&mut self, id: u64) {
+        self.next_tile_id = id;
+    }
+
+    pub(super) fn insert_at(
+        &mut self,
+        insertion_point: InsertionPoint,
+        inserted_id: TileId,
+        journal: &mut MoveJournal,
+    ) {
         let InsertionPoint {
             parent_id,
             insertion,
@@ -281,6 +296,7 @@ impl<Pane> Tiles<Pane> {
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
                     let new_tile_id = self.insert_new(parent_tile);
+                    journal.record_displaced_tile(parent_id, new_tile_id);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
                     tabs.children.insert(index.min(1), inserted_id);
                     tabs.set_active(inserted_id);
@@ -291,15 +307,17 @@ impl<Pane> Tiles<Pane> {
             ContainerInsertion::Horizontal(index) => {
                 if let Tile::Container(Container::Linear(Linear {
                     dir: LinearDir::Horizontal,
-                    children,
+                    ref mut children,
                     ..
-                })) = &mut parent_tile
+                })) = parent_tile
                 {
                     let index = index.min(children.len());
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
                     let new_tile_id = self.insert_new(parent_tile);
+                    journal.record_displaced_tile(parent_id, new_tile_id);
+
                     let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -309,15 +327,17 @@ impl<Pane> Tiles<Pane> {
             ContainerInsertion::Vertical(index) => {
                 if let Tile::Container(Container::Linear(Linear {
                     dir: LinearDir::Vertical,
-                    children,
+                    ref mut children,
                     ..
-                })) = &mut parent_tile
+                })) = parent_tile
                 {
                     let index = index.min(children.len());
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
                     let new_tile_id = self.insert_new(parent_tile);
+                    journal.record_displaced_tile(parent_id, new_tile_id);
+
                     let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -330,6 +350,8 @@ impl<Pane> Tiles<Pane> {
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
                     let new_tile_id = self.insert_new(parent_tile);
+                    journal.record_displaced_tile(parent_id, new_tile_id);
+
                     let grid = Grid::new(vec![new_tile_id, inserted_id]);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Grid(grid)));
