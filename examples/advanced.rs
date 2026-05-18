@@ -157,7 +157,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         _tabs: &egui_tiles::Tabs,
     ) {
-        let _ = ui.small_button("⚙");
+        let _response = ui.small_button("⚙");
     }
 
     // ---
