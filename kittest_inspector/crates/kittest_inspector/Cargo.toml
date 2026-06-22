@@ -1,0 +1,44 @@
+[package]
+name = "kittest_inspector"
+version.workspace = true
+authors.workspace = true
+description = "Live inspector eframe app for egui_kittest tests (frame + accesskit tree + step controls)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories = ["gui", "development-tools::testing"]
+keywords = ["egui", "kittest", "testing", "inspector"]
+include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+publish = true
+
+[[bin]]
+name = "kittest_inspector"
+path = "src/main.rs"
+
+# We'll need to add some more features to the inspection protocol before we can get the inspector updated to main
+[dependencies]
+egui_kittest = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["inspector_api"] }
+
+eframe = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["default_fonts", "wgpu", "x11", "wayland"] }
+fs4 = { version = "0.13.1", default-features = false, features = ["sync"] }
+image = { version = "0.25.6", default-features = false, features = ["gif"] }
+# Cross-platform clipboard — same crate eframe uses — with `set_file_list` so apps that
+# accept pasted files (Slack, Discord, Finder, etc.) attach the GIF with animation intact.
+arboard = { version = "3.6.1", default-features = false }
+
+
+[dev-dependencies]
+# Launch the inspector under egui_kittest for integration tests. `eframe` lets us wrap
+# `InspectorApp` directly; `wgpu` + `snapshot` provide the renderer + `Harness::snapshot`.
+egui_kittest = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["eframe", "wgpu", "snapshot", "inspector"] }
+# Same source as the `[dependencies]` entries — cargo unifies them, and duplicating the
+# declaration keeps tests able to name `eframe` / `egui` (and `egui::accesskit` for
+# synthesising Frames) directly.
+eframe = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["default_fonts", "wgpu", "x11", "wayland"] }
+egui = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["serde"] }
+
+
+[lints]
+workspace = true

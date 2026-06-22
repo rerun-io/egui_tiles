@@ -1,55 +1,21 @@
-[package]
-name = "kittest_inspector"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
 authors = ["Lucas Meurer <hi@lucasmerlin.me>", "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
-description = "Live inspector eframe app for egui_kittest tests (frame + accesskit tree + step controls)"
 edition = "2024"
 rust-version = "1.94"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/rerun-io/kittest_inspector"
 repository = "https://github.com/rerun-io/kittest_inspector"
-categories = ["gui", "development-tools::testing"]
-keywords = ["egui", "kittest", "testing", "inspector"]
-readme = "README.md"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
-publish = true
 
-[[bin]]
-name = "kittest_inspector"
-path = "src/main.rs"
-
-[dependencies]
-# `inspector_api` brings in the wire protocol (Frame, HarnessMessage, ...) plus a
-# serde-enabled `egui` re-export. The whole protocol lives in `egui_kittest` so the inspector
-# can be released independently — pin the egui version to whichever release you support.
-#
-# Temporarily pulling from the `lucas/kittest-inspect` branch on `lucasmerlin/egui` — that's
-# where `inspector_api` lives until it ships in a released `egui_kittest`. Flip to a plain
-# `version = "..."` dep once that lands.
-egui_kittest = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["inspector_api"] }
-
-# eframe + egui_extras need to come from the same egui checkout so their `egui` matches the
-# one re-exported by `egui_kittest` above (otherwise we get two `egui::Event` types that
-# don't unify). Drop the `git = ...` once all four crates ship with `inspector_api`.
-eframe = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["default_fonts", "wgpu", "x11", "wayland"] }
-egui_extras = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["image"] }
-fs4 = { version = "0.13.1", default-features = false, features = ["sync"] }
-image = { version = "0.25.6", default-features = false, features = ["gif"] }
-# Cross-platform clipboard — same crate eframe uses — with `set_file_list` so apps that
-# accept pasted files (Slack, Discord, Finder, etc.) attach the GIF with animation intact.
-arboard = { version = "3.6.1", default-features = false }
-
-
-[dev-dependencies]
-# Launch the inspector under egui_kittest for integration tests. `eframe` lets us wrap
-# `InspectorApp` directly; `wgpu` + `snapshot` provide the renderer + `Harness::snapshot`.
-egui_kittest = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["eframe", "wgpu", "snapshot", "inspector"] }
-# Same source as the `[dependencies]` entries — cargo unifies them, and duplicating the
-# declaration keeps tests able to name `eframe` / `egui` (and `egui::accesskit` for
-# synthesising Frames) directly.
-eframe = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["default_fonts", "wgpu", "x11", "wayland"] }
-egui = { git = "https://github.com/emilk/egui", branch = "lucas/kittest-inspect", default-features = false, features = ["serde"] }
-
+# NOTE: egui deps are intentionally NOT centralized in `[workspace.dependencies]`. The
+# `kittest_inspector` crate rides the `lucas/kittest-inspect` branch (old `inspector_api`
+# protocol), while the forthcoming `egui_mcp` crate will pin egui `main` (new `egui_inspection`
+# protocol) — two different revisions that can't share one workspace dep entry, so each crate
+# inlines its own egui git deps.
 
 [profile.release]
 opt-level = 2
@@ -61,12 +27,6 @@ opt-level = 2
 
 # ----------------------------------------------------------------------------------------
 # Lints:
-
-[lints]
-workspace = true
-
-[workspace]
-members = []
 
 [workspace.lints.rust]
 unsafe_code = "deny"
