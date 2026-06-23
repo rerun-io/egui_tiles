@@ -10,7 +10,8 @@ homepage.workspace = true
 repository.workspace = true
 categories = ["gui", "development-tools::testing"]
 keywords = ["egui", "kittest", "testing", "inspector"]
-include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+readme = "README.md"
+include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml", "README.md", "tests/snapshots/inspector_renders_frame.png"]
 publish = true
 
 [[bin]]
