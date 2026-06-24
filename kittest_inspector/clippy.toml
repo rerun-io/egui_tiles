@@ -1,6 +1,6 @@
 # Copied from https://github.com/rerun-io/rerun_template
 
-msrv = "1.94"
+msrv = "1.92"
 
 allow-unwrap-in-tests = true
 

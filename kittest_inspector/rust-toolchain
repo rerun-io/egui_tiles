@@ -5,5 +5,5 @@
 # to the user in the error, instead of "error: invalid channel name '[toolchain]'".
 
 [toolchain]
-channel = "1.94"
+channel = "1.92"
 components = ["rustfmt", "clippy"]
