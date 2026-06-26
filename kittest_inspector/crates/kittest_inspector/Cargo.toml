@@ -12,7 +12,7 @@ categories = ["gui", "development-tools::testing"]
 keywords = ["egui", "kittest", "testing", "inspector"]
 readme = "README.md"
 include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml", "README.md", "tests/snapshots/inspector_renders_frame.png"]
-publish = true
+publish = false
 
 [[bin]]
 name = "kittest_inspector"

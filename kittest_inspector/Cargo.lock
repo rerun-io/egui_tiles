@@ -947,10 +947,11 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.34.3"
-source = "git+https://github.com/emilk/egui?branch=main#5ca09dc0b5201576237254994a1c16f36d448d87"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6758be723a3f298bbfda4db75748bc2ba0abafe096b6383c7c32da264764fbc3"
 dependencies = [
- "emath 0.34.3",
+ "emath 0.35.0",
  "serde",
 ]
 
@@ -1009,14 +1010,15 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.34.3"
-source = "git+https://github.com/emilk/egui?branch=main#5ca09dc0b5201576237254994a1c16f36d448d87"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2796c98d50b79631281d516343a6f6e93c0666462ca36e2c93b39f25d7793325"
 dependencies = [
  "accesskit",
  "ahash",
  "bitflags 2.13.0",
- "emath 0.34.3",
- "epaint 0.34.3",
+ "emath 0.35.0",
+ "epaint 0.35.0",
  "itertools",
  "log",
  "nohash-hasher",
@@ -1082,10 +1084,11 @@ dependencies = [
 
 [[package]]
 name = "egui_inspection"
-version = "0.34.3"
-source = "git+https://github.com/emilk/egui?branch=main#5ca09dc0b5201576237254994a1c16f36d448d87"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b16f113bb82ab665fce1af4da8941412e7991c9245c043bf1e14412089253735"
 dependencies = [
- "egui 0.34.3",
+ "egui 0.35.0",
  "rmp-serde",
  "serde",
  "serde_bytes",
@@ -1117,9 +1120,9 @@ name = "egui_mcp"
 version = "0.1.0"
 dependencies = [
  "accesskit",
- "accesskit_consumer 0.35.0",
+ "accesskit_consumer 0.37.0",
  "base64",
- "egui 0.34.3",
+ "egui 0.35.0",
  "egui_inspection",
  "insta",
  "rmcp",
@@ -1147,8 +1150,9 @@ dependencies = [
 
 [[package]]
 name = "emath"
-version = "0.34.3"
-source = "git+https://github.com/emilk/egui?branch=main#5ca09dc0b5201576237254994a1c16f36d448d87"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd4ec073c9898516584d8c6cfdcee95b530b3d941cd5031ef4050aa36812308b"
 dependencies = [
  "serde",
 ]
@@ -1224,12 +1228,13 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.34.3"
-source = "git+https://github.com/emilk/egui?branch=main#5ca09dc0b5201576237254994a1c16f36d448d87"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e60a8888b51da911df23918fd7301359b1d43a406a0ff3b8863af093dd7fc6c"
 dependencies = [
  "ahash",
- "ecolor 0.34.3",
- "emath 0.34.3",
+ "ecolor 0.35.0",
+ "emath 0.35.0",
  "font-types",
  "harfrust 0.7.0",
  "log",
