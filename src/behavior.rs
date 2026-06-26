@@ -263,27 +263,7 @@ pub trait Behavior<Pane> {
     ///
     /// To match the visual height of the scroll arrows, use
     /// `ui.add_sized(egui::Vec2::splat(self.tab_bar_height(...)), widget)`.
-    fn tab_bar_leading_ui(
-        &mut self,
-        _tiles: &Tiles<Pane>,
-        _ui: &mut Ui,
-        _tile_id: TileId,
-        _tabs: &crate::Tabs,
-    ) {
-    }
-
-    /// Adds custom UI to the rightmost edge of each tab bar, pinned outside
-    /// the scrollable tab strip and to the RIGHT of both
-    /// [`Self::top_bar_right_ui`] and the right scroll-arrow.
-    ///
-    /// Width consumed by widgets added here is automatically subtracted from
-    /// the area available to the scrollable tab strip — tabs shrink rather
-    /// than overlap. The slot does not move when tabs are scrolled.
-    ///
-    /// Widgets are added right-to-left (this slot lives inside the same
-    /// right-to-left layout that hosts [`Self::top_bar_right_ui`] and the
-    /// right scroll-arrow).
-    fn tab_bar_trailing_ui(
+    fn tab_bar_left_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
         _ui: &mut Ui,

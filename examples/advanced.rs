@@ -135,12 +135,13 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tabs: &egui_tiles::Tabs,
         _scroll_offset: &mut f32,
     ) {
+        let _response = ui.small_button("⚙");
         if ui.button("➕").clicked() {
             self.add_child_to = Some(tile_id);
         }
     }
 
-    fn tab_bar_leading_ui(
+    fn tab_bar_left_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
         ui: &mut egui::Ui,
@@ -148,16 +149,6 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tabs: &egui_tiles::Tabs,
     ) {
         ui.label("☰");
-    }
-
-    fn tab_bar_trailing_ui(
-        &mut self,
-        _tiles: &egui_tiles::Tiles<Pane>,
-        ui: &mut egui::Ui,
-        _tile_id: egui_tiles::TileId,
-        _tabs: &egui_tiles::Tabs,
-    ) {
-        let _response = ui.small_button("⚙");
     }
 
     // ---
