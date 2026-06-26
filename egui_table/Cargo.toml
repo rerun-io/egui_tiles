@@ -17,9 +17,9 @@ opt-level = 2 # fast and small wasm
 [workspace.dependencies]
 egui_table = { version = "0.8.0", path = "egui_table", default-features = false }
 
-eframe = { version = "0.34.0", default-features = false }
-egui = { version = "0.34.0", default-features = false }
-egui_kittest = { version = "0.34.0" }
+eframe = { version = "0.35.0", default-features = false }
+egui = { version = "0.35.0", default-features = false }
+egui_kittest = { version = "0.35.0" }
 env_logger = { version = "0.10.2", default-features = false, features = [
     "auto-color",
     "humantime",
