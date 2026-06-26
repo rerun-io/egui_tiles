@@ -238,7 +238,7 @@ impl Default for MyApp {
 
 impl eframe::App for MyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::left("tree").show_inside(ui, |ui| {
+        egui::Panel::left("tree").show(ui, |ui| {
             if ui.button("Reset").clicked() {
                 *self = Default::default();
             }
@@ -280,7 +280,7 @@ impl eframe::App for MyApp {
             }
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             self.tree.ui(&mut self.behavior, ui);
         });
     }
