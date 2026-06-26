@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0 - 2026-06-26
+
+#### PRs
+* Update egui to 0.35 [#57](https://github.com/rerun-io/egui_table/pull/57) by [@lucasmerlin](https://github.com/lucasmerlin)
+
 
 ## 0.8.0 - 2026-03-26 - Update to egui 0.34
 * Update to egui 0.34 [#55](https://github.com/rerun-io/egui_table/pull/55) by [@emilk](https://github.com/emilk)
