@@ -140,6 +140,22 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         }
     }
 
+    fn tab_bar_trailing_ui(
+        &mut self,
+        _tiles: &egui_tiles::Tiles<Pane>,
+        ui: &mut egui::Ui,
+        tile_id: egui_tiles::TileId,
+        _tabs: &egui_tiles::Tabs,
+    ) {
+        if ui
+            .button("➕")
+            .on_hover_text("Add a new tab (rendered right after the last tab)")
+            .clicked()
+        {
+            self.add_child_to = Some(tile_id);
+        }
+    }
+
     // ---
     // Settings:
 
