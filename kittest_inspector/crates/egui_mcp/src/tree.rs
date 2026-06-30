@@ -31,7 +31,7 @@ pub struct RectF {
 }
 
 impl RectF {
-    /// Build from AccessKit physical-pixel bounds, scaling to logical points (the consumer's
+    /// Build from `AccessKit` physical-pixel bounds, scaling to logical points (the consumer's
     /// `bounding_box` applies egui's root `scale(pixels_per_point)` transform, so bounds arrive
     /// in physical pixels — divide them back out).
     fn from_physical(r: accesskit::Rect, pixels_per_point: f32) -> Self {
@@ -176,7 +176,7 @@ fn walk(node: &Node<'_>, filter: &QueryFilter, pixels_per_point: f32, out: &mut 
     }
 }
 
-/// Validate a `role` filter string against the full AccessKit role set.
+/// Validate a `role` filter string against the full `AccessKit` role set.
 ///
 /// Compared case-insensitively, the way `matches` compares. On failure the error lists the
 /// distinct roles actually present in `tree`, so the agent learns what it can filter by instead of
@@ -184,7 +184,7 @@ fn walk(node: &Node<'_>, filter: &QueryFilter, pixels_per_point: f32, out: &mut 
 /// so polling tools like `wait_for` can still wait for a valid role that hasn't appeared yet.
 ///
 /// # Errors
-/// If `role` is not a known AccessKit role name.
+/// If `role` is not a known `AccessKit` role name.
 pub fn validate_role(role: &str, tree: Option<&Tree>) -> Result<(), String> {
     // `accesskit::Role` is `#[repr(u8)]` with `enumn::N`, so walking `n(0), n(1), …` until `None`
     // enumerates every variant; `{:?}` yields the same name `matches`/`node_view` expose.
@@ -205,7 +205,7 @@ pub fn validate_role(role: &str, tree: Option<&Tree>) -> Result<(), String> {
     ))
 }
 
-/// The distinct AccessKit roles present anywhere in `tree`, sorted, as their display names.
+/// The distinct `AccessKit` roles present anywhere in `tree`, sorted, as their display names.
 fn roles_in_tree(tree: &Tree) -> Vec<String> {
     let mut roles = std::collections::BTreeSet::new();
     collect_roles(&tree.state().root(), &mut roles);

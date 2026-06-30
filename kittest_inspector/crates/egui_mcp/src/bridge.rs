@@ -180,7 +180,7 @@ impl Bridge {
         }
     }
 
-    /// Fetch the current AccessKit tree, built into a queryable [`accesskit_consumer::Tree`].
+    /// Fetch the current `AccessKit` tree, built into a queryable [`accesskit_consumer::Tree`].
     ///
     /// # Errors
     /// On I/O failure or an unexpected response.
@@ -247,7 +247,7 @@ impl Bridge {
     }
 }
 
-/// A freshly-fetched AccessKit tree plus the geometry needed to map it to screen pixels.
+/// A freshly-fetched `AccessKit` tree plus the geometry needed to map it to screen pixels.
 pub struct TreeSnapshot {
     pub step: u64,
     pub pixels_per_point: f32,

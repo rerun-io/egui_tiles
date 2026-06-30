@@ -13,7 +13,7 @@ use egui_kittest::Harness;
 use egui_kittest::inspector_api::{Frame, SourceView};
 use kittest_inspector::{InspectorApp, WorkerEvent};
 
-/// Build a representative `Frame` — solid-ish RGBA pixels, a fake AccessKit tree with three
+/// Build a representative `Frame` — solid-ish RGBA pixels, a fake `AccessKit` tree with three
 /// nodes, and a short `SourceView` so the source/frame/accesskit panels all have something
 /// to render.
 fn make_synthetic_frame() -> Frame {

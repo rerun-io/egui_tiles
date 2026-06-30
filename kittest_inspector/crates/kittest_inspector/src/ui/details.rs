@@ -1,6 +1,6 @@
 //! Right-hand side panel: source view on top (scrolls to the current call-site or event) and
 //! collapsible sections for frame metadata, the hovered/selected widget, and the full
-//! AccessKit tree.
+//! `AccessKit` tree.
 
 use eframe::egui;
 use egui::accesskit::{self, Node, NodeId};

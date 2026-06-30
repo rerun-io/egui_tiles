@@ -5,5 +5,5 @@
 # to the user in the error, instead of "error: invalid channel name '[toolchain]'".
 
 [toolchain]
-channel = "1.92"
+channel = "1.92.0"  # Avoid specifying a patch version here; see https://github.com/emilk/eframe_template/issues/145
 components = ["rustfmt", "clippy"]

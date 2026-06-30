@@ -1,0 +1,26 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=827846
+  // for the documentation about the extensions.json format
+  "recommendations": [
+    "charliermarsh.ruff",
+    "esbenp.prettier-vscode",
+    "fill-labs.dependi",
+    "gaborv.flatbuffers",
+    "github.vscode-github-actions",
+    "josetr.cmake-language-support-vscode",
+    "ms-python.mypy-type-checker",
+    "ms-python.python",
+    "ms-vscode.cmake-tools",
+    "ms-vscode.cpptools-extension-pack",
+    "ms-vsliveshare.vsliveshare",
+    "polymeilex.wgsl",
+    "rust-lang.rust-analyzer",
+    "streetsidesoftware.code-spell-checker",
+    "tamasfe.even-better-toml",
+    "vadimcn.vscode-lldb",
+    "wayou.vscode-todo-highlight",
+    "webfreak.debug",
+    "xaver.clang-format", // C++ formatter
+    "zxh404.vscode-proto3",
+  ]
+}

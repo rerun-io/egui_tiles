@@ -6,9 +6,9 @@
 //! and the worker-channel types as a library so integration tests can launch the same app
 //! under `egui_kittest` and feed synthetic frames through the channels.
 //!
-//! Architecture follows kitdiff: [`state::AppState`] owns all persistent state; UI code in
-//! [`ui`] receives a read-only [`state::AppStateRef`] and dispatches [`state::Command`]s via
-//! `.send(...)`. The single place state actually mutates is [`state::AppState::handle`].
+//! Architecture follows kitdiff: `AppState` owns all persistent state; UI code in
+//! `ui` receives a read-only `AppStateRef` and dispatches `Command`s via
+//! `.send(...)`. The single place state actually mutates is `AppState::handle`.
 
 mod app;
 mod gif;

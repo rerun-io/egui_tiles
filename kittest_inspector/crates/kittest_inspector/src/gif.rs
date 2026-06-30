@@ -1,5 +1,5 @@
 //! Encode the frame history as a GIF and put a file reference on the system clipboard.
-//! Called from a detached worker thread in [`crate::state::AppState::handle`] so a slow
+//! Called from a detached worker thread in `AppState::handle` so a slow
 //! encode doesn't stall the UI.
 
 use std::path::PathBuf;

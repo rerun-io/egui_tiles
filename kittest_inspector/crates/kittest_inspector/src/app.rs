@@ -1,4 +1,4 @@
-//! The `eframe::App` wrapper that owns [`AppState`] plus the side-channel I/O (worker/release
+//! The `eframe::App` wrapper that owns `AppState` plus the side-channel I/O (worker/release
 //! channels, texture upload, hit-testing). Every frame:
 //!
 //! 1. `state.update(ctx)` clears per-frame flags.
@@ -6,7 +6,7 @@
 //! 3. The command inbox is drained into `state.handle(...)`.
 //! 4. The GPU texture is synced to the viewed frame.
 //! 5. Pointer hit-testing produces an initial hovered node.
-//! 6. An [`AppStateRef`] is built and UI panels render.
+//! 6. An `AppStateRef` is built and UI panels render.
 //! 7. End-of-frame: captured events (from Control mode) are promoted into state, and an
 //!    `AutoRelease` command is enqueued for next frame.
 

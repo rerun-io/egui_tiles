@@ -1,79 +1,96 @@
-on: [push, pull_request, workflow_dispatch]
+# Copied from https://github.com/rerun-io/rerun_template
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    types: [ opened, synchronize ]
 
-name: CI
+name: Rust
 
 env:
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
 
 jobs:
-  check:
-    name: Check
+  rust-check:
+    name: Rust
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: sudo apt-get update && sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
 
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          profile: minimal
-          toolchain: stable
+          components: rust-docs, clippy, rustfmt
+          toolchain: 1.92.0
           override: true
-          components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-      - run: sudo apt-get update && sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features -- -D warnings
+          packages: libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+          version: 1.0
+          execute_install_scripts: true
 
-  tests:
-    name: Run tests
-    # Run tests on macOS so the wgpu snapshot tests get a real GPU.
+      - name: Rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: check --all-features
+        run: cargo check --all-features --all-targets
+
+      - name: check default features
+        run: cargo check --all-targets
+
+      - name: check --no-default-features
+        run: cargo check --no-default-features --all-targets
+
+      - name: Test doc-tests
+        run: cargo test --doc --all-features
+
+      - name: cargo doc --lib
+        run: cargo doc --lib --no-deps --all-features
+
+      - name: cargo doc --document-private-items
+        run: cargo doc --document-private-items --no-deps --all-features
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # Tests that need GPU rendering run on macOS (wgpu uses Metal via MoltenVK).
+  rust-test:
+    name: Tests (macOS)
     runs-on: macos-latest
-    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up cargo cache
-        uses: Swatinem/rust-cache@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.92.0
+          override: true
+
+      - name: Build tests
+        run: cargo build --tests --all-features
 
       - name: Run tests
         run: cargo test --all-features
 
-      - name: Upload artifacts
+      - name: Upload test snapshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
-          path: "**/tests/snapshots"
+          name: test-snapshots
+          path: "**/tests/snapshots/**"
+
+  # ---------------------------------------------------------------------------
+
+  cargo-deny:
+    name: Check Rust dependencies (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: EmbarkStudios/cargo-deny-action@v2
+      with:
+        rust-version: "1.92.0"
+        log-level: warn
+        command: check

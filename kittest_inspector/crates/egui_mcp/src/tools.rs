@@ -18,7 +18,7 @@
 //!   clients that cache the initial tool list discover them before `attach` — while calls made
 //!   before `attach` return `no app connected`.
 //!
-//! Locator resolution is done here, MCP-side: a tool fetches a fresh AccessKit tree
+//! Locator resolution is done here, MCP-side: a tool fetches a fresh `AccessKit` tree
 //! (`GetTree`), resolves the locator to a logical-point position, synthesizes the matching
 //! `egui::Event`s, and sends them via `ApplyEvents`. The app-side plugin stays low-level.
 //!
@@ -831,7 +831,7 @@ impl UiServer {
     }
 
     /// Type text into the currently focused widget.
-    /// Optionally focus a node first (by `id`, `role`, or a text match — `content_contains`/`label_contains`/`value_contains`) — this uses an AccessKit focus request, not a click, so it won't move the cursor or clear an existing text selection.
+    /// Optionally focus a node first (by `id`, `role`, or a text match — `content_contains`/`label_contains`/`value_contains`) — this uses an `AccessKit` focus request, not a click, so it won't move the cursor or clear an existing text selection.
     #[tool]
     async fn type_text(
         &self,

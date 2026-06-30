@@ -3,6 +3,7 @@
 # run:      typos
 
 [default.extend-words]
+teh = "teh"     # part of @teh-cmc
 egui = "egui"
 accesskit = "accesskit"
 # `image::Delay::from_numer_denom_ms` — the `image` crate spells "numerator"
