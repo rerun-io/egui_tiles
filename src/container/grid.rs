@@ -1,4 +1,8 @@
-use egui::{emath::Rangef, pos2, vec2, NumExt as _, Rect};
+use egui::{
+    NumExt as _, Rect,
+    emath::{GuiRounding as _, Rangef},
+    pos2, vec2,
+};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;
@@ -125,7 +129,7 @@ impl Grid {
     fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
         self.children
             .iter()
-            .filter(|id| id.map_or(true, |id| tiles.is_visible(id)))
+            .filter(|id| id.is_none_or(|id| tiles.is_visible(id)))
             .copied()
             .collect()
     }
@@ -157,7 +161,7 @@ impl Grid {
                 GridLayout::Columns(num_columns) => num_columns,
             };
             let num_cols = num_cols.at_least(1);
-            let num_rows = (num_visible_children + num_cols - 1) / num_cols;
+            let num_rows = num_visible_children.div_ceil(num_cols);
             (num_cols, num_rows)
         };
 
@@ -247,11 +251,11 @@ impl Grid {
         tile_id: TileId,
     ) {
         for &child in &self.children {
-            if let Some(child) = child {
-                if tree.is_visible(child) {
-                    tree.tile_ui(behavior, drop_context, ui, child);
-                    crate::cover_tile_if_dragged(tree, behavior, ui, child);
-                }
+            if let Some(child) = child
+                && tree.is_visible(child)
+            {
+                tree.tile_ui(behavior, drop_context, ui, child);
+                crate::cover_tile_if_dragged(tree, behavior, ui, child);
             }
         }
 
@@ -277,11 +281,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(tiles, parent_id);
+
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().vline(x, parent_rect.y_range(), stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -294,18 +306,18 @@ impl Grid {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.col_ranges,
                     &mut self.col_shares,
                     &response,
-                    ui.painter().round_to_pixel(pointer.x) - x,
+                    pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
                 }
             }
 
@@ -321,11 +333,19 @@ impl Grid {
         ui: &egui::Ui,
         parent_id: TileId,
     ) {
+        let resizable = behavior.is_container_resizable(tiles, parent_id);
+
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().hline(parent_rect.x_range(), y, stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -338,18 +358,18 @@ impl Grid {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &self.row_ranges,
                     &mut self.row_shares,
                     &response,
-                    ui.painter().round_to_pixel(pointer.y) - y,
+                    pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeVertical);
                 }
             }
 
@@ -376,10 +396,10 @@ impl Grid {
 
     pub(super) fn retain(&mut self, mut retain: impl FnMut(TileId) -> bool) {
         for child_opt in &mut self.children {
-            if let Some(child) = *child_opt {
-                if !retain(child) {
-                    *child_opt = None;
-                }
+            if let Some(child) = *child_opt
+                && !retain(child)
+            {
+                *child_opt = None;
             }
         }
     }

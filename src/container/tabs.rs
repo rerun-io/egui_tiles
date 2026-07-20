@@ -1,13 +1,10 @@
-use egui::{scroll_area::ScrollBarVisibility, vec2, NumExt, Rect, Vec2};
+use egui::{NumExt as _, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
 
 use crate::behavior::{EditAction, TabState};
 use crate::{
-    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction,
-    TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction, TileId, Tiles, Tree,
+    is_being_dragged,
 };
-
-/// Fixed size icons for `⏴` and `⏵`
-const SCROLL_ARROW_SIZE: Vec2 = Vec2::splat(20.0);
 
 /// A container with tabs. Only one tab is open (active) at a time.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -54,14 +51,14 @@ struct ScrollState {
 
 impl ScrollState {
     /// Returns the space left for the tabs after the scroll arrows.
-    pub fn update(&mut self, ui: &egui::Ui) -> f32 {
+    pub fn update(&mut self, ui: &egui::Ui, arrow_size: Vec2) -> f32 {
         let mut scroll_area_width = ui.available_width();
 
-        let button_and_spacing_width = SCROLL_ARROW_SIZE.x + ui.spacing().item_spacing.x;
+        let button_and_spacing_width = arrow_size.x + ui.spacing().item_spacing.x;
 
         let margin = 0.1;
 
-        self.show_left_arrow = SCROLL_ARROW_SIZE.x < self.offset;
+        self.show_left_arrow = arrow_size.x < self.offset;
 
         if self.show_left_arrow {
             scroll_area_width -= button_and_spacing_width;
@@ -92,7 +89,7 @@ impl ScrollState {
                 let movement = self.offset_debt.signum() * max_movement;
                 self.offset += movement;
                 self.offset_debt -= movement;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
         }
 
@@ -103,26 +100,34 @@ impl ScrollState {
         (self.available.x / 3.0).at_least(20.0)
     }
 
-    pub fn left_arrow(&mut self, ui: &mut egui::Ui) {
+    pub fn left_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2) {
         if !self.show_left_arrow {
             return;
         }
 
+        let glyph_size = arrow_size.y * 0.5;
         if ui
-            .add_sized(SCROLL_ARROW_SIZE, egui::Button::new("⏴"))
+            .add_sized(
+                arrow_size,
+                egui::Button::new(egui::RichText::new("⏴").size(glyph_size)),
+            )
             .clicked()
         {
             self.offset_debt -= self.scroll_increment();
         }
     }
 
-    pub fn right_arrow(&mut self, ui: &mut egui::Ui) {
+    pub fn right_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2) {
         if !self.show_right_arrow {
             return;
         }
 
+        let glyph_size = arrow_size.y * 0.5;
         if ui
-            .add_sized(SCROLL_ARROW_SIZE, egui::Button::new("⏵"))
+            .add_sized(
+                arrow_size,
+                egui::Button::new(egui::RichText::new("⏵").size(glyph_size)),
+            )
             .clicked()
         {
             self.offset_debt += self.scroll_increment();
@@ -170,22 +175,20 @@ impl Tabs {
         }
     }
 
+    pub fn next_active<Pane>(&self, tiles: &Tiles<Pane>) -> Option<TileId> {
+        self.active
+            .filter(|active| self.children.contains(active) && tiles.is_visible(*active))
+            .or_else(|| {
+                self.children
+                    .iter()
+                    .copied()
+                    .find(|&child_id| tiles.is_visible(child_id))
+            })
+    }
+
     /// Make sure we have an active tab (or no visible tabs).
     pub fn ensure_active<Pane>(&mut self, tiles: &Tiles<Pane>) {
-        if let Some(active) = self.active {
-            if !tiles.is_visible(active) {
-                self.active = None;
-            }
-        }
-
-        if !self.children.iter().any(|&child| self.is_active(child)) {
-            // Make sure something is active:
-            self.active = self
-                .children
-                .iter()
-                .copied()
-                .find(|&child_id| tiles.is_visible(child_id));
-        }
+        self.active = self.next_active(tiles);
     }
 
     pub(super) fn ui<Pane>(
@@ -209,7 +212,6 @@ impl Tabs {
     }
 
     /// Returns the next active tab (e.g. the one clicked, or the current).
-    #[allow(clippy::too_many_lines)]
     fn tab_bar_ui<Pane>(
         &self,
         tree: &mut Tree<Pane>,
@@ -222,8 +224,9 @@ impl Tabs {
         let mut next_active = self.active;
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
+        let arrow_size = egui::Vec2::splat(tab_bar_height);
         let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
-        let mut ui = ui.child_ui(tab_bar_rect, *ui.layout(), None);
+        let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(tab_bar_rect));
 
         let mut button_rects = ahash::HashMap::default();
         let mut dragged_index = None;
@@ -233,7 +236,7 @@ impl Tabs {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let scroll_state_id = ui.make_persistent_id(tile_id);
-            let mut scroll_state = ui.ctx().memory_mut(|m| {
+            let mut scroll_state = ui.memory_mut(|m| {
                 m.data
                     .get_temp::<ScrollState>(scroll_state_id)
                     .unwrap_or_default()
@@ -243,16 +246,16 @@ impl Tabs {
             // They can also read and modify the scroll state if they want.
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
 
-            let scroll_area_width = scroll_state.update(ui);
+            let scroll_area_width = scroll_state.update(ui, arrow_size);
 
             // We're in a right-to-left layout, so start with the right scroll-arrow:
-            scroll_state.right_arrow(ui);
+            scroll_state.right_arrow(ui, arrow_size);
 
             ui.allocate_ui_with_layout(
                 ui.available_size(),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    scroll_state.left_arrow(ui);
+                    scroll_state.left_arrow(ui, arrow_size);
 
                     // Prepare to show the scroll area with the tabs:
 
@@ -268,19 +271,19 @@ impl Tabs {
                         .horizontal_scroll_offset(scroll_state.offset);
 
                     let output = scroll_area.show(ui, |ui| {
-                        if !tree.is_root(tile_id) {
-                            // Make the background behind the buttons draggable (to drag the parent container tile):
+                        if !tree.is_root(tile_id)
+                            && behavior.is_tile_draggable(&tree.tiles, tile_id)
+                        {
+                            // Make the background behind the buttons draggable (to drag the parent container tile).
+                            // We also sense clicks to avoid eager-dragging on mouse-down.
+                            let sense = egui::Sense::click_and_drag();
                             if ui
-                                .interact(
-                                    ui.max_rect(),
-                                    ui.id().with("background"),
-                                    egui::Sense::drag(),
-                                )
+                                .interact(ui.max_rect(), ui.id().with("background"), sense)
                                 .on_hover_cursor(egui::CursorIcon::Grab)
                                 .drag_started()
                             {
                                 behavior.on_edit(EditAction::TileDragged);
-                                ui.ctx().set_dragged_id(tile_id.egui_id(tree.id));
+                                ui.set_dragged_id(tile_id.egui_id(tree.id));
                             }
                         }
 
@@ -291,7 +294,7 @@ impl Tabs {
                                 continue;
                             }
 
-                            let is_being_dragged = is_being_dragged(ui.ctx(), tree.id, child_id);
+                            let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
 
                             let selected = self.is_active(child_id);
                             let id = child_id.egui_id(tree.id);
@@ -309,14 +312,13 @@ impl Tabs {
                                 next_active = Some(child_id);
                             }
 
-                            if let Some(mouse_pos) = drop_context.mouse_pos {
-                                if drop_context.dragged_tile_id.is_some()
-                                    && response.rect.contains(mouse_pos)
-                                {
-                                    // Expand this tab - maybe the user wants to drop something into it!
-                                    behavior.on_edit(EditAction::TabSelected);
-                                    next_active = Some(child_id);
-                                }
+                            if let Some(mouse_pos) = drop_context.mouse_pos
+                                && drop_context.dragged_tile_id.is_some()
+                                && response.rect.contains(mouse_pos)
+                            {
+                                // Expand this tab - maybe the user wants to drop something into it!
+                                behavior.on_edit(EditAction::TabSelected);
+                                next_active = Some(child_id);
                             }
 
                             button_rects.insert(child_id, response.rect);
@@ -332,8 +334,7 @@ impl Tabs {
                 },
             );
 
-            ui.ctx()
-                .data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
+            ui.data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
         });
 
         // -----------

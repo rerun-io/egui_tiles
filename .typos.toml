@@ -2,5 +2,8 @@
 # install:  cargo install typos-cli
 # run:      typos
 
-[default.extend-words]
-teh = "teh"     # part of @teh-cmc
+[default]
+extend-ignore-re = [
+    "Isse", # it's a name
+    "teh",  # part of @teh-cmc
+]

@@ -1,6 +1,56 @@
 # `egui_tiles` Changelog
 
 
+## 0.15.0 - 2026-03-27
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.14.0..HEAD
+
+* Update to egui 0.34 [#125](https://github.com/rerun-io/egui_tiles/pull/125) by [@emilk](https://github.com/emilk)
+* Update MSRV to 1.92 [#124](https://github.com/rerun-io/egui_tiles/pull/124)
+* Add `Behavior::is_tile_draggable` and `is_container_resizable` [#123](https://github.com/rerun-io/egui_tiles/pull/123) by [@enomado](https://github.com/enomado)
+* Close tabs with middle mouse button [#122](https://github.com/rerun-io/egui_tiles/pull/122) by [@chicoferreira](https://github.com/chicoferreira)
+* Make `Behavior::on_tab_button` take `&mut Tiles` instead of `&Tiles` [#121](https://github.com/rerun-io/egui_tiles/pull/121) by [@chicoferreira](https://github.com/chicoferreira)
+* Fix active tab not updating when dragged to another container [#115](https://github.com/rerun-io/egui_tiles/pull/115) by [@stargazing-dino](https://github.com/stargazing-dino)
+* Use the next active tab when iterating active tiles [#111](https://github.com/rerun-io/egui_tiles/pull/111) by [@IsseW](https://github.com/IsseW)
+
+
+## 0.14.0 - 2025-10-10
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.13.0..HEAD
+
+* Update to egui 0.33.0 [#108](https://github.com/rerun-io/egui_tiles/pull/108) by [@lucasmerlin](https://github.com/lucasmerlin)
+* Update MSRV to 1.88 [#107](https://github.com/rerun-io/egui_tiles/pull/107) by [@lucasmerlin](https://github.com/lucasmerlin)
+* Add `Tree::inactive_tiles` for getting non-visible tiles [#106](https://github.com/rerun-io/egui_tiles/pull/106) by [@ivanrg99](https://github.com/ivanrg99)
+
+
+## 0.13.0 - 2025-07-11
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.12.0..HEAD
+
+* Allow setting a custom cursor icon when hovering over a tab [#97](https://github.com/rerun-io/egui_tiles/pull/97) by [@s-nie](https://github.com/s-nie)
+* Update to egui 0.32 [#104](https://github.com/rerun-io/egui_tiles/pull/104) by [@emilk](https://github.com/emilk)
+* Update to Rust 1.85 [#102](https://github.com/rerun-io/egui_tiles/pull/102) by [@emilk](https://github.com/emilk)
+* Update itertools to 0.14 [#105](https://github.com/rerun-io/egui_tiles/pull/105) by [@lucasmerlin](https://github.com/lucasmerlin)
+
+
+## 0.11.0 - 2024-12-17
+* Update MSRV to 1.80 [#91](https://github.com/rerun-io/egui_tiles/pull/91) by [@emilk](https://github.com/emilk)
+* Update to egui 0.30.0 [#92](https://github.com/rerun-io/egui_tiles/pull/92) by [@emilk](https://github.com/emilk)
+
+
+## 0.10.1 - 2024-10-01
+* Fix `Tree` serialization [#87](https://github.com/rerun-io/egui_tiles/pull/87)
+
+
+## 0.10.0 - 2024-09-26
+* Update to egui 0.29 [#78](https://github.com/rerun-io/egui_tiles/pull/78)
+* Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
+* Fix for eagerly starting a drag when clicking tab background [#80](https://github.com/rerun-io/egui_tiles/pull/80)
+* Fix `Tree` deserialization using JSON [#85](https://github.com/rerun-io/egui_tiles/pull/85) (thanks [@hastri](https://github.com/hastri)!)
+
+
+## [0.9.1](https://github.com/rerun-io/egui_tiles/compare/0.9.0...0.9.1) - 2024-08-27
+* Add `Tree::set_width` and `set_height` functions [#73](https://github.com/rerun-io/egui_tiles/pull/73) (thanks [@rafaga](https://github.com/rafaga)!)
+* Fix for eagerly starting a drag when clicking tab background [#80](https://github.com/rerun-io/egui_tiles/pull/80)
+
+
 ## [0.9.0](https://github.com/rerun-io/egui_tiles/compare/0.8.0...0.9.0) - 2024-07-03 - egui 0.28 and tab close buttons
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.8.0..HEAD
 

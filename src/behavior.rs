@@ -1,6 +1,6 @@
 use egui::{
-    vec2, Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
-    WidgetText,
+    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetText,
+    vec2,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -45,6 +45,11 @@ pub trait Behavior<Pane> {
 
     /// The title of a pane tab.
     fn tab_title_for_pane(&mut self, pane: &Pane) -> WidgetText;
+
+    /// The cursor icon when hovering over a tab.
+    fn tab_hover_cursor_icon(&self) -> egui::CursorIcon {
+        egui::CursorIcon::Grab
+    }
 
     /// Should the tab have a close-button?
     fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
@@ -92,7 +97,6 @@ pub trait Behavior<Pane> {
     ///
     /// You can override the default implementation to add e.g. a close button.
     /// Make sure it is sensitive to clicks and drags (if you want to enable drag-and-drop of tabs).
-    #[allow(clippy::fn_params_excessive_bools)]
     fn tab_ui(
         &mut self,
         tiles: &mut Tiles<Pane>,
@@ -114,16 +118,30 @@ pub trait Behavior<Pane> {
             + f32::from(state.closable) * (close_btn_left_padding + close_btn_size.x);
         let (_, tab_rect) = ui.allocate_space(vec2(button_width, ui.available_height()));
 
-        let tab_response = ui
-            .interact(tab_rect, id, Sense::click_and_drag())
-            .on_hover_cursor(egui::CursorIcon::Grab);
+        let draggable = self.is_tile_draggable(tiles, tile_id);
+        let sense = if draggable {
+            Sense::click_and_drag()
+        } else {
+            Sense::click()
+        };
+        let tab_response = ui.interact(tab_rect, id, sense);
+        let tab_response = if draggable {
+            tab_response.on_hover_cursor(self.tab_hover_cursor_icon())
+        } else {
+            tab_response
+        };
 
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
             let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
             let stroke = self.tab_outline_stroke(ui.visuals(), tiles, tile_id, state);
-            ui.painter()
-                .rect(tab_rect.shrink(0.5), 0.0, bg_color, stroke);
+            ui.painter().rect(
+                tab_rect.shrink(0.5),
+                0.0,
+                bg_color,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
 
             if state.active {
                 // Make the tab name area connect with the tab ui area:
@@ -170,7 +188,9 @@ pub trait Behavior<Pane> {
 
                 // Give the user a chance to react to the close button being clicked
                 // Only close if the user returns true (handled)
-                if close_btn_response.clicked() {
+                if close_btn_response.clicked()
+                    || tab_response.clicked_by(egui::PointerButton::Middle)
+                {
                     log::debug!("Tab close requested for tile: {tile_id:?}");
 
                     // Close the tab if the implementation wants to
@@ -202,7 +222,7 @@ pub trait Behavior<Pane> {
     /// Called by the default implementation of [`Self::tab_ui`] for each added button
     fn on_tab_button(
         &mut self,
-        _tiles: &Tiles<Pane>,
+        _tiles: &mut Tiles<Pane>,
         _tile_id: TileId,
         button_response: Response,
     ) -> Response {
@@ -377,10 +397,16 @@ pub trait Behavior<Pane> {
 
         if let Some(parent_rect) = parent_rect {
             // Show which parent we will be dropped into
-            painter.rect_stroke(parent_rect, 1.0, preview_stroke);
+            painter.rect_stroke(parent_rect, 1.0, preview_stroke, egui::StrokeKind::Inside);
         }
 
-        painter.rect(preview_rect, 1.0, preview_color, preview_stroke);
+        painter.rect(
+            preview_rect,
+            1.0,
+            preview_color,
+            preview_stroke,
+            egui::StrokeKind::Inside,
+        );
     }
 
     /// How many columns should we use for a [`crate::Grid`] put into [`crate::GridLayout::Auto`]?
@@ -404,6 +430,25 @@ pub trait Behavior<Pane> {
         4.0 / 3.0
     }
 
+    /// Can this tile be dragged?
+    ///
+    /// If `false`, the tile cannot be dragged by the user.
+    /// This affects both tab dragging and pane dragging.
+    ///
+    /// Default: `true` (all tiles are draggable).
+    fn is_tile_draggable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// Can the children of this container be resized by dragging the separator?
+    ///
+    /// Only applies to [`crate::Linear`] and [`crate::Grid`] containers.
+    ///
+    /// Default: `true` (all containers are resizable).
+    fn is_container_resizable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
     // Callbacks:
 
     /// Called if the user edits the tree somehow, e.g. changes the size of some container,
@@ -422,7 +467,7 @@ fn num_columns_heuristic(n: usize, size: Vec2, gap: f32, desired_aspect: f32) ->
             continue;
         }
 
-        let nrows = (n + ncols - 1) / ncols;
+        let nrows = n.div_ceil(ncols);
 
         let cell_width = (size.x - gap * (ncols as f32 - 1.0)) / (ncols as f32);
         let cell_height = (size.y - gap * (nrows as f32 - 1.0)) / (nrows as f32);

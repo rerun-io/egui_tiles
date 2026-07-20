@@ -160,16 +160,16 @@ impl<Pane> Tiles<Pane> {
         self.set_visible(tile_id, !self.is_visible(tile_id));
     }
 
-    /// This excludes all tiles that invisible or are inactive tabs, recursively.
-    pub(crate) fn collect_acticve_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
+    /// This excludes all tiles that are invisible or are inactive tabs, recursively.
+    pub(crate) fn collect_active_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
         if !self.is_visible(tile_id) {
             return;
         }
         tiles.push(tile_id);
 
         if let Some(Tile::Container(container)) = self.get(tile_id) {
-            for &child_id in container.active_children() {
-                self.collect_acticve_tiles(child_id, tiles);
+            for child_id in container.active_children(self) {
+                self.collect_active_tiles(child_id, tiles);
             }
         }
     }
@@ -191,7 +191,7 @@ impl<Pane> Tiles<Pane> {
         let mut id = TileId::from_u64(self.next_tile_id);
 
         // Make sure it doesn't collide with an existing id
-        while self.tiles.get(&id).is_some() {
+        while self.tiles.contains_key(&id) {
             self.next_tile_id += 1;
             id = TileId::from_u64(self.next_tile_id);
         }
@@ -246,12 +246,12 @@ impl<Pane> Tiles<Pane> {
     }
 
     pub fn parent_of(&self, child_id: TileId) -> Option<TileId> {
-        #[allow(clippy::iter_over_hash_type)] // Each tile can only have one parent
+        #[expect(clippy::iter_over_hash_type)] // Each tile can only have one parent
         for (tile_id, tile) in &self.tiles {
-            if let Tile::Container(container) = tile {
-                if container.has_child(child_id) {
-                    return Some(*tile_id);
-                }
+            if let Tile::Container(container) = tile
+                && container.has_child(child_id)
+            {
+                return Some(*tile_id);
             }
         }
         None
@@ -446,19 +446,19 @@ impl<Pane> Tiles<Pane> {
                     return SimplifyAction::Remove;
                 }
 
-                if options.prune_single_child_tabs {
-                    if let Some(only_child) = container.only_child() {
-                        let child_is_pane = matches!(self.get(only_child), Some(Tile::Pane(_)));
+                if options.prune_single_child_tabs
+                    && let Some(only_child) = container.only_child()
+                {
+                    let child_is_pane = matches!(self.get(only_child), Some(Tile::Pane(_)));
 
-                        if options.all_panes_must_have_tabs
-                            && child_is_pane
-                            && parent_kind != Some(ContainerKind::Tabs)
-                        {
-                            // Keep it, even though we only have one child
-                        } else {
-                            log::trace!("Simplify: collapsing single-child tabs container");
-                            return SimplifyAction::Replace(only_child);
-                        }
+                    if options.all_panes_must_have_tabs
+                        && child_is_pane
+                        && parent_kind != Some(ContainerKind::Tabs)
+                    {
+                        // Keep it, even though we only have one child
+                    } else {
+                        log::trace!("Simplify: collapsing single-child tabs container");
+                        return SimplifyAction::Replace(only_child);
                     }
                 }
 
@@ -484,54 +484,53 @@ impl<Pane> Tiles<Pane> {
                     }
                 }
             } else {
-                if options.join_nested_linear_containers {
-                    if let Container::Linear(parent) = container {
-                        let mut new_children = Vec::with_capacity(parent.children.len());
-                        for child_id in parent.children.drain(..) {
-                            if let Some(Tile::Container(Container::Linear(child))) =
-                                &mut self.get_mut(child_id)
-                            {
-                                if parent.dir == child.dir {
-                                    // absorb the child
-                                    log::trace!(
-                                        "Simplify: absorbing nested linear container with {} children",
-                                        child.children.len()
-                                    );
+                if options.join_nested_linear_containers
+                    && let Container::Linear(parent) = container
+                {
+                    let mut new_children = Vec::with_capacity(parent.children.len());
+                    for child_id in parent.children.drain(..) {
+                        if let Some(Tile::Container(Container::Linear(child))) =
+                            &mut self.get_mut(child_id)
+                        {
+                            if parent.dir == child.dir {
+                                // absorb the child
+                                log::trace!(
+                                    "Simplify: absorbing nested linear container with {} children",
+                                    child.children.len()
+                                );
 
-                                    let mut child_share_sum = 0.0;
-                                    for &grandchild in &child.children {
-                                        child_share_sum += child.shares[grandchild];
-                                    }
-                                    let share_normalizer =
-                                        parent.shares[child_id] / child_share_sum;
-                                    for &grandchild in &child.children {
-                                        new_children.push(grandchild);
-                                        parent.shares[grandchild] =
-                                            child.shares[grandchild] * share_normalizer;
-                                    }
-
-                                    self.tiles.remove(&child_id);
-                                } else {
-                                    // keep the child
-                                    new_children.push(child_id);
+                                let mut child_share_sum = 0.0;
+                                for &grandchild in &child.children {
+                                    child_share_sum += child.shares[grandchild];
                                 }
+                                let share_normalizer = parent.shares[child_id] / child_share_sum;
+                                for &grandchild in &child.children {
+                                    new_children.push(grandchild);
+                                    parent.shares[grandchild] =
+                                        child.shares[grandchild] * share_normalizer;
+                                }
+
+                                self.tiles.remove(&child_id);
                             } else {
+                                // keep the child
                                 new_children.push(child_id);
                             }
+                        } else {
+                            new_children.push(child_id);
                         }
-                        parent.children = new_children;
                     }
+                    parent.children = new_children;
                 }
 
                 if options.prune_empty_containers && container.is_empty() {
                     log::trace!("Simplify: removing empty container tile");
                     return SimplifyAction::Remove;
                 }
-                if options.prune_single_child_containers {
-                    if let Some(only_child) = container.only_child() {
-                        log::trace!("Simplify: collapsing single-child container tile");
-                        return SimplifyAction::Replace(only_child);
-                    }
+                if options.prune_single_child_containers
+                    && let Some(only_child) = container.only_child()
+                {
+                    log::trace!("Simplify: collapsing single-child container tile");
+                    return SimplifyAction::Replace(only_child);
                 }
             }
         }
@@ -589,10 +588,10 @@ impl<Pane> Tiles<Pane> {
                 }
             }
 
-            if let Some(active_child) = active_child {
-                if let Container::Tabs(tabs) = container {
-                    tabs.set_active(active_child);
-                }
+            if let Some(active_child) = active_child
+                && let Container::Tabs(tabs) = container
+            {
+                tabs.set_active(active_child);
             }
 
             activate |= active_child.is_some();

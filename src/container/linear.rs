@@ -1,12 +1,12 @@
 #![allow(clippy::tuple_array_conversions)]
 
-use egui::{pos2, vec2, NumExt, Rect};
+use egui::{NumExt as _, Rect, emath::GuiRounding as _, pos2, vec2};
 use itertools::Itertools as _;
 
 use crate::behavior::EditAction;
 use crate::{
-    is_being_dragged, Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState,
-    SimplifyAction, TileId, Tiles, Tree,
+    Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
+    Tiles, Tree, is_being_dragged,
 };
 
 // ----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ impl Linear {
         }
     }
 
-    fn visible_children<Pane>(&mut self, tiles: &Tiles<Pane>) -> Vec<TileId> {
+    fn visible_children<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<TileId> {
         self.children
             .iter()
             .copied()
@@ -168,7 +168,7 @@ impl Linear {
     }
 
     fn layout_horizontal<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,
@@ -192,7 +192,7 @@ impl Linear {
     }
 
     fn layout_vertical<Pane>(
-        &mut self,
+        &self,
         tiles: &mut Tiles<Pane>,
         style: &egui::Style,
         behavior: &mut dyn Behavior<Pane>,
@@ -244,7 +244,7 @@ impl Linear {
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
-        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui, tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Horizontal(i)),
                 rect,
@@ -254,6 +254,8 @@ impl Linear {
         // ------------------------
         // resizing:
 
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (left, right)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
@@ -261,6 +263,12 @@ impl Linear {
             let left_rect = tree.tiles.rect_or_die(left);
             let right_rect = tree.tiles.rect_or_die(right);
             let x = egui::lerp(left_rect.right()..=right_rect.left(), 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().vline(x, parent_rect.y_range(), stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -273,20 +281,20 @@ impl Linear {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
                     &visible_children,
                     &response,
                     [left, right],
-                    ui.painter().round_to_pixel(pointer.x) - x,
+                    pointer.round_to_pixels(ui.pixels_per_point()).x - x,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).width(),
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
                 }
             }
 
@@ -310,7 +318,7 @@ impl Linear {
             crate::cover_tile_if_dragged(tree, behavior, ui, child);
         }
 
-        linear_drop_zones(ui.ctx(), tree, &self.children, self.dir, |rect, i| {
+        linear_drop_zones(ui, tree, &self.children, self.dir, |rect, i| {
             drop_context.suggest_rect(
                 InsertionPoint::new(parent_id, ContainerInsertion::Vertical(i)),
                 rect,
@@ -320,6 +328,8 @@ impl Linear {
         // ------------------------
         // resizing:
 
+        let resizable = behavior.is_container_resizable(&tree.tiles, parent_id);
+
         let parent_rect = tree.tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in visible_children.iter().copied().tuple_windows().enumerate() {
             let resize_id = ui.id().with((parent_id, "resize", i));
@@ -327,6 +337,12 @@ impl Linear {
             let top_rect = tree.tiles.rect_or_die(top);
             let bottom_rect = tree.tiles.rect_or_die(bottom);
             let y = egui::lerp(top_rect.bottom()..=bottom_rect.top(), 0.5);
+
+            if !resizable {
+                let stroke = behavior.resize_stroke(ui.style(), ResizeState::Idle);
+                ui.painter().hline(parent_rect.x_range(), y, stroke);
+                continue;
+            }
 
             let mut resize_state = ResizeState::Idle;
             let line_rect = Rect::from_center_size(
@@ -339,20 +355,20 @@ impl Linear {
             let response = ui.interact(line_rect, resize_id, egui::Sense::click_and_drag());
             // NOTE: Check for interaction with line_rect BEFORE entering the 'IF block' below,
             // otherwise we miss the start of a drag event in certain cases (e.g. touchscreens).
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+            if let Some(pointer) = ui.pointer_interact_pos() {
                 resize_state = resize_interaction(
                     behavior,
                     &mut self.shares,
                     &visible_children,
                     &response,
                     [top, bottom],
-                    ui.painter().round_to_pixel(pointer.y) - y,
+                    pointer.round_to_pixels(ui.pixels_per_point()).y - y,
                     i,
                     |tile_id: TileId| tree.tiles.rect_or_die(tile_id).height(),
                 );
 
                 if resize_state != ResizeState::Idle {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                    ui.set_cursor_icon(egui::CursorIcon::ResizeVertical);
                 }
             }
 
@@ -381,7 +397,7 @@ impl Linear {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn resize_interaction<Pane>(
     behavior: &mut dyn Behavior<Pane>,
     shares: &mut Shares,

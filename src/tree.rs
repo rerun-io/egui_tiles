@@ -39,10 +39,41 @@ pub struct Tree<Pane> {
     pub tiles: Tiles<Pane>,
 
     /// When finite, this values contains the exact height of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     height: f32,
 
     /// When finite, this values contains the exact width of this tree
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_f32_infinity_as_null"),
+        serde(deserialize_with = "deserialize_f32_null_as_infinity")
+    )]
     width: f32,
+}
+
+// Workaround for JSON which doesn't support infinity, because JSON is stupid.
+#[cfg(feature = "serde")]
+fn serialize_f32_infinity_as_null<S: serde::Serializer>(
+    t: &f32,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if t.is_infinite() {
+        serializer.serialize_none()
+    } else {
+        serializer.serialize_some(t)
+    }
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_f32_null_as_infinity<'de, D: serde::Deserializer<'de>>(
+    des: D,
+) -> Result<f32, D::Error> {
+    use serde::Deserialize as _;
+    Ok(Option::<f32>::deserialize(des)?.unwrap_or(f32::INFINITY))
 }
 
 impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
@@ -79,9 +110,20 @@ impl<Pane: std::fmt::Debug> std::fmt::Debug for Tree<Pane> {
             }
         }
 
-        if let Some(root) = self.root {
+        let Self {
+            id,
+            root,
+            tiles,
+            width,
+            height,
+        } = self;
+
+        if let Some(root) = root {
             writeln!(f, "Tree {{")?;
-            format_tile(f, &self.tiles, 1, root)?;
+            writeln!(f, "    id: {id:?}")?;
+            writeln!(f, "    width: {width:?}")?;
+            writeln!(f, "    height: {height:?}")?;
+            format_tile(f, tiles, 1, *root)?;
             write!(f, "}}")
         } else {
             writeln!(f, "Tree {{ }}")
@@ -233,17 +275,30 @@ impl<Pane> Tree<Pane> {
 
     /// All visible tiles.
     ///
-    /// This excludes all tiles that invisible or are inactive tabs, recursively.
+    /// This excludes all tiles that are invisible or are inactive tabs, recursively.
     ///
     /// The order of the returned tiles is arbitrary.
     pub fn active_tiles(&self) -> Vec<TileId> {
         let mut tiles = vec![];
-        if let Some(root) = self.root {
-            if self.is_visible(root) {
-                self.tiles.collect_acticve_tiles(root, &mut tiles);
-            }
+        if let Some(root) = self.root
+            && self.is_visible(root)
+        {
+            self.tiles.collect_active_tiles(root, &mut tiles);
         }
         tiles
+    }
+
+    /// All non-visible tiles.
+    ///
+    /// This includes all tiles that are invisible or are inactive tabs. Uses `active_tiles`.
+    ///
+    /// The order of the returned tiles is arbitrary.
+    pub fn inactive_tiles(&self) -> Vec<TileId> {
+        let active_tiles = self.active_tiles();
+        self.tiles
+            .tile_ids()
+            .filter(|id| !active_tiles.contains(id))
+            .collect()
     }
 
     /// Show the tree in the given [`Ui`].
@@ -259,7 +314,7 @@ impl<Pane> Tree<Pane> {
         // Check if anything is being dragged:
         let mut drop_context = DropContext {
             enabled: true,
-            dragged_tile_id: self.dragged_id(ui.ctx()),
+            dragged_tile_id: self.dragged_id(ui),
             mouse_pos: ui.input(|i| i.pointer.interact_pos()),
             best_dist_sq: f32::INFINITY,
             best_insertion: None,
@@ -339,24 +394,25 @@ impl<Pane> Tree<Pane> {
         let enabled = ui.is_enabled();
         let mut ui = egui::Ui::new(
             ui.ctx().clone(),
-            ui.layer_id(),
             ui.id().with(tile_id),
-            rect,
-            rect,
-            egui::UiStackInfo::default(),
+            egui::UiBuilder::new()
+                .layer_id(ui.layer_id())
+                .max_rect(rect),
         );
 
         ui.add_enabled_ui(enabled, |ui| {
             match &mut tile {
                 Tile::Pane(pane) => {
-                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted {
-                        ui.ctx().set_dragged_id(tile_id.egui_id(self.id));
+                    if behavior.pane_ui(ui, tile_id, pane) == UiResponse::DragStarted
+                        && behavior.is_tile_draggable(&self.tiles, tile_id)
+                    {
+                        ui.set_dragged_id(tile_id.egui_id(self.id));
                     }
                 }
                 Tile::Container(container) => {
                     container.ui(self, behavior, drop_context, ui, rect, tile_id);
                 }
-            };
+            }
 
             behavior.paint_on_top_of_tile(ui.painter(), ui.style(), tile_id, rect);
 
@@ -400,12 +456,12 @@ impl<Pane> Tree<Pane> {
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
-            .show(ui.ctx(), |ui| {
+            .show(ui, |ui| {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
         if let Some(preview_rect) = drop_context.preview_rect {
-            let preview_rect = smooth_preview_rect(ui.ctx(), dragged_tile_id, preview_rect);
+            let preview_rect = smooth_preview_rect(ui, dragged_tile_id, preview_rect);
 
             let parent_rect = drop_context
                 .best_insertion
@@ -415,16 +471,17 @@ impl<Pane> Tree<Pane> {
 
             if behavior.preview_dragged_panes() {
                 // TODO(emilk): add support for previewing containers too.
-                if preview_rect.width() > 32.0 && preview_rect.height() > 32.0 {
-                    if let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id) {
-                        // Intentionally ignore the response, since the user cannot possibly
-                        // begin a drag on the preview pane.
-                        let _: UiResponse = behavior.pane_ui(
-                            &mut ui.child_ui(preview_rect, *ui.layout(), None),
-                            dragged_tile_id,
-                            pane,
-                        );
-                    }
+                if preview_rect.width() > 32.0
+                    && preview_rect.height() > 32.0
+                    && let Some(Tile::Pane(pane)) = self.tiles.get_mut(dragged_tile_id)
+                {
+                    // Intentionally ignore the response, since the user cannot possibly
+                    // begin a drag on the preview pane.
+                    let _ignored: UiResponse = behavior.pane_ui(
+                        &mut ui.new_child(egui::UiBuilder::new().max_rect(preview_rect)),
+                        dragged_tile_id,
+                        pane,
+                    );
                 }
             }
         }
@@ -434,7 +491,7 @@ impl<Pane> Tree<Pane> {
                 behavior.on_edit(EditAction::TileDropped);
                 self.move_tile(dragged_tile_id, insertion_point, false);
             }
-            clear_smooth_preview_rect(ui.ctx(), dragged_tile_id);
+            clear_smooth_preview_rect(ui, dragged_tile_id);
         }
     }
 
@@ -453,10 +510,10 @@ impl<Pane> Tree<Pane> {
                 }
             }
 
-            if options.all_panes_must_have_tabs {
-                if let Some(tile_id) = self.root {
-                    self.tiles.make_all_panes_children_of_tabs(false, tile_id);
-                }
+            if options.all_panes_must_have_tabs
+                && let Some(tile_id) = self.root
+            {
+                self.tiles.make_all_panes_children_of_tabs(false, tile_id);
             }
         }
     }
@@ -521,7 +578,9 @@ impl<Pane> Tree<Pane> {
                 reflow_grid,
             );
         } else {
-            log::warn!("Failed to find destination container {destination_container:?} during `move_tile_to_container()`");
+            log::warn!(
+                "Failed to find destination container {destination_container:?} during `move_tile_to_container()`"
+            );
         }
     }
 
@@ -546,44 +605,42 @@ impl<Pane> Tree<Pane> {
             if prev_parent_id == insertion_point.parent_id {
                 let parent_tile = self.tiles.get_mut(prev_parent_id);
 
-                if let Some(Tile::Container(container)) = parent_tile {
-                    if container.kind() == insertion_point.insertion.kind() {
-                        let dest_index = insertion_point.insertion.index();
-                        log::trace!(
-                            "Moving within the same parent: {source_index} -> {dest_index}"
-                        );
-                        // lets swap the two indices
+                if let Some(Tile::Container(container)) = parent_tile
+                    && container.kind() == insertion_point.insertion.kind()
+                {
+                    let dest_index = insertion_point.insertion.index();
+                    log::trace!("Moving within the same parent: {source_index} -> {dest_index}");
+                    // lets swap the two indices
 
-                        let adjusted_index = if source_index < dest_index {
-                            // We removed an earlier element, so we need to adjust the index:
-                            dest_index - 1
-                        } else {
-                            dest_index
-                        };
+                    let adjusted_index = if source_index < dest_index {
+                        // We removed an earlier element, so we need to adjust the index:
+                        dest_index - 1
+                    } else {
+                        dest_index
+                    };
 
-                        match container {
-                            Container::Tabs(tabs) => {
-                                let insertion_index = adjusted_index.min(tabs.children.len());
-                                tabs.children.insert(insertion_index, moved_tile_id);
-                                tabs.active = Some(moved_tile_id);
-                            }
-                            Container::Linear(linear) => {
-                                let insertion_index = adjusted_index.min(linear.children.len());
-                                linear.children.insert(insertion_index, moved_tile_id);
-                            }
-                            Container::Grid(grid) => {
-                                if reflow_grid {
-                                    self.tiles.insert_at(insertion_point, moved_tile_id);
-                                } else {
-                                    let dest_tile = grid.replace_at(dest_index, moved_tile_id);
-                                    if let Some(dest) = dest_tile {
-                                        grid.insert_at(source_index, dest);
-                                    }
-                                };
+                    match container {
+                        Container::Tabs(tabs) => {
+                            let insertion_index = adjusted_index.min(tabs.children.len());
+                            tabs.children.insert(insertion_index, moved_tile_id);
+                            tabs.active = Some(moved_tile_id);
+                        }
+                        Container::Linear(linear) => {
+                            let insertion_index = adjusted_index.min(linear.children.len());
+                            linear.children.insert(insertion_index, moved_tile_id);
+                        }
+                        Container::Grid(grid) => {
+                            if reflow_grid {
+                                self.tiles.insert_at(insertion_point, moved_tile_id);
+                            } else {
+                                let dest_tile = grid.replace_at(dest_index, moved_tile_id);
+                                if let Some(dest) = dest_tile {
+                                    grid.insert_at(source_index, dest);
+                                }
                             }
                         }
-                        return; // done
                     }
+                    return; // done
                 }
             }
         }
@@ -617,7 +674,7 @@ impl<Pane> Tree<Pane> {
     ///
     /// The [`Tile`] itself is not removed from [`Self::tiles`].
     ///
-    /// Performs no simplifcations.
+    /// Performs no simplifications.
     ///
     /// If found, the parent tile and the child's index is returned.
     pub(super) fn remove_tile_id_from_parent(
@@ -627,10 +684,10 @@ impl<Pane> Tree<Pane> {
         let mut result = None;
 
         for (parent_id, parent) in self.tiles.iter_mut() {
-            if let Tile::Container(container) = parent {
-                if let Some(child_index) = container.remove_child(remove_me) {
-                    result = Some((*parent_id, child_index));
-                }
+            if let Tile::Container(container) = parent
+                && let Some(child_index) = container.remove_child(remove_me)
+            {
+                result = Some((*parent_id, child_index));
             }
         }
 
@@ -638,13 +695,13 @@ impl<Pane> Tree<Pane> {
         // that the tab container gets assigned another active tab.
         // If the tab is dragged to the same container, then it will become active again,
         // since all tabs become active when dragged, wherever they end up.
-        if let Some((parent_id, _)) = result {
-            if let Some(mut tile) = self.tiles.remove(parent_id) {
-                if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
-                    tabs.ensure_active(&self.tiles);
-                }
-                self.tiles.insert(parent_id, tile);
+        if let Some((parent_id, _)) = result
+            && let Some(mut tile) = self.tiles.remove(parent_id)
+        {
+            if let Tile::Container(Container::Tabs(tabs)) = &mut tile {
+                tabs.ensure_active(&self.tiles);
             }
+            self.tiles.insert(parent_id, tile);
         }
 
         result
