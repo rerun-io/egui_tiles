@@ -30,7 +30,12 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # quick-xml 0.37 is pulled in transitively by wayland-scanner (via `eframe`, a dev-dependency, on Linux).
+  # wayland-scanner 0.31 pins quick-xml 0.37, so we can't upgrade to the fixed >=0.41 until that moves.
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+]
 
 
 [bans]
