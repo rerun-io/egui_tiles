@@ -1,9 +1,15 @@
 # `egui_tiles` Changelog
 
 
-## 0.14.1 - 2025-12-15
+## 0.15.0 - 2026-03-27
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.14.0..HEAD
 
+* Update to egui 0.34 [#125](https://github.com/rerun-io/egui_tiles/pull/125) by [@emilk](https://github.com/emilk)
+* Update MSRV to 1.92 [#124](https://github.com/rerun-io/egui_tiles/pull/124)
+* Add `Behavior::is_tile_draggable` and `is_container_resizable` [#123](https://github.com/rerun-io/egui_tiles/pull/123) by [@enomado](https://github.com/enomado)
+* Close tabs with middle mouse button [#122](https://github.com/rerun-io/egui_tiles/pull/122) by [@chicoferreira](https://github.com/chicoferreira)
+* Make `Behavior::on_tab_button` take `&mut Tiles` instead of `&Tiles` [#121](https://github.com/rerun-io/egui_tiles/pull/121) by [@chicoferreira](https://github.com/chicoferreira)
+* Fix active tab not updating when dragged to another container [#115](https://github.com/rerun-io/egui_tiles/pull/115) by [@stargazing-dino](https://github.com/stargazing-dino)
 * Use the next active tab when iterating active tiles [#111](https://github.com/rerun-io/egui_tiles/pull/111) by [@IsseW](https://github.com/IsseW)
 
 

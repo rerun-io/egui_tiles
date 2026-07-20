@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![allow(clippy::allow_attributes, unused_mut, clippy::useless_let_if_seq)]
 
 use eframe::egui;
 use egui_tiles::{Tile, TileId, Tiles};
@@ -13,13 +14,12 @@ fn main() -> Result<(), eframe::Error> {
         "egui_tiles example",
         options,
         Box::new(|_cc| {
-            #[cfg_attr(not(feature = "serde"), allow(unused_mut))]
             let mut app = MyApp::default();
             #[cfg(feature = "serde")]
-            if let Some(storage) = _cc.storage {
-                if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
-                    app = state;
-                }
+            if let Some(storage) = _cc.storage
+                && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
+            {
+                app = state;
             }
             Ok(Box::new(app))
         }),
@@ -237,8 +237,8 @@ impl Default for MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::left("tree").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::left("tree").show(ui, |ui| {
             if ui.button("Reset").clicked() {
                 *self = Default::default();
             }
@@ -280,7 +280,7 @@ impl eframe::App for MyApp {
             }
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             self.tree.ui(&mut self.behavior, ui);
         });
     }
@@ -311,7 +311,7 @@ fn tree_ui(
 
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
-        ui.ctx(),
+        ui,
         ui.id().with((tile_id, "tree")),
         default_open,
     )
