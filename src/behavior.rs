@@ -272,8 +272,6 @@ pub trait Behavior<Pane> {
         _tile_id: TileId,
         _tabs: &crate::Tabs,
     ) {
-        // if ui.button("➕").clicked() {
-        // }
     }
 
     /// The height of the bar holding tab titles.

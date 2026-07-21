@@ -1,10 +1,6 @@
 # `egui_tiles` Changelog
 
 
-## Unreleased
-* Add `Behavior::tab_bar_trailing_ui` for rendering UI immediately after the last tab [#132](https://github.com/rerun-io/egui_tiles/issues/132) by [@mitchmindtree](https://github.com/mitchmindtree)
-
-
 ## 0.15.0 - 2026-03-27
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.14.0..HEAD
 
