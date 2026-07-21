@@ -254,6 +254,24 @@ pub trait Behavior<Pane> {
         // }
     }
 
+    /// Adds custom UI to the leftmost edge of each tab bar, pinned outside the
+    /// scrollable tab strip and to the LEFT of the left scroll-arrow.
+    ///
+    /// Width consumed by widgets added here is automatically subtracted from
+    /// the area available to the scrollable tab strip — tabs shrink rather
+    /// than overlap. The slot does not move when tabs are scrolled.
+    ///
+    /// To match the visual height of the scroll arrows, use
+    /// `ui.add_sized(egui::Vec2::splat(self.tab_bar_height(...)), widget)`.
+    fn tab_bar_left_ui(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _ui: &mut Ui,
+        _tile_id: TileId,
+        _tabs: &crate::Tabs,
+    ) {
+    }
+
     /// The height of the bar holding tab titles.
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         24.0
