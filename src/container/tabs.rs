@@ -326,6 +326,10 @@ impl Tabs {
                                 dragged_index = Some(i);
                             }
                         }
+
+                        // Allow the user to add a trailing widget after the last tab
+                        // (e.g. a "➕" button), inside the tab scroll area's flow.
+                        behavior.tab_bar_trailing_ui(&tree.tiles, ui, tile_id, self);
                     });
 
                     scroll_state.offset = output.state.offset.x;
