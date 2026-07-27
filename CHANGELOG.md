@@ -1,6 +1,11 @@
 # `egui_tiles` Changelog
 
 
+## Unreleased
+
+* Tabs and their close buttons now report themselves to accessibility tools, so screen readers announce a tab's title and whether it is selected. This also makes them reachable by name from `egui_kittest`.
+
+
 ## 0.16.0 - 2026-06-26
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.15.0..HEAD
 
