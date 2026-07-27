@@ -144,6 +144,16 @@ impl Linear {
         slf
     }
 
+    /// Swap out one child for another, keeping its position and its share of the space.
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> bool {
+        let Some(slot) = self.children.iter_mut().find(|child| **child == old) else {
+            return false;
+        };
+        *slot = new;
+        self.shares.replace_with(old, new);
+        true
+    }
+
     pub fn add_child(&mut self, child: TileId) {
         self.children.push(child);
     }
