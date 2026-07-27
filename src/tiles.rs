@@ -372,10 +372,16 @@ impl<Pane> Tiles<Pane> {
         let wrapper_id = self.insert_new(Tile::Container(container));
 
         // Whoever referred to the parent now refers to the container wrapping it.
+        // `grandparent_id` is `None` when the parent is the root, which the caller handles.
         if let Some(grandparent_id) = grandparent_id
             && let Some(Tile::Container(grandparent)) = self.get_mut(grandparent_id)
+            && grandparent.replace_child(parent_id, wrapper_id).is_none()
         {
-            grandparent.replace_child(parent_id, wrapper_id);
+            // `grandparent_id` came from `parent_of`, so this should be unreachable.
+            log::warn!(
+                "Bug: {grandparent_id:?} was the parent of {parent_id:?}, \
+                 but does not list it as a child"
+            );
         }
 
         Some(wrapper_id)
