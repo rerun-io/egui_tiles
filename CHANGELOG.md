@@ -3,6 +3,7 @@
 
 ## Unreleased
 
+* Tabs and their close buttons now report themselves to accessibility tools, so screen readers announce a tab's title and whether it is selected. This also makes them reachable by name from `egui_kittest`.
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
 
 
