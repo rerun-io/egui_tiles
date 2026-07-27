@@ -6,8 +6,10 @@
 //! `Tiles::insert_new`'s running counter. After [`Tree::ui`], any edit is read back out of the
 //! tree and folded into the `Blueprint`, so it persists into the next frame's freshly-built tree.
 //!
-//! This is the exact setup that exposed the drag-and-drop tile-loss regression: run it, drag one
-//! pane onto another, and watch the "panes" counter in the top bar — it must stay constant.
+//! This setup is easy for `egui_tiles` to get wrong: anything that edits the tree mid-frame and
+//! expects to put it back the way it was has to survive the tree being thrown away and rebuilt
+//! underneath it. Run this, drag panes around, and watch the "panes" counter in the top bar —
+//! it must stay constant.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -61,12 +63,30 @@ struct Blueprint {
 
 impl Default for Blueprint {
     fn default() -> Self {
-        // Two panes side by side — the minimal case that reproduced the bug.
+        // Nested containers of three different kinds, so that dragging things around exercises
+        // the interesting cases: splitting a pane, joining a linear container, moving a tile
+        // between containers, and dropping into a tab bar.
+        //
+        //   Horizontal[ pane_a, Vertical[ pane_b, Tabs[ pane_c, pane_d ] ] ]
         Self {
             root: Node::container(
                 "root",
                 ContainerKind::Horizontal,
-                vec![Node::pane("pane_a"), Node::pane("pane_b")],
+                vec![
+                    Node::pane("pane_a"),
+                    Node::container(
+                        "right_column",
+                        ContainerKind::Vertical,
+                        vec![
+                            Node::pane("pane_b"),
+                            Node::container(
+                                "bottom_tabs",
+                                ContainerKind::Tabs,
+                                vec![Node::pane("pane_c"), Node::pane("pane_d")],
+                            ),
+                        ],
+                    ),
+                ],
             ),
             next_generated_id: 0,
         }
