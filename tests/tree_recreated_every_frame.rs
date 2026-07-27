@@ -170,12 +170,7 @@ impl Blueprint {
     /// Fold an edited tree back into the blueprint, minting fresh ids for any newly-created
     /// containers — exactly what the app does after a drop.
     ///
-    /// `reverse` deliberately holds **containers only**: a `TileId` does not keep referring to
-    /// the same kind of tile. Dropping a pane onto another pane makes `egui_tiles` reuse the
-    /// target's id for the container it wraps them in, so an id that meant `"pane_a"` one frame
-    /// means `"the container holding pane_a"` the next. Handing that container the app id
-    /// `"pane_a"` would make the next `to_tree()` insert a pane and a container at the same id,
-    /// silently losing a pane. See `examples/tree_recreated_every_frame.rs`.
+    /// `reverse` holds **containers only**: a pane is identified by its own payload instead.
     fn sync_from_tree(&mut self, tree: &Tree<String>, reverse: &HashMap<TileId, String>) {
         fn rebuild(
             tile_id: TileId,
