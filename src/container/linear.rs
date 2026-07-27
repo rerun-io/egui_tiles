@@ -3,7 +3,7 @@
 use egui::{NumExt as _, Rect, emath::GuiRounding as _, pos2, vec2};
 use itertools::Itertools as _;
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, LayoutContext};
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
     Tiles, Tree, is_being_dragged,
@@ -148,11 +148,10 @@ impl Linear {
         self.children.push(child);
     }
 
-    pub fn layout<Pane>(
+    pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         // GC:
@@ -161,23 +160,22 @@ impl Linear {
 
         match self.dir {
             LinearDir::Horizontal => {
-                self.layout_horizontal(tiles, style, behavior, rect);
+                self.layout_horizontal(tiles, layout, rect);
             }
-            LinearDir::Vertical => self.layout_vertical(tiles, style, behavior, rect),
+            LinearDir::Vertical => self.layout_vertical(tiles, layout, rect),
         }
     }
 
     fn layout_horizontal<Pane>(
         &self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         let visible_children = self.visible_children(tiles);
 
         let num_gaps = visible_children.len().saturating_sub(1);
-        let gap_width = behavior.gap_width(style);
+        let gap_width = layout.gap_width;
         let total_gap_width = gap_width * num_gaps as f32;
         let available_width = (rect.width() - total_gap_width).at_least(0.0);
 
@@ -186,7 +184,7 @@ impl Linear {
         let mut x = rect.min.x;
         for (child, width) in visible_children.iter().zip(widths) {
             let child_rect = Rect::from_min_size(pos2(x, rect.min.y), vec2(width, rect.height()));
-            tiles.layout_tile(style, behavior, child_rect, *child);
+            tiles.layout_tile(layout, child_rect, *child);
             x += width + gap_width;
         }
     }
@@ -194,14 +192,13 @@ impl Linear {
     fn layout_vertical<Pane>(
         &self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         let visible_children = self.visible_children(tiles);
 
         let num_gaps = visible_children.len().saturating_sub(1);
-        let gap_height = behavior.gap_width(style);
+        let gap_height = layout.gap_width;
         let total_gap_height = gap_height * num_gaps as f32;
         let available_height = (rect.height() - total_gap_height).at_least(0.0);
 
@@ -210,7 +207,7 @@ impl Linear {
         let mut y = rect.min.y;
         for (child, height) in visible_children.iter().zip(heights) {
             let child_rect = Rect::from_min_size(pos2(rect.min.x, y), vec2(rect.width(), height));
-            tiles.layout_tile(style, behavior, child_rect, *child);
+            tiles.layout_tile(layout, child_rect, *child);
             y += height + gap_height;
         }
     }

@@ -35,6 +35,57 @@ pub struct TabState {
     pub closable: bool,
 }
 
+/// Everything the layout pass needs from a [`Behavior`], with the pane type erased.
+///
+/// The layout pass never looks at a pane's contents — it only needs a few numbers. Gathering
+/// them up front lets the animated drag preview lay out a pane-free skeleton of the tree
+/// (see [`Tiles::skeleton`]), which is impossible with a `&dyn Behavior<Pane>`.
+pub(crate) struct LayoutContext<'a> {
+    pub gap_width: f32,
+    pub tab_bar_height: f32,
+    pub grid_auto_column_count: &'a dyn Fn(usize, Rect, f32) -> usize,
+
+    /// Set by the layout pass if it had to pick an active tab for a [`crate::Tabs`] container.
+    ///
+    /// Reported back to the caller rather than straight to [`Behavior::on_edit`], so that a
+    /// speculative layout of a [`Tiles::skeleton`] cannot fire user-visible edit events.
+    pub tab_auto_selected: &'a std::cell::Cell<bool>,
+}
+
+/// Lay out `tiles` starting at `root`, using only the pane-agnostic parts of `behavior`.
+///
+/// Generic over the pane type of `tiles` so it serves both the real tree and the
+/// [`Tiles::skeleton`] that the drag preview speculates on.
+/// Returns `true` if the pass had to auto-select an active tab, in which case the caller
+/// should report [`EditAction::TabSelected`] — unless this was a speculative layout.
+pub(crate) fn layout_tiles<Pane, SkeletonPane>(
+    tiles: &mut Tiles<SkeletonPane>,
+    root: Option<TileId>,
+    behavior: &dyn Behavior<Pane>,
+    style: &egui::Style,
+    rect: Rect,
+) -> bool {
+    let Some(root) = root else {
+        return false;
+    };
+
+    let grid_auto_column_count = |num_visible_children, rect, gap| {
+        behavior.grid_auto_column_count(num_visible_children, rect, gap)
+    };
+    let tab_auto_selected = std::cell::Cell::new(false);
+
+    let layout = LayoutContext {
+        gap_width: behavior.gap_width(style),
+        tab_bar_height: behavior.tab_bar_height(style),
+        grid_auto_column_count: &grid_auto_column_count,
+        tab_auto_selected: &tab_auto_selected,
+    };
+
+    tiles.layout_tile(&layout, rect, root);
+
+    tab_auto_selected.get()
+}
+
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
 pub trait Behavior<Pane> {
     /// Show a pane tile in the given [`egui::Ui`].

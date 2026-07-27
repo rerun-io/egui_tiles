@@ -1,6 +1,12 @@
 # `egui_tiles` Changelog
 
 
+## Unreleased
+
+* Add an animated layout preview during drag-and-drop: the tiles slide towards where they would end up, and tab bars show the incoming tab. Tune it with `Behavior::preview_options`, or set `PreviewOptions::enabled` to `false` for the old simple drop-zone highlight.
+* ⚠️ `Linear::layout` is no longer `pub`. It could not be called usefully from outside the crate.
+
+
 ## 0.16.0 - 2026-06-26
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.15.0..HEAD
 

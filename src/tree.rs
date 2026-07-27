@@ -1,77 +1,66 @@
 use egui::{NumExt as _, Rect, Ui};
 
-/// Rects closer than this (in pixels, sum of min+max distances) are considered converged.
-const RECT_CONVERGENCE_THRESHOLD: f32 = 0.5;
-
-/// User-tunable parameters for the animated drag preview.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PreviewOptions {
-    /// Whether the animated layout preview is enabled during drag-and-drop.
-    ///
-    /// When `false`, only a simple highlighted drop zone is shown.
-    pub enabled: bool,
-
-    /// How smooth the animation is (0..1, higher = smoother).
-    ///
-    /// `smoothness` parameter of [`emath::exponential_smooth_factor`](https://docs.rs/emath/latest/emath/fn.exponential_smooth_factor.html).
-    pub smoothness: f32,
-
-    /// The duration of the preview animation convergence (in seconds).
-    ///
-    /// `half_time` parameter of [`emath::exponential_smooth_factor`](https://docs.rs/emath/latest/emath/fn.exponential_smooth_factor.html).
-    pub smooth_duration_sec: f32,
-}
-
-impl Default for PreviewOptions {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            smoothness: 0.9,
-            smooth_duration_sec: 0.05,
-        }
-    }
-}
-
-/// Returns true if `a` and `b` are close enough to be considered the same rect.
-fn rects_close_enough(a: Rect, b: Rect) -> bool {
-    a.min.distance(b.min) + a.max.distance(b.max) < RECT_CONVERGENCE_THRESHOLD
-}
-
-use crate::behavior::EditAction;
-use crate::{ContainerInsertion, ContainerKind, MoveJournal, UiResponse};
+use crate::behavior::{EditAction, layout_tiles};
+use crate::{ContainerInsertion, ContainerKind, PreviewOptions, UiResponse};
 
 use super::{
     Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
     TileId, Tiles,
 };
 
-/// Transient state for the animated drag preview.
-///
-/// This spans multiple frames (the speculative layout uses the _previous_ frame's
-/// insertion point, and the rects are smoothed over time), so it is stored in
-/// [`egui::Memory`] rather than in the [`Tree`]: some applications (e.g. Rerun)
-/// re-create their [`Tree`] from scratch every frame, which would otherwise reset
-/// this state before it is ever read, silently disabling the preview.
-#[derive(Clone, Default)]
-struct PreviewState {
-    /// The best insertion point from the previous frame's drop context.
-    insertion: Option<InsertionPoint>,
+/// Rects closer than this (in points, summed over both corners) count as converged.
+const RECT_CONVERGENCE_THRESHOLD: f32 = 0.5;
 
-    /// Rects for every tile as they would be after the pending move.
-    rects: ahash::HashMap<TileId, Rect>,
-
-    lerp_t: f32,
-
-    smoothed_rects: ahash::HashMap<TileId, Rect>,
-
-    /// During preview, the tab children each Tabs container would have after the move.
-    tab_children: ahash::HashMap<TileId, Vec<TileId>>,
-
-    /// During preview, which tab should appear active in each Tabs container.
-    active_tabs: ahash::HashMap<TileId, Option<TileId>>,
+/// The ids of every pane in the tree, sorted.
+fn sorted_pane_ids<Pane>(tiles: &Tiles<Pane>) -> Vec<u64> {
+    let mut ids: Vec<u64> = tiles
+        .iter()
+        .filter_map(|(id, tile)| matches!(tile, Tile::Pane(_)).then_some(id.0))
+        .collect();
+    ids.sort_unstable();
+    ids
 }
 
-impl PreviewState {
+/// The _original_ ids of every pane in a [`Tiles::skeleton`], sorted.
+///
+/// A skeleton stores each pane's original [`TileId`] as its payload, so this must always agree
+/// with [`sorted_pane_ids`] of the tree it was built from: speculative edits move panes around,
+/// but must never lose or duplicate one.
+fn sorted_skeleton_pane_ids(tiles: &Tiles<TileId>) -> Vec<u64> {
+    let mut ids: Vec<u64> = tiles
+        .tiles()
+        .filter_map(|tile| match tile {
+            Tile::Pane(original_id) => Some(original_id.0),
+            Tile::Container(_) => None,
+        })
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
+/// Are `a` and `b` close enough to be considered the same rect?
+fn rects_close_enough(a: Rect, b: Rect) -> bool {
+    a.min.distance(b.min) + a.max.distance(b.max) < RECT_CONVERGENCE_THRESHOLD
+}
+
+/// The parts of the animated drag preview that must survive to the next frame.
+///
+/// Kept in [`egui::Memory`] rather than in the [`Tree`], because some applications
+/// (e.g. Rerun) re-create their [`Tree`] from scratch every frame, which would otherwise
+/// reset this before it was ever read, silently disabling the preview.
+#[derive(Clone, Default)]
+struct PreviewMemory {
+    /// The best insertion point from the previous frame's [`DropContext`].
+    ///
+    /// Where a dragged tile would land is only known at the _end_ of a frame,
+    /// so the speculative layout always works off the previous frame's answer.
+    insertion: Option<InsertionPoint>,
+
+    /// Where each tile is drawn right now, on its way to its target rect.
+    smoothed_rects: ahash::HashMap<TileId, Rect>,
+}
+
+impl PreviewMemory {
     fn data_id(tree_id: egui::Id) -> egui::Id {
         tree_id.with("egui_tiles_preview_state")
     }
@@ -91,23 +80,47 @@ impl PreviewState {
         });
     }
 
-    /// Is there nothing to remember until the next frame?
+    /// Is there nothing worth remembering until the next frame?
     fn is_idle(&self) -> bool {
         let Self {
             insertion,
-            rects,
-            lerp_t: _,
             smoothed_rects,
-            tab_children,
-            active_tabs,
         } = self;
 
-        insertion.is_none()
-            && rects.is_empty()
-            && smoothed_rects.is_empty()
-            && tab_children.is_empty()
-            && active_tabs.is_empty()
+        insertion.is_none() && smoothed_rects.is_empty()
     }
+}
+
+/// What the tree would look like if the tile being dragged were dropped right now.
+///
+/// Recomputed from scratch every frame by [`Tree::speculate`], which does its work on a
+/// throw-away [`Tiles::skeleton`] and so never touches the tree the user is looking at.
+/// Everything in here is keyed by the ids of the tiles in the _real_ tree.
+#[derive(Clone, Default)]
+struct Speculation {
+    /// The rect each tile would end up with.
+    rects: ahash::HashMap<TileId, Rect>,
+
+    /// How each [`Tabs`](crate::Tabs) container would look.
+    tabs: ahash::HashMap<TileId, PreviewTabs>,
+}
+
+/// How a [`Tabs`](crate::Tabs) container should be drawn mid-drag.
+#[derive(Clone)]
+pub(crate) struct PreviewTabs {
+    pub children: Vec<TileId>,
+    pub active: Option<TileId>,
+}
+
+/// Frame-local drag-preview state, owned by the [`Tree`] for the duration of [`Tree::ui`].
+#[derive(Clone, Default)]
+struct Preview {
+    /// Carried over from the previous frame, and stored back at the end of this one.
+    memory: PreviewMemory,
+
+    /// Derived fresh each frame from the real tree plus [`PreviewMemory::insertion`];
+    /// never persisted, so it can never go stale.
+    speculation: Option<Speculation>,
 }
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
@@ -156,12 +169,11 @@ pub struct Tree<Pane> {
     )]
     width: f32,
 
-    /// Frame-local copy of the animated drag preview state.
+    /// Transient drag-preview state, only meaningful during [`Tree::ui`].
     ///
-    /// The state that outlives the frame lives in [`egui::Memory`]; see [`PreviewState`].
-    /// [`Tree::ui`] loads it at the start of the frame and stores it back at the end.
+    /// The part of it that outlives the frame lives in [`egui::Memory`]; see [`PreviewMemory`].
     #[cfg_attr(feature = "serde", serde(skip))]
-    preview: PreviewState,
+    preview: Preview,
 }
 
 // Workaround for JSON which doesn't support infinity, because JSON is stupid.
@@ -442,8 +454,6 @@ impl<Pane> Tree<Pane> {
 
         self.tiles.rects.clear();
 
-        self.preview = PreviewState::load(ui.ctx(), self.id);
-
         // Check if anything is being dragged:
         let dragged_id = self.dragged_id(ui);
         let mut drop_context = DropContext {
@@ -455,15 +465,6 @@ impl<Pane> Tree<Pane> {
             preview_rect: None,
         };
 
-        if dragged_id.is_none() {
-            // smoothed_preview_rects is kept so
-            // update_preview_lerp animates tiles back on cancel.
-            self.preview.insertion = None;
-            self.preview.rects.clear();
-            self.preview.tab_children.clear();
-            self.preview.active_tabs.clear();
-        }
-
         let mut rect = ui.available_rect_before_wrap();
         if self.height.is_finite() {
             rect.set_height(self.height);
@@ -472,33 +473,43 @@ impl<Pane> Tree<Pane> {
             rect.set_width(self.width);
         }
 
+        if layout_tiles(&mut self.tiles, self.root, behavior, ui.style(), rect) {
+            behavior.on_edit(EditAction::TabSelected);
+        }
+
         let preview_options = behavior.preview_options();
+        self.preview.memory = PreviewMemory::load(ui.ctx(), self.id);
 
-        // `compute_preview_rects` speculatively mutates the live tree (move + simplify + layout)
-        // and then restores it. On the frame the pointer is released, the real drop is committed
-        // later in this same `ui` call (see `preview_dragged_tile`), so we must NOT run the
-        // speculative pass first: any imperfection in the restore would corrupt the tree the
-        // commit builds on. This is especially fatal for apps that re-create their `Tree` from
-        // scratch every frame (e.g. Rerun), where it could drop a tile entirely.
-        let pointer_released = ui.input(|i| i.pointer.any_released());
-
-        if preview_options.enabled && !pointer_released {
-            self.compute_preview_rects(dragged_id, behavior, ui.style(), rect);
+        if dragged_id.is_none() || !preview_options.enabled {
+            // Forget where the tile would have landed, but keep `smoothed_rects`
+            // so that the tiles animate back into place.
+            self.preview.memory.insertion = None;
         }
 
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(ui.style(), behavior, rect, root);
-        }
+        // Speculation is derived, never stored: worst case it is missing for a frame.
+        self.preview.speculation = self.preview.memory.insertion.and_then(|insertion| {
+            let dragged_id = dragged_id?;
+            Some(self.speculate(dragged_id, insertion, behavior, ui.style(), rect))
+        });
 
-        self.update_preview_lerp(ui.ctx(), dragged_id, &preview_options);
+        self.update_smoothed_rects(ui.ctx(), dragged_id, &preview_options);
 
         if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
-        self.preview_dragged_tile(behavior, &drop_context, ui);
+        if dragged_id.is_some() {
+            // Where the dragged tile would land is only known now that every tile has
+            // registered its drop zones. Remember it, so the next frame can speculate on it.
+            self.preview.memory.insertion = drop_context.best_insertion;
+        }
 
-        std::mem::take(&mut self.preview).store(ui.ctx(), self.id);
+        // NOTE: this commits the drop, and clears the preview when it does.
+        self.preview_dragged_tile(behavior, &drop_context, ui, &preview_options);
+
+        std::mem::take(&mut self.preview)
+            .memory
+            .store(ui.ctx(), self.id);
 
         ui.advance_cursor_after_rect(rect);
     }
@@ -616,15 +627,13 @@ impl<Pane> Tree<Pane> {
         behavior: &mut dyn Behavior<Pane>,
         drop_context: &DropContext,
         ui: &mut Ui,
+        preview_options: &PreviewOptions,
     ) {
         let (Some(mouse_pos), Some(dragged_tile_id)) =
             (drop_context.mouse_pos, drop_context.dragged_tile_id)
         else {
             return;
         };
-
-        // Store for next frame's speculative layout.
-        self.preview.insertion = drop_context.best_insertion;
 
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
@@ -637,18 +646,17 @@ impl<Pane> Tree<Pane> {
                 behavior.drag_ui(&self.tiles, ui, dragged_tile_id);
             });
 
-        // Use the dragged tile's smoothed rect so the
-        // highlight matches the animated layout
-        let preview_rect = self
-            .preview
-            .smoothed_rects
-            .get(&dragged_tile_id)
-            .copied()
-            .or_else(|| {
-                drop_context.preview_rect.map(|r| {
-                    smooth_preview_rect(ui, dragged_tile_id, r, &behavior.preview_options())
-                })
-            });
+        // Highlight where the tile would land. With the animated preview that is the dragged
+        // tile's own smoothed rect, so the highlight lines up with the layout sliding around
+        // underneath it. Otherwise — preview disabled, or the very first frame of a drag,
+        // before the speculative layout has had an insertion point to work from — smooth the
+        // drop zone directly instead.
+        let preview_rect = match self.smoothed_rect(dragged_tile_id) {
+            Some(smoothed) => Some(smoothed),
+            None => drop_context
+                .preview_rect
+                .map(|rect| smooth_preview_rect(ui, dragged_tile_id, rect, preview_options)),
+        };
 
         if let Some(preview_rect) = preview_rect {
             let parent_rect = drop_context
@@ -677,10 +685,10 @@ impl<Pane> Tree<Pane> {
         if ui.input(|i| i.pointer.any_released()) {
             if let Some(insertion_point) = drop_context.best_insertion {
                 behavior.on_edit(EditAction::TileDropped);
-                let _journal = self.move_tile(dragged_tile_id, insertion_point, false);
+                self.move_tile(dragged_tile_id, insertion_point, false);
             }
             clear_smooth_preview_rect(ui, dragged_tile_id);
-            self.clear_preview_state();
+            self.preview = Preview::default();
         }
     }
 
@@ -758,7 +766,7 @@ impl<Pane> Tree<Pane> {
                 ContainerKind::Grid => ContainerInsertion::Grid(insertion_index),
             };
 
-            let _journal = self.move_tile(
+            self.move_tile(
                 moved_tile_id,
                 InsertionPoint {
                     parent_id: destination_container,
@@ -781,9 +789,7 @@ impl<Pane> Tree<Pane> {
         moved_tile_id: TileId,
         insertion_point: InsertionPoint,
         reflow_grid: bool,
-    ) -> MoveJournal {
-        let mut journal = MoveJournal::new();
-
+    ) {
         log::trace!(
             "Moving {moved_tile_id:?} into {:?}",
             insertion_point.insertion
@@ -821,8 +827,7 @@ impl<Pane> Tree<Pane> {
                         }
                         Container::Grid(grid) => {
                             if reflow_grid {
-                                self.tiles
-                                    .insert_at(insertion_point, moved_tile_id, &mut journal);
+                                self.tiles.insert_at(insertion_point, moved_tile_id);
                             } else {
                                 let dest_tile = grid.replace_at(dest_index, moved_tile_id);
                                 if let Some(dest) = dest_tile {
@@ -831,16 +836,13 @@ impl<Pane> Tree<Pane> {
                             }
                         }
                     }
-                    return journal; // done
+                    return; // done
                 }
             }
         }
 
         // Moving to a new parent
-        self.tiles
-            .insert_at(insertion_point, moved_tile_id, &mut journal);
-
-        journal
+        self.tiles.insert_at(insertion_point, moved_tile_id);
     }
 
     /// Find the currently dragged tile, if any.
@@ -901,15 +903,150 @@ impl<Pane> Tree<Pane> {
         result
     }
 
-    /// Exponentially smooth each tile's displayed rect toward its target.
-    fn update_preview_lerp(
+    /// Work out what the tree would look like if the dragged tile were dropped right now.
+    ///
+    /// The move, the simplification and the layout all run against a [`Tiles::skeleton`] — a
+    /// copy of the tree's structure in which every pane is replaced by its own [`TileId`]. The
+    /// real tree is only ever read, so no amount of trouble in here can lose a pane.
+    fn speculate(
+        &self,
+        dragged_id: TileId,
+        insertion: InsertionPoint,
+        behavior: &dyn Behavior<Pane>,
+        style: &egui::Style,
+        rect: Rect,
+    ) -> Speculation {
+        let simplification_options = behavior.simplification_options();
+
+        let mut skeleton = Tree {
+            id: self.id,
+            root: self.root,
+            tiles: self.tiles.skeleton(),
+            width: self.width,
+            height: self.height,
+            preview: Preview::default(),
+        };
+
+        skeleton.move_tile(dragged_id, insertion, false);
+        skeleton.simplify(&simplification_options);
+        layout_tiles(&mut skeleton.tiles, skeleton.root, behavior, style, rect);
+
+        // `Grid` collapses trailing holes at the _start_ of its layout pass, which can open up a
+        // simplification that wasn't available before. A second round settles it.
+        skeleton.simplify(&simplification_options);
+        layout_tiles(&mut skeleton.tiles, skeleton.root, behavior, style, rect);
+
+        // The whole point of speculating on a skeleton is that panes cannot get lost.
+        // Assert it, so that any future tree edit which relocates a tile without recording it
+        // (see `Tiles::insert_new_replacing`) is caught here rather than by a puzzled user.
+        debug_assert_eq!(
+            sorted_skeleton_pane_ids(&skeleton.tiles),
+            sorted_pane_ids(&self.tiles),
+            "the speculative pass lost or duplicated a pane"
+        );
+
+        self.harvest(&skeleton, dragged_id)
+    }
+
+    /// Translate a laid-out [`Tiles::skeleton`] back into the ids of the real tiles.
+    fn harvest(&self, skeleton: &Tree<TileId>, dragged_id: TileId) -> Speculation {
+        // `(old_id, new_id)` pairs, resolved so that a tile relocated more than once still
+        // points back at the id it started out with. `renames()` is in chronological order.
+        let mut renamed_from = ahash::HashMap::default();
+        for &(old_id, new_id) in skeleton.tiles.renames() {
+            let origin = renamed_from.get(&old_id).copied().unwrap_or(old_id);
+            renamed_from.insert(new_id, origin);
+        }
+
+        // Ids left behind by a relocation now hold a brand new container that has no
+        // counterpart in the real tree.
+        let vacated: ahash::HashSet<TileId> = skeleton
+            .tiles
+            .renames()
+            .iter()
+            .map(|&(old_id, _)| old_id)
+            .collect();
+
+        let real_id = |skeleton_id: TileId| -> Option<TileId> {
+            match skeleton.tiles.get(skeleton_id)? {
+                // Panes carry their real id, so they survive any number of relocations.
+                Tile::Pane(real_id) => Some(*real_id),
+
+                Tile::Container(_) => renamed_from
+                    .get(&skeleton_id)
+                    .copied()
+                    .or_else(|| (!vacated.contains(&skeleton_id)).then_some(skeleton_id))
+                    .filter(|&id| matches!(self.tiles.get(id), Some(Tile::Container(_)))),
+            }
+        };
+
+        let mut rects = ahash::HashMap::default();
+        #[expect(clippy::iter_over_hash_type)] // Each tile is mapped independently.
+        for (&skeleton_id, &rect) in &skeleton.tiles.rects {
+            if let Some(real_id) = real_id(skeleton_id) {
+                rects.insert(real_id, rect);
+            }
+        }
+
+        let mut tabs = ahash::HashMap::default();
+        for (&skeleton_id, tile) in skeleton.tiles.iter() {
+            if let Tile::Container(Container::Tabs(skeleton_tabs)) = tile
+                && let Some(real_tabs_id) = real_id(skeleton_id)
+            {
+                tabs.insert(
+                    real_tabs_id,
+                    PreviewTabs {
+                        children: skeleton_tabs
+                            .children
+                            .iter()
+                            .filter_map(|&child| real_id(child))
+                            .collect(),
+                        active: skeleton_tabs.active.and_then(real_id),
+                    },
+                );
+            }
+        }
+
+        // A `Tabs` container can be simplified away in the skeleton while still being drawn in
+        // the real tree. Show those without the tile that is on its way out.
+        for (&tile_id, tile) in self.tiles.iter() {
+            if let Tile::Container(Container::Tabs(real_tabs)) = tile
+                && !tabs.contains_key(&tile_id)
+            {
+                let children: Vec<TileId> = real_tabs
+                    .children
+                    .iter()
+                    .copied()
+                    .filter(|&child| child != dragged_id)
+                    .collect();
+                let active = real_tabs
+                    .active
+                    .filter(|active| children.contains(active))
+                    .or_else(|| children.first().copied());
+                tabs.insert(tile_id, PreviewTabs { children, active });
+            }
+        }
+
+        Speculation { rects, tabs }
+    }
+
+    /// Exponentially smooth every animated tile's rect towards where it should be.
+    fn update_smoothed_rects(
         &mut self,
         ctx: &egui::Context,
         dragged_id: Option<TileId>,
         options: &PreviewOptions,
     ) {
-        if self.preview.rects.is_empty() && self.preview.smoothed_rects.is_empty() {
-            self.preview.lerp_t = 0.0;
+        let Self { tiles, preview, .. } = self;
+        let Preview {
+            memory,
+            speculation,
+        } = preview;
+
+        let no_targets = ahash::HashMap::default();
+        let targets = speculation.as_ref().map_or(&no_targets, |it| &it.rects);
+
+        if targets.is_empty() && memory.smoothed_rects.is_empty() {
             return;
         }
 
@@ -920,237 +1057,75 @@ impl<Pane> Tree<Pane> {
             dt,
         );
 
-        // Start tracking tiles that appear in preview_rects but aren't smoothed yet.
-        let new_tiles: Vec<(TileId, Rect)> = self
-            .preview
-            .rects
-            .keys()
-            .filter(|id| !self.preview.smoothed_rects.contains_key(id))
-            .filter_map(|&id| {
-                let start = if Some(id) == dragged_id {
-                    self.preview.rects.get(&id).copied()
-                } else {
-                    self.tiles.rect(id)
-                };
-                start.map(|r| (id, r))
-            })
-            .collect();
-        for (tile_id, start) in new_tiles {
-            self.preview.smoothed_rects.insert(tile_id, start);
+        // Start animating any tile that has a target but isn't animating yet:
+        #[expect(clippy::iter_over_hash_type)] // Each tile animates independently.
+        for (&tile_id, &target) in targets {
+            // The dragged tile appears in its new home right away; the rest slide there.
+            let start = if Some(tile_id) == dragged_id {
+                Some(target)
+            } else {
+                tiles.rect(tile_id)
+            };
+            if let Some(start) = start {
+                memory.smoothed_rects.entry(tile_id).or_insert(start);
+            }
         }
 
-        // Smooth each tracked tile toward its target.
+        // Animate, and stop tracking whatever has arrived with nowhere further to go:
         let mut any_animating = false;
-        #[expect(clippy::iter_over_hash_type)] // Order doesn't matter; each tile is independent.
-        for (&tile_id, smoothed) in &mut self.preview.smoothed_rects {
-            let target = self
-                .preview
-                .rects
-                .get(&tile_id)
+        memory.smoothed_rects.retain(|tile_id, smoothed| {
+            let Some(target) = targets
+                .get(tile_id)
                 .copied()
-                .or_else(|| self.tiles.rect(tile_id));
-            let Some(target) = target else { continue };
+                .or_else(|| tiles.rect(*tile_id))
+            else {
+                return false;
+            };
 
             *smoothed = smoothed.lerp_towards(&target, t);
 
             if rects_close_enough(*smoothed, target) {
                 *smoothed = target;
+                targets.contains_key(tile_id) // still has somewhere to be
             } else {
                 any_animating = true;
+                true
             }
-        }
-
-        // Remove entries that have converged to their actual rect and have no preview target.
-        self.preview.smoothed_rects.retain(|tile_id, smoothed| {
-            if self.preview.rects.contains_key(tile_id) {
-                return true;
-            }
-            let Some(actual) = self.tiles.rect(*tile_id) else {
-                return false;
-            };
-            !rects_close_enough(*smoothed, actual)
         });
 
-        if self.preview.smoothed_rects.is_empty() {
-            self.preview.lerp_t = 0.0;
-        } else if any_animating {
-            self.preview.lerp_t = 0.5; // non-zero to gate resize handles
+        if any_animating {
             ctx.request_repaint();
-        } else {
-            self.preview.lerp_t = 1.0;
         }
     }
 
-    /// Speculatively apply the pending move, run simplification and layout,
-    /// capture the resulting rects as preview targets, then fully restore the tree.
-    fn compute_preview_rects(
-        &mut self,
-        dragged_id: Option<TileId>,
-        behavior: &mut dyn Behavior<Pane>,
-        style: &egui::Style,
-        rect: Rect,
-    ) {
-        let (Some(dragged_id), Some(insertion)) = (dragged_id, self.preview.insertion) else {
-            self.preview.rects.clear();
-            return;
-        };
-
-        self.preview.rects.clear();
-
-        // Save full state for restoration after speculative pass.
-        // NOTE: must restore all state mutated by move_tile/simplify/layout_tile.
-        let saved_root = self.root;
-        let saved_next_tile_id = self.tiles.next_tile_id();
-        let original_tile_ids: ahash::HashSet<TileId> = self.tiles.tile_ids().collect();
-        let saved_containers: Vec<(TileId, Container)> = self
-            .tiles
-            .iter()
-            .filter_map(|(&id, tile)| match tile {
-                Tile::Container(c) => Some((id, c.clone())),
-                Tile::Pane(_) => None,
-            })
-            .collect();
-
-        let journal = self.move_tile(dragged_id, insertion, false);
-        self.simplify(&behavior.simplification_options());
-
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(style, behavior, rect, root);
-        }
-
-        // Grids defers hole collapse to the end of each pass. Run a
-        // second pass of simplify + layout to reach the true state.
-        self.simplify(&behavior.simplification_options());
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(style, behavior, rect, root);
-        }
-
-        self.preview.rects = self.tiles.rects.clone();
-
-        // Remap displaced tile rects to their original IDs.
-        for &(original_id, displaced_to_id) in journal.displaced_tiles() {
-            if let Some(rect) = self.preview.rects.remove(&displaced_to_id) {
-                self.preview.rects.insert(original_id, rect);
-            }
-        }
-        self.preview
-            .rects
-            .retain(|id, _| original_tile_ids.contains(id));
-
-        // Snapshot tabs from the speculative state
-        self.preview.tab_children.clear();
-        self.preview.active_tabs.clear();
-        let displaced_map: ahash::HashMap<TileId, TileId> = journal
-            .displaced_tiles()
-            .iter()
-            .map(|&(orig, disp)| (disp, orig))
-            .collect();
-
-        for (&tile_id, tile) in self.tiles.iter() {
-            if let Tile::Container(Container::Tabs(tabs)) = tile {
-                let real_id = displaced_map.get(&tile_id).copied().unwrap_or(tile_id);
-                let children: Vec<TileId> = tabs
-                    .children
-                    .iter()
-                    .map(|&c| displaced_map.get(&c).copied().unwrap_or(c))
-                    .collect();
-                let active = tabs
-                    .active
-                    .map(|a| displaced_map.get(&a).copied().unwrap_or(a));
-                if original_tile_ids.contains(&real_id) {
-                    self.preview.tab_children.insert(real_id, children);
-                    self.preview.active_tabs.insert(real_id, active);
-                }
-            }
-        }
-
-        // Ensure containers that were simplified away in
-        // the speculative state still get entries.
-        for (id, container) in &saved_containers {
-            if let Container::Tabs(tabs) = container
-                && !self.preview.tab_children.contains_key(id)
-            {
-                let children: Vec<TileId> = tabs
-                    .children
-                    .iter()
-                    .copied()
-                    .filter(|&c| c != dragged_id)
-                    .collect();
-                self.preview.tab_children.insert(*id, children.clone());
-                // Pick the first remaining child as active, or keep original
-                let active = tabs
-                    .active
-                    .filter(|a| children.contains(a))
-                    .or_else(|| children.first().copied());
-                self.preview.active_tabs.insert(*id, active);
-            }
-        }
-
-        // Full restore
-        self.root = saved_root;
-        self.tiles.set_next_tile_id(saved_next_tile_id);
-
-        for &(original_id, displaced_to_id) in journal.displaced_tiles() {
-            if let Some(tile) = self.tiles.remove(displaced_to_id) {
-                self.tiles.insert(original_id, tile);
-            }
-        }
-
-        for tile_id in self.tiles.tile_ids().collect::<Vec<_>>() {
-            if !original_tile_ids.contains(&tile_id) {
-                self.tiles.remove(tile_id);
-            }
-        }
-
-        for (id, container) in saved_containers {
-            self.tiles.insert(id, Tile::Container(container));
-        }
-
-        self.tiles.rects.clear();
-    }
-
-    fn clear_preview_state(&mut self) {
-        self.preview = Default::default();
-    }
-
+    /// Where a tile is drawn right now.
+    ///
+    /// During a drag preview this is part-way between where the tile is and where it would end
+    /// up if the dragged tile were dropped. Use [`Tiles::rect`] instead for anything that must
+    /// not feed back into the animation, such as hit-testing drop zones.
     pub(crate) fn display_rect(&self, tile_id: TileId) -> Option<Rect> {
-        let actual = self.tiles.rect(tile_id)?;
-        // Use the smoothed rect if this tile is being animated
-        Some(
-            self.preview
-                .smoothed_rects
-                .get(&tile_id)
-                .copied()
-                .unwrap_or(actual),
-        )
+        let rect = self.tiles.rect(tile_id)?;
+        Some(self.smoothed_rect(tile_id).unwrap_or(rect))
     }
 
+    /// Same as [`Self::display_rect`], but complains in debug builds if the tile has no rect.
     pub(crate) fn display_rect_or_die(&self, tile_id: TileId) -> Rect {
-        self.display_rect(tile_id)
-            .unwrap_or(Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::ZERO))
+        let rect = self.tiles.rect_or_die(tile_id);
+        self.smoothed_rect(tile_id).unwrap_or(rect)
     }
 
-    /// Whether tiles are currently being animated for a drag preview.
+    fn smoothed_rect(&self, tile_id: TileId) -> Option<Rect> {
+        self.preview.memory.smoothed_rects.get(&tile_id).copied()
+    }
+
+    /// Are any tiles currently animating for a drag preview?
     pub(crate) fn is_previewing(&self) -> bool {
-        self.preview.lerp_t != 0.0
+        !self.preview.memory.smoothed_rects.is_empty()
     }
 
-    /// Get the preview tab children for a container, if any.
-    pub(crate) fn preview_tab_children(&self, tile_id: TileId) -> Option<&Vec<TileId>> {
-        self.preview.tab_children.get(&tile_id)
-    }
-
-    /// Check if a child is the preview-active tab in a container.
-    /// Returns `None` if there is no preview for this container.
-    pub(crate) fn is_preview_active_tab(
-        &self,
-        container_id: TileId,
-        child_id: TileId,
-    ) -> Option<bool> {
-        self.preview
-            .active_tabs
-            .get(&container_id)
-            .map(|active| *active == Some(child_id))
+    /// How a [`Tabs`](crate::Tabs) container should be drawn mid-drag, if a drag is under way.
+    pub(crate) fn preview_tabs(&self, tile_id: TileId) -> Option<&PreviewTabs> {
+        self.preview.speculation.as_ref()?.tabs.get(&tile_id)
     }
 }
 
@@ -1297,7 +1272,7 @@ mod tests {
         // Warm-up frame, so the tiles have rects:
         let actual_rects = run_frame(&ctx, Pos2::new(50.0, 300.0), None, false);
         assert!(
-            PreviewState::load(&ctx, tree_id).is_idle(),
+            PreviewMemory::load(&ctx, tree_id).is_idle(),
             "no drag, so nothing to remember"
         );
 
@@ -1307,29 +1282,27 @@ mod tests {
         // First drag frame: the insertion point is only known at the _end_ of the frame,
         // so all we can do is remember it for the next frame.
         run_frame(&ctx, pointer, Some(dragged), true);
-        let state = PreviewState::load(&ctx, tree_id);
+        let state = PreviewMemory::load(&ctx, tree_id);
         assert!(
             state.insertion.is_some(),
             "the insertion point should be remembered for the next frame"
         );
-        assert!(state.rects.is_empty(), "nothing to preview yet");
+        assert!(
+            state.smoothed_rects.is_empty(),
+            "nothing to animate yet: the speculative layout has not run"
+        );
 
         // Second drag frame: the remembered insertion point drives the speculative layout.
         run_frame(&ctx, pointer, Some(dragged), true);
-        let state = PreviewState::load(&ctx, tree_id);
-        assert!(
-            !state.rects.is_empty(),
-            "the speculative layout should have produced preview rects"
-        );
+        let state = PreviewMemory::load(&ctx, tree_id);
         assert!(
             !state.smoothed_rects.is_empty(),
-            "the preview rects should be animated towards"
+            "the speculative layout should have produced rects to animate towards"
         );
-        assert_ne!(state.lerp_t, 0.0, "the tree should be previewing");
 
         // The dragged pane is previewed somewhere other than where it currently is:
         let actual_rect = actual_rects[&dragged];
-        let preview_rect = state.rects.get(&dragged).copied();
+        let preview_rect = state.smoothed_rects.get(&dragged).copied();
         assert!(
             preview_rect.is_some_and(|preview| !rects_close_enough(preview, actual_rect)),
             "the dragged pane should be previewed in its new home, \
@@ -1339,8 +1312,502 @@ mod tests {
         // Dropping the pane forgets the preview:
         run_frame(&ctx, pointer, Some(dragged), false);
         assert!(
-            PreviewState::load(&ctx, tree_id).is_idle(),
+            PreviewMemory::load(&ctx, tree_id).is_idle(),
             "the preview state should be forgotten once the tile is dropped"
+        );
+    }
+
+    /// Speculating must never disturb the tree the user is looking at — not the panes it holds,
+    /// and not its structure. Hovering a drag around is not an edit.
+    #[test]
+    fn hovering_a_drag_never_touches_the_real_tree() {
+        for all_panes_must_have_tabs in [false, true] {
+            let ctx = egui::Context::default();
+            let (mut tree, panes) = create_tree();
+            let dragged = panes[0];
+            let before = tree.clone();
+
+            let mut behavior = TabsBehavior {
+                all_panes_must_have_tabs,
+            };
+
+            // Warm-up frame, so the tiles have rects:
+            run_frame_with(
+                &ctx,
+                &mut tree,
+                &mut behavior,
+                Pos2::new(50.0, 300.0),
+                None,
+                false,
+            );
+            let settled = tree.clone();
+
+            // Sweep the pointer over every region of every tile, so that every kind of
+            // insertion point (tabs, horizontal, vertical, and onto panes vs. containers)
+            // gets speculated on. Each position is held for several frames, because the
+            // speculative layout always runs off the _previous_ frame's insertion point.
+            let mut speculated = 0;
+            for y in [20.0, 100.0, 300.0, 500.0, 580.0] {
+                for x in [20.0, 200.0, 450.0, 700.0, 880.0] {
+                    for _ in 0..3 {
+                        run_frame_with(
+                            &ctx,
+                            &mut tree,
+                            &mut behavior,
+                            Pos2::new(x, y),
+                            Some(dragged),
+                            true,
+                        );
+                        // `Tree::ui` hands the surviving state back to egui, so read it there:
+                        let memory = PreviewMemory::load(&ctx, tree.id);
+                        speculated += usize::from(!memory.smoothed_rects.is_empty());
+
+                        assert_eq!(
+                            tree, settled,
+                            "hovering a drag at ({x}, {y}) changed the tree \
+                             (all_panes_must_have_tabs = {all_panes_must_have_tabs})"
+                        );
+                    }
+                }
+            }
+
+            // Guard against the test passing simply because nothing ever happened:
+            assert!(
+                50 < speculated,
+                "the sweep only speculated on {speculated} frames, so it proves little \
+                 (all_panes_must_have_tabs = {all_panes_must_have_tabs})"
+            );
+
+            assert_eq!(
+                pane_names(&before),
+                pane_names(&tree),
+                "no pane may be lost by hovering a drag \
+                 (all_panes_must_have_tabs = {all_panes_must_have_tabs})"
+            );
+        }
+    }
+
+    /// A drag that is actually dropped *should* edit the tree — the preview must not eat the drop.
+    #[test]
+    fn dropping_a_drag_does_edit_the_real_tree() {
+        let ctx = egui::Context::default();
+        let (mut tree, panes) = create_tree();
+        let dragged = panes[0];
+        let mut behavior = TabsBehavior {
+            all_panes_must_have_tabs: false,
+        };
+
+        run_frame_with(
+            &ctx,
+            &mut tree,
+            &mut behavior,
+            Pos2::new(50.0, 300.0),
+            None,
+            false,
+        );
+        let before = tree.clone();
+
+        // Drag the leftmost pane onto the top edge of the rightmost one, then let go:
+        let pointer = Pos2::new(800.0, 80.0);
+        for _ in 0..3 {
+            run_frame_with(&ctx, &mut tree, &mut behavior, pointer, Some(dragged), true);
+        }
+        run_frame_with(
+            &ctx,
+            &mut tree,
+            &mut behavior,
+            pointer,
+            Some(dragged),
+            false,
+        );
+
+        assert_ne!(before, tree, "the drop should have moved the pane");
+        assert_eq!(
+            pane_names(&before),
+            pane_names(&tree),
+            "the drop moved a pane, it must not have lost one"
+        );
+    }
+
+    /// The panes a tree holds, by name and sorted — ids change when a tile is legitimately
+    /// relocated, the set of panes must not.
+    fn pane_names(tree: &Tree<&'static str>) -> Vec<&'static str> {
+        let mut names: Vec<&'static str> = tree
+            .tiles
+            .tiles()
+            .filter_map(|tile| match tile {
+                Tile::Pane(pane) => Some(*pane),
+                Tile::Container(_) => None,
+            })
+            .collect();
+        names.sort_unstable();
+        names
+    }
+
+    /// While a tile is dragged over a tab bar, that tab bar should already show the incoming
+    /// tab, selected. This exercises mapping the speculative tree's ids back onto the real
+    /// ones: the containers involved get relocated during the speculative move.
+    #[test]
+    fn tab_bar_previews_the_incoming_tab() {
+        let ctx = egui::Context::default();
+
+        // `Tabs[a, b]` on the left, pane `c` on the right:
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let tabs = tiles.insert_tab_tile(vec![a, b]);
+        let c = tiles.insert_pane("c");
+        let root = tiles.insert_horizontal_tile(vec![tabs, c]);
+        let mut tree = Tree::new(TREE_ID, root, tiles);
+
+        let mut behavior = TabRecorder::default();
+
+        // Warm-up, so the tiles have rects:
+        run_frame_with(
+            &ctx,
+            &mut tree,
+            &mut behavior,
+            Pos2::new(200.0, 300.0),
+            None,
+            false,
+        );
+        assert_eq!(
+            behavior.take_drawn_tabs(),
+            vec![(a, true), (b, false)],
+            "sanity: the tab bar shows both of its tabs, with the first one active"
+        );
+
+        // Drag pane `c` onto that tab bar and hold it there. The speculative layout runs off
+        // the previous frame's insertion point, so give it a few frames to settle, then look
+        // only at the last one.
+        let over_tab_bar = Pos2::new(200.0, 8.0);
+        for _ in 0..3 {
+            run_frame_with(&ctx, &mut tree, &mut behavior, over_tab_bar, Some(c), true);
+        }
+        behavior.take_drawn_tabs();
+        run_frame_with(&ctx, &mut tree, &mut behavior, over_tab_bar, Some(c), true);
+
+        let drawn = behavior.take_drawn_tabs();
+        let drawn_ids: Vec<TileId> = drawn.iter().map(|&(tile_id, _)| tile_id).collect();
+        assert!(
+            drawn_ids.contains(&c),
+            "the tab bar should preview the incoming tab, but only drew {drawn_ids:?}"
+        );
+        assert_eq!(
+            drawn
+                .iter()
+                .filter(|&&(_, active)| active)
+                .map(|&(tile_id, _)| tile_id)
+                .collect::<Vec<_>>(),
+            vec![c],
+            "the incoming tab should be the one shown as selected"
+        );
+
+        // Nothing about the real tree may have changed yet:
+        assert_eq!(
+            tree.tiles.get_container(tabs).map(Container::children_vec),
+            Some(vec![a, b])
+        );
+
+        // Letting go actually moves it in:
+        run_frame_with(&ctx, &mut tree, &mut behavior, over_tab_bar, Some(c), false);
+        let children = tree
+            .tiles
+            .get_container(tabs)
+            .map(Container::children_vec)
+            .expect("the tabs container should still be there");
+        assert!(
+            children.contains(&c),
+            "dropping should have moved the pane into the tabs container, but it holds {children:?}"
+        );
+    }
+
+    /// A [`Behavior`] that records which tabs the tab bar drew, and which looked selected.
+    #[derive(Default)]
+    struct TabRecorder {
+        drawn_tabs: Vec<(TileId, bool)>,
+    }
+
+    impl TabRecorder {
+        fn take_drawn_tabs(&mut self) -> Vec<(TileId, bool)> {
+            std::mem::take(&mut self.drawn_tabs)
+        }
+    }
+
+    impl Behavior<&'static str> for TabRecorder {
+        fn pane_ui(
+            &mut self,
+            _ui: &mut Ui,
+            _tile_id: TileId,
+            _pane: &mut &'static str,
+        ) -> UiResponse {
+            UiResponse::None
+        }
+
+        fn tab_title_for_pane(&mut self, pane: &&'static str) -> egui::WidgetText {
+            (*pane).into()
+        }
+
+        fn tab_ui(
+            &mut self,
+            _tiles: &mut Tiles<&'static str>,
+            ui: &mut Ui,
+            id: egui::Id,
+            tile_id: TileId,
+            state: &crate::TabState,
+        ) -> egui::Response {
+            self.drawn_tabs.push((tile_id, state.active));
+            let (_, rect) = ui.allocate_space(egui::vec2(64.0, ui.available_height()));
+            ui.interact(rect, id, egui::Sense::click_and_drag())
+        }
+    }
+
+    struct TabsBehavior {
+        all_panes_must_have_tabs: bool,
+    }
+
+    impl Behavior<&'static str> for TabsBehavior {
+        fn pane_ui(
+            &mut self,
+            _ui: &mut Ui,
+            _tile_id: TileId,
+            _pane: &mut &'static str,
+        ) -> UiResponse {
+            UiResponse::None
+        }
+
+        fn tab_title_for_pane(&mut self, pane: &&'static str) -> egui::WidgetText {
+            (*pane).into()
+        }
+
+        fn simplification_options(&self) -> SimplificationOptions {
+            SimplificationOptions {
+                all_panes_must_have_tabs: self.all_panes_must_have_tabs,
+                ..Default::default()
+            }
+        }
+    }
+
+    /// Run one frame against an existing tree, i.e. an app that keeps its [`Tree`] around.
+    fn run_frame_with(
+        ctx: &egui::Context,
+        tree: &mut Tree<&'static str>,
+        behavior: &mut dyn Behavior<&'static str>,
+        pointer: Pos2,
+        dragged: Option<TileId>,
+        pointer_down: bool,
+    ) {
+        let _full_output: egui::FullOutput = ctx.run_ui(raw_input(pointer, pointer_down), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                if let Some(dragged) = dragged {
+                    ui.ctx().set_dragged_id(dragged.egui_id(tree.id));
+                }
+                tree.ui(behavior, ui);
+            });
+        });
+    }
+
+    fn raw_input(pointer: Pos2, pointer_down: bool) -> egui::RawInput {
+        egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(900.0, 600.0))),
+            events: vec![
+                egui::Event::PointerMoved(pointer),
+                egui::Event::PointerButton {
+                    pos: pointer,
+                    button: egui::PointerButton::Primary,
+                    pressed: pointer_down,
+                    modifiers: Default::default(),
+                },
+            ],
+            ..Default::default()
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Regression test for the drag-and-drop tile-loss bug.
+
+    /// The app's own layout model, like Rerun's blueprint — the real source of truth.
+    /// Panes carry a stable name; containers carry a stable string id.
+    #[derive(Clone)]
+    enum Node {
+        Pane(&'static str),
+        Container {
+            id: String,
+            kind: ContainerKind,
+            children: Vec<Self>,
+        },
+    }
+
+    impl Node {
+        fn count_panes(&self) -> usize {
+            match self {
+                Self::Pane(_) => 1,
+                Self::Container { children, .. } => children.iter().map(Self::count_panes).sum(),
+            }
+        }
+
+        fn describe(&self) -> String {
+            match self {
+                Self::Pane(name) => (*name).to_owned(),
+                Self::Container { kind, children, .. } => format!(
+                    "{kind:?}[{}]",
+                    children
+                        .iter()
+                        .map(Self::describe)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            }
+        }
+    }
+
+    /// Stable [`TileId`] from a string id, so re-creating the tree yields identical ids.
+    fn stable_id(id: &str) -> TileId {
+        use std::hash::{Hash as _, Hasher as _};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        id.hash(&mut hasher);
+        TileId::from_u64(hasher.finish())
+    }
+
+    /// Build a fresh tree from the model, with hash-based ids (never `insert_new`'s counter),
+    /// plus a `TileId -> container-id` reverse map. This is how Rerun builds its tree each frame.
+    fn build_tree(node: &Node) -> (Tree<&'static str>, ahash::HashMap<TileId, String>) {
+        fn insert(
+            node: &Node,
+            tiles: &mut Tiles<&'static str>,
+            reverse: &mut ahash::HashMap<TileId, String>,
+        ) -> TileId {
+            match node {
+                Node::Pane(name) => {
+                    let id = stable_id(name);
+                    tiles.insert(id, Tile::Pane(name));
+                    id
+                }
+                Node::Container { id, kind, children } => {
+                    let child_ids = children.iter().map(|c| insert(c, tiles, reverse)).collect();
+                    let tile_id = stable_id(id);
+                    tiles.insert(tile_id, Tile::Container(Container::new(*kind, child_ids)));
+                    reverse.insert(tile_id, id.clone());
+                    tile_id
+                }
+            }
+        }
+
+        let mut tiles = Tiles::default();
+        let mut reverse = ahash::HashMap::default();
+        let root = insert(node, &mut tiles, &mut reverse);
+        (Tree::new("rerun_style", root, tiles), reverse)
+    }
+
+    /// Fold the (possibly edited) tree back into the model, minting ids for new containers —
+    /// exactly what Rerun does after a drop.
+    fn sync(
+        tree: &Tree<&'static str>,
+        reverse: &ahash::HashMap<TileId, String>,
+        next_generated: &mut u64,
+    ) -> Node {
+        fn rebuild(
+            tile_id: TileId,
+            tree: &Tree<&'static str>,
+            reverse: &ahash::HashMap<TileId, String>,
+            next: &mut u64,
+        ) -> Option<Node> {
+            match tree.tiles.get(tile_id)? {
+                Tile::Pane(name) => Some(Node::Pane(name)),
+                Tile::Container(container) => {
+                    let id = reverse.get(&tile_id).cloned().unwrap_or_else(|| {
+                        let generated = format!("generated_{next}");
+                        *next += 1;
+                        generated
+                    });
+                    let children = container
+                        .children()
+                        .filter_map(|&c| rebuild(c, tree, reverse, next))
+                        .collect();
+                    Some(Node::Container {
+                        id,
+                        kind: container.kind(),
+                        children,
+                    })
+                }
+            }
+        }
+
+        tree.root
+            .and_then(|root| rebuild(root, tree, reverse, next_generated))
+            .expect("tree should have a root")
+    }
+
+    /// Dragging a pane onto another and dropping it must never lose the pane, even when the
+    /// application re-creates its [`Tree`] from scratch every frame (as Rerun does).
+    ///
+    /// Regression test: the animated-preview code used to speculatively mutate the live tree on
+    /// the same frame the drop was committed; an imperfect restore then dropped a tile entirely.
+    #[test]
+    fn dropping_a_pane_never_loses_it_when_tree_recreated_every_frame() {
+        let ctx = egui::Context::default();
+
+        // Two panes side by side — the minimal case that reproduced the bug.
+        let mut blueprint = Node::Container {
+            id: "root".to_owned(),
+            kind: ContainerKind::Horizontal,
+            children: vec![Node::Pane("a"), Node::Pane("b")],
+        };
+        let mut next_generated = 0;
+        let dragged = stable_id("a");
+
+        // Runs one frame and returns the pane count after syncing the edit back.
+        let mut frame = |pointer: Pos2, dragging: bool, pressed: bool| -> usize {
+            let raw_input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(900.0, 600.0))),
+                events: vec![
+                    egui::Event::PointerMoved(pointer),
+                    egui::Event::PointerButton {
+                        pos: pointer,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Default::default(),
+                    },
+                ],
+                ..Default::default()
+            };
+            let _full_output: egui::FullOutput = ctx.run_ui(raw_input, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    // Re-create the tree from the blueprint every frame:
+                    let (mut tree, reverse) = build_tree(&blueprint);
+                    if dragging {
+                        ui.ctx().set_dragged_id(dragged.egui_id(tree.id));
+                    }
+                    tree.ui(&mut TestBehavior, ui);
+                    // Persist any edit back into the blueprint:
+                    blueprint = sync(&tree, &reverse, &mut next_generated);
+                });
+            });
+            blueprint.count_panes()
+        };
+
+        let left = Pos2::new(200.0, 300.0); // over pane "a"
+        let right = Pos2::new(700.0, 300.0); // over pane "b"
+
+        // Warm-up so tiles get rects:
+        assert_eq!(
+            frame(left, false, false),
+            2,
+            "sanity: two panes to begin with"
+        );
+
+        // Press on "a", drag over "b" (two frames so the speculative preview kicks in), release:
+        frame(left, true, true);
+        frame(right, true, true);
+        frame(right, true, true);
+        frame(right, true, false); // release: the drop is committed this frame
+        let panes_after_drop = frame(right, false, false); // settle
+
+        assert_eq!(
+            panes_after_drop,
+            2,
+            "a pane was lost during drag-and-drop; blueprint is now {}",
+            blueprint.describe()
         );
     }
 }

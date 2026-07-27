@@ -126,7 +126,7 @@ pub use behavior::{Behavior, EditAction, TabState};
 pub use container::{Container, ContainerKind, Grid, GridLayout, Linear, LinearDir, Shares, Tabs};
 pub use tile::{Tile, TileId};
 pub use tiles::Tiles;
-pub use tree::{PreviewOptions, Tree};
+pub use tree::Tree;
 
 // ----------------------------------------------------------------------------
 
@@ -139,6 +139,37 @@ pub enum UiResponse {
 
     /// The viewer is being dragged via some element in the Pane
     DragStarted,
+}
+
+/// User-tunable parameters for the animated drag-and-drop preview.
+///
+/// Returned by [`Behavior::preview_options`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreviewOptions {
+    /// Whether the animated layout preview is shown during drag-and-drop.
+    ///
+    /// When `false`, only a simple highlighted drop zone is shown.
+    pub enabled: bool,
+
+    /// How smooth the animation is (0..1, higher = smoother).
+    ///
+    /// The `smoothness` parameter of [`egui::emath::exponential_smooth_factor`].
+    pub smoothness: f32,
+
+    /// How long the preview animation takes to converge, in seconds.
+    ///
+    /// The `half_time` parameter of [`egui::emath::exponential_smooth_factor`].
+    pub smooth_duration_sec: f32,
+}
+
+impl Default for PreviewOptions {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            smoothness: 0.9,
+            smooth_duration_sec: 0.05,
+        }
+    }
 }
 
 /// What are the rules for simplifying the tree?
@@ -382,26 +413,5 @@ impl DropContext {
                 self.preview_rect = Some(preview_rect);
             }
         }
-    }
-}
-
-pub(crate) struct MoveJournal {
-    /// Tiles displaced by wrapping operations (`original_id`, `displaced_to_id`).
-    displaced_tiles: Vec<(TileId, TileId)>,
-}
-
-impl MoveJournal {
-    fn new() -> Self {
-        Self {
-            displaced_tiles: Vec::new(),
-        }
-    }
-
-    fn record_displaced_tile(&mut self, original_id: TileId, displaced_to_id: TileId) {
-        self.displaced_tiles.push((original_id, displaced_to_id));
-    }
-
-    pub(crate) fn displaced_tiles(&self) -> &[(TileId, TileId)] {
-        &self.displaced_tiles
     }
 }

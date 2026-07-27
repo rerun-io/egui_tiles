@@ -1,6 +1,6 @@
 use egui::{Pos2, Rect};
 
-use crate::MoveJournal;
+use crate::behavior::LayoutContext;
 
 use super::{
     Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
@@ -33,6 +33,13 @@ pub struct Tiles<Pane> {
     /// Filled in by the layout step at the start of each frame.
     #[cfg_attr(feature = "serde", serde(default, skip))]
     pub(super) rects: ahash::HashMap<TileId, Rect>,
+
+    /// When `Some`, every id a tile is moved to is recorded here.
+    ///
+    /// Only ever enabled on the throw-away skeleton built by [`Self::skeleton`];
+    /// see [`Self::insert_new_replacing`].
+    #[cfg_attr(feature = "serde", serde(default, skip))]
+    renames: Option<Vec<(TileId, TileId)>>,
 }
 
 impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
@@ -41,7 +48,8 @@ impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
             next_tile_id: _, // ignored
             tiles,
             invisible,
-            rects: _, // ignore transient state
+            rects: _,   // ignore transient state
+            renames: _, // ignore transient state
         } = self;
         tiles == &other.tiles && invisible == &other.invisible
     }
@@ -54,6 +62,7 @@ impl<Pane> Default for Tiles<Pane> {
             tiles: Default::default(),
             invisible: Default::default(),
             rects: Default::default(),
+            renames: None,
         }
     }
 }
@@ -224,6 +233,54 @@ impl<Pane> Tiles<Pane> {
         id
     }
 
+    /// Move the tile that used to live at `old_id` to a freshly allocated id.
+    ///
+    /// Every place that relocates an _existing_ tile to a new id must go through here.
+    /// The drag preview speculates on a [`Self::skeleton`] and needs to map the resulting
+    /// rects back onto the real tree; without a record of the relocation, the tile the user
+    /// dropped onto would be animated from the wrong place.
+    #[must_use]
+    fn insert_new_replacing(&mut self, old_id: TileId, tile: Tile<Pane>) -> TileId {
+        let new_id = self.insert_new(tile);
+        if let Some(renames) = &mut self.renames {
+            renames.push((old_id, new_id));
+        }
+        new_id
+    }
+
+    /// Every `(old_id, new_id)` relocation made since this was built by [`Self::skeleton`].
+    pub(super) fn renames(&self) -> &[(TileId, TileId)] {
+        self.renames.as_deref().unwrap_or_default()
+    }
+
+    /// A structural copy of these tiles, with each pane replaced by its own [`TileId`].
+    ///
+    /// Neither layout nor simplification ever looks at a pane's contents, so this carries
+    /// everything needed to speculatively re-arrange and lay out the tree — which is what the
+    /// animated drag preview does, without touching the real tree at all.
+    ///
+    /// Panes carry their original id as their payload, so they can still be identified after
+    /// the speculative edits have moved them around, however many times.
+    pub(super) fn skeleton(&self) -> Tiles<TileId> {
+        Tiles {
+            next_tile_id: self.next_tile_id,
+            tiles: self
+                .tiles
+                .iter()
+                .map(|(&id, tile)| {
+                    let tile = match tile {
+                        Tile::Pane(_) => Tile::Pane(id),
+                        Tile::Container(container) => Tile::Container(container.clone()),
+                    };
+                    (id, tile)
+                })
+                .collect(),
+            invisible: self.invisible.clone(),
+            rects: Default::default(),
+            renames: Some(Vec::new()),
+        }
+    }
+
     #[must_use]
     pub fn insert_pane(&mut self, pane: Pane) -> TileId {
         self.insert_new(Tile::Pane(pane))
@@ -276,20 +333,7 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn next_tile_id(&self) -> u64 {
-        self.next_tile_id
-    }
-
-    pub(super) fn set_next_tile_id(&mut self, id: u64) {
-        self.next_tile_id = id;
-    }
-
-    pub(super) fn insert_at(
-        &mut self,
-        insertion_point: InsertionPoint,
-        inserted_id: TileId,
-        journal: &mut MoveJournal,
-    ) {
+    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
         let InsertionPoint {
             parent_id,
             insertion,
@@ -308,8 +352,7 @@ impl<Pane> Tiles<Pane> {
                     tabs.set_active(inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    journal.record_displaced_tile(parent_id, new_tile_id);
+                    let new_tile_id = self.insert_new_replacing(parent_id, parent_tile);
                     let mut tabs = Tabs::new(vec![new_tile_id]);
                     tabs.children.insert(index.min(1), inserted_id);
                     tabs.set_active(inserted_id);
@@ -328,9 +371,7 @@ impl<Pane> Tiles<Pane> {
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    journal.record_displaced_tile(parent_id, new_tile_id);
-
+                    let new_tile_id = self.insert_new_replacing(parent_id, parent_tile);
                     let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -348,9 +389,7 @@ impl<Pane> Tiles<Pane> {
                     children.insert(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    journal.record_displaced_tile(parent_id, new_tile_id);
-
+                    let new_tile_id = self.insert_new_replacing(parent_id, parent_tile);
                     let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
                     linear.children.insert(index.min(1), inserted_id);
                     self.tiles
@@ -362,9 +401,7 @@ impl<Pane> Tiles<Pane> {
                     grid.insert_at(index, inserted_id);
                     self.tiles.insert(parent_id, parent_tile);
                 } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    journal.record_displaced_tile(parent_id, new_tile_id);
-
+                    let new_tile_id = self.insert_new_replacing(parent_id, parent_tile);
                     let grid = Grid::new(vec![new_tile_id, inserted_id]);
                     self.tiles
                         .insert(parent_id, Tile::Container(Container::Grid(grid)));
@@ -433,13 +470,7 @@ impl<Pane> Tiles<Pane> {
         GcAction::Keep
     }
 
-    pub(super) fn layout_tile(
-        &mut self,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
-        rect: Rect,
-        tile_id: TileId,
-    ) {
+    pub(super) fn layout_tile(&mut self, layout: &LayoutContext<'_>, rect: Rect, tile_id: TileId) {
         let Some(mut tile) = self.tiles.remove(&tile_id) else {
             log::debug!("Failed to find tile {tile_id:?} during layout");
             return;
@@ -447,7 +478,7 @@ impl<Pane> Tiles<Pane> {
         self.rects.insert(tile_id, rect);
 
         if let Tile::Container(container) = &mut tile {
-            container.layout(self, style, behavior, rect);
+            container.layout(self, layout, rect);
         }
 
         self.tiles.insert(tile_id, tile);
@@ -513,8 +544,10 @@ impl<Pane> Tiles<Pane> {
                     }
 
                     if found {
-                        let new_container =
-                            self.insert_new(Tile::Container(Container::new_tabs(new_children)));
+                        let new_container = self.insert_new_replacing(
+                            it,
+                            Tile::Container(Container::new_tabs(new_children)),
+                        );
                         return SimplifyAction::Replace(new_container);
                     }
                 }
@@ -585,7 +618,7 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = self.insert_new(tile);
+                    let new_id = self.insert_new_replacing(it, tile);
                     self.tiles
                         .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
                     return;

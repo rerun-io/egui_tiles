@@ -22,8 +22,14 @@ use egui_tiles::{Container, ContainerKind, Tile, TileId, Tiles, Tree};
 /// A node in the app's own layout model, identified by a stable string id.
 #[derive(Clone)]
 enum Node {
-    Pane { id: String },
-    Container { id: String, kind: ContainerKind, children: Vec<Node> },
+    Pane {
+        id: String,
+    },
+    Container {
+        id: String,
+        kind: ContainerKind,
+        children: Vec<Self>,
+    },
 }
 
 impl Node {
@@ -32,7 +38,11 @@ impl Node {
     }
 
     fn container(id: impl Into<String>, kind: ContainerKind, children: Vec<Self>) -> Self {
-        Self::Container { id: id.into(), kind, children }
+        Self::Container {
+            id: id.into(),
+            kind,
+            children,
+        }
     }
 
     fn count_panes(&self) -> usize {
@@ -78,7 +88,11 @@ impl Blueprint {
         let mut tiles = Tiles::default();
         let mut reverse = HashMap::new();
 
-        fn insert(node: &Node, tiles: &mut Tiles<String>, reverse: &mut HashMap<TileId, String>) -> TileId {
+        fn insert(
+            node: &Node,
+            tiles: &mut Tiles<String>,
+            reverse: &mut HashMap<TileId, String>,
+        ) -> TileId {
             match node {
                 Node::Pane { id } => {
                     let id_ = tile_id(id);
@@ -122,7 +136,11 @@ impl Blueprint {
                         .children()
                         .filter_map(|&c| rebuild(c, tree, reverse, next))
                         .collect();
-                    Some(Node::Container { id, kind: container.kind(), children })
+                    Some(Node::Container {
+                        id,
+                        kind: container.kind(),
+                        children,
+                    })
                 }
             }
         }
@@ -178,25 +196,29 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut blueprint = Blueprint::default();
 
-    eframe::run_ui_native("egui_tiles: tree re-created every frame", options, move |ui, _frame| {
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(format!("panes: {}", blueprint.root.count_panes()));
-                ui.label("← must stay constant while you drag panes around");
-                if ui.button("Reset").clicked() {
-                    blueprint = Blueprint::default();
-                }
+    eframe::run_ui_native(
+        "egui_tiles: tree re-created every frame",
+        options,
+        move |ui, _frame| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(format!("panes: {}", blueprint.root.count_panes()));
+                    ui.label("← must stay constant while you drag panes around");
+                    if ui.button("Reset").clicked() {
+                        blueprint = Blueprint::default();
+                    }
+                });
+                ui.separator();
+
+                // Rebuild the tree from the blueprint every frame:
+                let (mut tree, reverse) = blueprint.to_tree();
+
+                let mut behavior = TreeBehavior;
+                tree.ui(&mut behavior, ui);
+
+                // Fold any edit back into the blueprint so it survives the next rebuild:
+                blueprint.sync_from_tree(&tree, &reverse);
             });
-            ui.separator();
-
-            // Rebuild the tree from the blueprint every frame:
-            let (mut tree, reverse) = blueprint.to_tree();
-
-            let mut behavior = TreeBehavior;
-            tree.ui(&mut behavior, ui);
-
-            // Fold any edit back into the blueprint so it survives the next rebuild:
-            blueprint.sync_from_tree(&tree, &reverse);
-        });
-    })
+        },
+    )
 }
