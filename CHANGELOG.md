@@ -4,7 +4,8 @@
 ## Unreleased
 
 * Add an animated layout preview during drag-and-drop: the tiles slide towards where they would end up, and tab bars show the incoming tab. Tune it with `Behavior::preview_options`, or set `PreviewOptions::enabled` to `false` for the old simple drop-zone highlight.
-* ⚠️ `Linear::layout` is no longer `pub`. It could not be called usefully from outside the crate.
+* Add `examples/tree_recreated_every_frame.rs`, showing how to drive `egui_tiles` from an app that owns the layout and re-creates the `Tree` every frame.
+* ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
 
 
 ## 0.16.0 - 2026-06-26
