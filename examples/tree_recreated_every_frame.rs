@@ -117,7 +117,9 @@ impl Blueprint {
                 Node::Pane { id } => {
                     let id_ = tile_id(id);
                     tiles.insert(id_, Tile::Pane(id.clone()));
-                    reverse.insert(id_, id.clone());
+                    // Deliberately NOT in `reverse`: a pane carries its own app id as its
+                    // payload, and `reverse` is only consulted for containers. Putting panes in
+                    // here is a trap -- see the note on `sync_from_tree`.
                     id_
                 }
                 Node::Container { id, kind, children } => {
@@ -137,6 +139,20 @@ impl Blueprint {
 
     /// Fold an edited tree back into the blueprint, minting fresh ids for any newly-created
     /// containers (tiles whose id isn't in `reverse`) — exactly what Rerun does on a drop.
+    ///
+    /// ## Watch out
+    ///
+    /// `reverse` maps a `TileId` back to an app id, and it deliberately contains **containers
+    /// only**. Panes are looked up from their own payload instead.
+    ///
+    /// That matters because a `TileId` does not keep referring to the same kind of tile. Drop a
+    /// pane onto another pane and `egui_tiles` reuses the *target's* id for the new container it
+    /// wraps them both in, moving the target pane itself to a freshly allocated id. So a tile id
+    /// that meant `"pane_a"` one frame can mean `"the container holding pane_a"` the next.
+    ///
+    /// If panes were in `reverse`, that new container would be handed the app id `"pane_a"`, and
+    /// the next `to_tree()` would insert both a pane and a container at `tile_id("pane_a")` — the
+    /// second overwriting the first, silently losing a pane.
     fn sync_from_tree(&mut self, tree: &Tree<String>, reverse: &HashMap<TileId, String>) {
         fn rebuild(
             tile_id: TileId,
