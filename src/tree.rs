@@ -46,6 +46,12 @@ use super::{
 };
 
 /// Transient state for the animated drag preview.
+///
+/// This spans multiple frames (the speculative layout uses the _previous_ frame's
+/// insertion point, and the rects are smoothed over time), so it is stored in
+/// [`egui::Memory`] rather than in the [`Tree`]: some applications (e.g. Rerun)
+/// re-create their [`Tree`] from scratch every frame, which would otherwise reset
+/// this state before it is ever read, silently disabling the preview.
 #[derive(Clone, Default)]
 struct PreviewState {
     /// The best insertion point from the previous frame's drop context.
@@ -63,6 +69,45 @@ struct PreviewState {
 
     /// During preview, which tab should appear active in each Tabs container.
     active_tabs: ahash::HashMap<TileId, Option<TileId>>,
+}
+
+impl PreviewState {
+    fn data_id(tree_id: egui::Id) -> egui::Id {
+        tree_id.with("egui_tiles_preview_state")
+    }
+
+    fn load(ctx: &egui::Context, tree_id: egui::Id) -> Self {
+        ctx.data_mut(|data| data.get_temp(Self::data_id(tree_id)).unwrap_or_default())
+    }
+
+    fn store(self, ctx: &egui::Context, tree_id: egui::Id) {
+        let data_id = Self::data_id(tree_id);
+        ctx.data_mut(|data| {
+            if self.is_idle() {
+                data.remove::<Self>(data_id);
+            } else {
+                data.insert_temp(data_id, self);
+            }
+        });
+    }
+
+    /// Is there nothing to remember until the next frame?
+    fn is_idle(&self) -> bool {
+        let Self {
+            insertion,
+            rects,
+            lerp_t: _,
+            smoothed_rects,
+            tab_children,
+            active_tabs,
+        } = self;
+
+        insertion.is_none()
+            && rects.is_empty()
+            && smoothed_rects.is_empty()
+            && tab_children.is_empty()
+            && active_tabs.is_empty()
+    }
 }
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
@@ -111,7 +156,10 @@ pub struct Tree<Pane> {
     )]
     width: f32,
 
-    /// Transient state for the animated drag preview.
+    /// Frame-local copy of the animated drag preview state.
+    ///
+    /// The state that outlives the frame lives in [`egui::Memory`]; see [`PreviewState`].
+    /// [`Tree::ui`] loads it at the start of the frame and stores it back at the end.
     #[cfg_attr(feature = "serde", serde(skip))]
     preview: PreviewState,
 }
@@ -394,6 +442,8 @@ impl<Pane> Tree<Pane> {
 
         self.tiles.rects.clear();
 
+        self.preview = PreviewState::load(ui.ctx(), self.id);
+
         // Check if anything is being dragged:
         let dragged_id = self.dragged_id(ui);
         let mut drop_context = DropContext {
@@ -439,6 +489,9 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+
+        std::mem::take(&mut self.preview).store(ui.ctx(), self.id);
+
         ui.advance_cursor_after_rect(rect);
     }
 
@@ -1143,4 +1196,143 @@ fn smooth_preview_rect(
     }
 
     smoothed
+}
+
+// ----------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use egui::Pos2;
+
+    use super::*;
+
+    struct TestBehavior;
+
+    impl Behavior<&'static str> for TestBehavior {
+        fn pane_ui(
+            &mut self,
+            _ui: &mut Ui,
+            _tile_id: TileId,
+            _pane: &mut &'static str,
+        ) -> UiResponse {
+            UiResponse::None
+        }
+
+        fn tab_title_for_pane(&mut self, pane: &&'static str) -> egui::WidgetText {
+            (*pane).into()
+        }
+    }
+
+    const TREE_ID: &str = "test_tree";
+
+    /// Deterministic, so re-creating it yields the same [`TileId`]s.
+    fn create_tree() -> (Tree<&'static str>, Vec<TileId>) {
+        let mut tiles = Tiles::default();
+        let panes: Vec<TileId> = ["a", "b", "c"]
+            .into_iter()
+            .map(|pane| tiles.insert_pane(pane))
+            .collect();
+        let root = tiles.insert_horizontal_tile(panes.clone());
+        (Tree::new(TREE_ID, root, tiles), panes)
+    }
+
+    /// Returns the actual (non-animated) rects the tiles ended up with.
+    fn run_frame(
+        ctx: &egui::Context,
+        pointer: Pos2,
+        dragged: Option<TileId>,
+        pointer_down: bool,
+    ) -> ahash::HashMap<TileId, Rect> {
+        let mut rects = Default::default();
+        let raw_input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(900.0, 600.0))),
+            events: vec![
+                egui::Event::PointerMoved(pointer),
+                egui::Event::PointerButton {
+                    pos: pointer,
+                    button: egui::PointerButton::Primary,
+                    pressed: pointer_down,
+                    modifiers: Default::default(),
+                },
+            ],
+            ..Default::default()
+        };
+
+        let _full_output: egui::FullOutput = ctx.run_ui(raw_input, |ui| {
+            egui::CentralPanel::default().show_inside(ui, |ui| {
+                // Simulate an app (like Rerun) that re-creates the tree from
+                // its own source of truth every single frame:
+                let (mut tree, _) = create_tree();
+
+                if let Some(dragged) = dragged {
+                    ui.ctx().set_dragged_id(dragged.egui_id(tree.id));
+                }
+
+                tree.ui(&mut TestBehavior, ui);
+
+                rects = tree.tiles.rects.clone();
+            });
+        });
+
+        rects
+    }
+
+    /// The drag preview needs state that outlives the frame.
+    /// It must therefore survive an application re-creating its [`Tree`] every frame.
+    #[test]
+    fn preview_state_survives_tree_recreation() {
+        let ctx = egui::Context::default();
+        let tree_id = egui::Id::new(TREE_ID);
+        let (_, panes) = create_tree();
+        let dragged = panes[0];
+
+        // Warm-up frame, so the tiles have rects:
+        let actual_rects = run_frame(&ctx, Pos2::new(50.0, 300.0), None, false);
+        assert!(
+            PreviewState::load(&ctx, tree_id).is_idle(),
+            "no drag, so nothing to remember"
+        );
+
+        // Drag the first pane over the last one:
+        let pointer = Pos2::new(800.0, 300.0);
+
+        // First drag frame: the insertion point is only known at the _end_ of the frame,
+        // so all we can do is remember it for the next frame.
+        run_frame(&ctx, pointer, Some(dragged), true);
+        let state = PreviewState::load(&ctx, tree_id);
+        assert!(
+            state.insertion.is_some(),
+            "the insertion point should be remembered for the next frame"
+        );
+        assert!(state.rects.is_empty(), "nothing to preview yet");
+
+        // Second drag frame: the remembered insertion point drives the speculative layout.
+        run_frame(&ctx, pointer, Some(dragged), true);
+        let state = PreviewState::load(&ctx, tree_id);
+        assert!(
+            !state.rects.is_empty(),
+            "the speculative layout should have produced preview rects"
+        );
+        assert!(
+            !state.smoothed_rects.is_empty(),
+            "the preview rects should be animated towards"
+        );
+        assert_ne!(state.lerp_t, 0.0, "the tree should be previewing");
+
+        // The dragged pane is previewed somewhere other than where it currently is:
+        let actual_rect = actual_rects[&dragged];
+        let preview_rect = state.rects.get(&dragged).copied();
+        assert!(
+            preview_rect.is_some_and(|preview| !rects_close_enough(preview, actual_rect)),
+            "the dragged pane should be previewed in its new home, \
+             but was previewed at {preview_rect:?} and actually is at {actual_rect:?}"
+        );
+
+        // Dropping the pane forgets the preview:
+        run_frame(&ctx, pointer, Some(dragged), false);
+        assert!(
+            PreviewState::load(&ctx, tree_id).is_idle(),
+            "the preview state should be forgotten once the tile is dropped"
+        );
+    }
 }
