@@ -3,6 +3,7 @@
 
 ## Unreleased
 
+* Add `examples/tree_recreated_every_frame.rs`, showing how to drive `egui_tiles` from an app that owns the layout and re-creates the `Tree` every frame.
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
 
 
