@@ -148,7 +148,7 @@ impl Blueprint {
                 Node::Pane { id } => {
                     let tile = tile_id(id);
                     tiles.insert(tile, Tile::Pane(id.clone()));
-                    reverse.insert(tile, id.clone());
+                    // Deliberately NOT in `reverse`; see the note on `sync_from_tree`.
                     tile
                 }
                 Node::Container { id, kind, children } => {
@@ -169,6 +169,13 @@ impl Blueprint {
 
     /// Fold an edited tree back into the blueprint, minting fresh ids for any newly-created
     /// containers — exactly what the app does after a drop.
+    ///
+    /// `reverse` deliberately holds **containers only**: a `TileId` does not keep referring to
+    /// the same kind of tile. Dropping a pane onto another pane makes `egui_tiles` reuse the
+    /// target's id for the container it wraps them in, so an id that meant `"pane_a"` one frame
+    /// means `"the container holding pane_a"` the next. Handing that container the app id
+    /// `"pane_a"` would make the next `to_tree()` insert a pane and a container at the same id,
+    /// silently losing a pane. See `examples/tree_recreated_every_frame.rs`.
     fn sync_from_tree(&mut self, tree: &Tree<String>, reverse: &HashMap<TileId, String>) {
         fn rebuild(
             tile_id: TileId,
@@ -243,71 +250,155 @@ impl Behavior<String> for TestBehavior {
 /// The drag is driven through the real widgets — press the pane's drag handle, move the pointer,
 /// release — rather than by poking `egui_tiles` internals, so this exercises the same path a user
 /// would take.
+/// Build a harness around a fresh app.
+fn harness() -> egui_kittest::Harness<'static, App> {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(900.0, 600.0))
+        .build_ui_state(
+            |ui, app: &mut App| {
+                // Re-create the tree from the app's own model every frame:
+                let (mut tree, reverse) = app.blueprint.to_tree();
+                tree.ui(&mut app.behavior, ui);
+                // Persist any edit back, so it survives the next rebuild:
+                app.blueprint.sync_from_tree(&tree, &reverse);
+            },
+            App::default(),
+        );
+    harness.run();
+    harness
+}
+
+/// Drag the pane named `source` onto whatever widget is labelled `target_label`, and let go.
+///
+/// The drag goes through the real widgets — find the pane's drag handle by its accessibility
+/// label, press it, move the pointer, release — rather than by poking `egui_tiles` internals, so
+/// this exercises the path a user actually takes. Returns `false` if either widget is not on
+/// screen (an inactive tab's contents, say).
+fn drag_pane_onto(
+    harness: &mut egui_kittest::Harness<'_, App>,
+    source: &str,
+    target_label: &str,
+) -> bool {
+    let Some(from) = harness
+        .query_by_label(&drag_handle_label(source))
+        .map(|node| node.rect())
+    else {
+        return false;
+    };
+    let Some(to) = harness.query_by_label(target_label).map(|node| node.rect()) else {
+        return false;
+    };
+
+    harness.drag_at(from.center());
+    harness.step();
+    harness.hover_at(to.center());
+    // The drop zone is only settled once the tile has been hovered for a frame or two.
+    for _ in 0..4 {
+        harness.step();
+    }
+    harness.drop_at(to.center());
+    harness.step();
+    harness.run();
+
+    true
+}
+
+const PANES: [&str; 4] = ["pane_a", "pane_b", "pane_c", "pane_d"];
+
+fn all_panes() -> String {
+    PANES.join(", ")
+}
+
+/// Every way of dropping one pane onto another must leave all four panes in place.
+///
+/// Dropping *onto* a pane is the interesting case: `egui_tiles` reuses the target's `TileId` for
+/// the container it wraps them both in, which is exactly the sharp edge documented on
+/// `Blueprint::sync_from_tree`.
 #[test]
 fn dropping_a_pane_never_loses_it() {
-    const PANES: &str = "pane_a, pane_b, pane_c, pane_d";
+    let mut dragged = 0;
+    let mut skipped = 0;
 
-    // Where to drop `pane_a`, named by the widget to aim the pointer at. Each lands somewhere
-    // structurally different: a pane in a sibling container, a tab bar, and an open tab.
-    let targets = [
-        ("onto pane_b", drag_handle_label("pane_b")),
-        ("onto the tab bar", "pane_d".to_owned()),
-        ("into the open tab", drag_handle_label("pane_c")),
-    ];
+    for source in PANES {
+        for target in PANES {
+            if source == target {
+                continue;
+            }
 
-    for (what, target_label) in targets {
-        let mut harness = Harness::builder()
-            .with_size(egui::vec2(900.0, 600.0))
-            .build_ui_state(
-                |ui, app: &mut App| {
-                    // Re-create the tree from the app's own model every frame:
-                    let (mut tree, reverse) = app.blueprint.to_tree();
-                    tree.ui(&mut app.behavior, ui);
-                    // Persist any edit back, so it survives the next rebuild:
-                    app.blueprint.sync_from_tree(&tree, &reverse);
-                },
-                App::default(),
-            );
+            // Aim both at the pane itself, and at its tab in a tab bar (when it has one).
+            for target_label in [drag_handle_label(target), target.to_owned()] {
+                let mut harness = harness();
+                let before = harness.state().blueprint.root.describe();
 
-        harness.run();
+                if !drag_pane_onto(&mut harness, source, &target_label) {
+                    // The target is not on screen — an inactive tab's contents, say.
+                    skipped += 1;
+                    continue;
+                }
+                dragged += 1;
 
-        let layout_before = harness.state().blueprint.root.describe();
-        assert_eq!(
-            harness.state().blueprint.root.sorted_pane_ids().join(", "),
-            PANES,
-            "sanity: four panes to begin with, but the layout is {layout_before}"
-        );
+                let app = harness.state();
 
-        let from = harness.get_by_label(&drag_handle_label("pane_a")).rect();
-        let to = harness.get_by_label(&target_label).rect();
+                assert_eq!(
+                    app.blueprint.root.sorted_pane_ids().join(", "),
+                    all_panes(),
+                    "dragging {source} onto {target_label} lost a pane: {before} -> {}",
+                    app.blueprint.root.describe()
+                );
 
-        // Press the pane's drag handle, move onto the target, hold, release:
-        harness.drag_at(from.center());
-        harness.step();
-        harness.hover_at(to.center());
-        for _ in 0..4 {
-            harness.step();
+                // Otherwise the check above would pass by never having dragged anything.
+                assert_eq!(
+                    app.behavior.tiles_dropped, 1,
+                    "dragging {source} onto {target_label} committed no drop"
+                );
+            }
         }
-        harness.drop_at(to.center());
-        harness.step();
-        harness.run();
-
-        let app = harness.state();
-        let layout_after = app.blueprint.root.describe();
-
-        assert_eq!(
-            app.blueprint.root.sorted_pane_ids().join(", "),
-            PANES,
-            "a pane went missing dropping {what}: {layout_before} -> {layout_after}"
-        );
-
-        // Otherwise the check above could pass simply because the drag never happened.
-        // Note that a committed drop can still leave the *shape* unchanged -- dropping onto the
-        // tab bar wraps the column in a new container that simplification then unwraps again --
-        // so count the drops rather than comparing layouts.
-        assert_eq!(
-            app.behavior.tiles_dropped, 1,
-            "expected exactly one committed drop when dropping {what}"
-        );
     }
+
+    assert!(
+        0 < dragged,
+        "no drag ran at all ({skipped} target(s) were off screen)"
+    );
+}
+
+/// The same, but on one long-lived app, so that whatever a drop leaves behind is carried into the
+/// next one. Losing a pane only on the fifth drag still loses a pane.
+#[test]
+fn many_drags_in_a_row_never_lose_a_pane() {
+    let mut harness = harness();
+    let mut drags = 0;
+    let mut dropped_before = 0;
+
+    for round in 0..PANES.len() {
+        for (i, source) in PANES.iter().enumerate() {
+            let target = PANES[(i + 1 + round) % PANES.len()];
+            if *source == target {
+                continue;
+            }
+
+            for target_label in [drag_handle_label(target), target.to_owned()] {
+                let before = harness.state().blueprint.root.describe();
+                if !drag_pane_onto(&mut harness, source, &target_label) {
+                    continue;
+                }
+                drags += 1;
+
+                let app = harness.state();
+                assert_eq!(
+                    app.blueprint.root.sorted_pane_ids().join(", "),
+                    all_panes(),
+                    "drag {drags} ({source} onto {target_label}) lost a pane: {before} -> {}",
+                    app.blueprint.root.describe()
+                );
+                assert_eq!(
+                    app.behavior.tiles_dropped,
+                    dropped_before + 1,
+                    "drag {drags} ({source} onto {target_label}) committed no drop"
+                );
+                dropped_before = app.behavior.tiles_dropped;
+            }
+        }
+    }
+
+    assert!(0 < drags, "no drag ran at all");
 }
