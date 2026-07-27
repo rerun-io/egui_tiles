@@ -176,6 +176,17 @@ impl Container {
         }
     }
 
+    /// Swap out one child for another, keeping its place and its share of the space.
+    ///
+    /// Returns `false` if `old` was not a child of this container.
+    pub fn replace_child(&mut self, old: TileId, new: TileId) -> bool {
+        match self {
+            Self::Tabs(tabs) => tabs.replace_child(old, new),
+            Self::Linear(linear) => linear.replace_child(old, new),
+            Self::Grid(grid) => grid.replace_child(old, new),
+        }
+    }
+
     /// Returns child index, if found.
     pub fn remove_child(&mut self, child: TileId) -> Option<usize> {
         match self {
