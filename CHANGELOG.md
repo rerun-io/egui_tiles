@@ -3,6 +3,7 @@
 
 ## Unreleased
 
+* ⚠️ Dropping a tile onto another tile no longer changes the target's `TileId`. Previously the target's id was re-used for the newly created container and the target itself was moved to a fresh id; now the target keeps its id and the new container gets the fresh one. Applications that key their own state off `TileId`s were silently losing tiles because of this.
 * Add `examples/tree_recreated_every_frame.rs`, showing how to drive `egui_tiles` from an app that owns the layout and re-creates the `Tree` every frame.
 * Tabs and their close buttons now report themselves to accessibility tools, so screen readers announce a tab's title and whether it is selected. This also makes them reachable by name from `egui_kittest`.
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
