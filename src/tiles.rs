@@ -1,5 +1,7 @@
 use egui::{Pos2, Rect};
 
+use crate::behavior::LayoutContext;
+
 use super::{
     Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
@@ -411,13 +413,7 @@ impl<Pane> Tiles<Pane> {
         GcAction::Keep
     }
 
-    pub(super) fn layout_tile(
-        &mut self,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
-        rect: Rect,
-        tile_id: TileId,
-    ) {
+    pub(super) fn layout_tile(&mut self, layout: &LayoutContext<'_>, rect: Rect, tile_id: TileId) {
         let Some(mut tile) = self.tiles.remove(&tile_id) else {
             log::debug!("Failed to find tile {tile_id:?} during layout");
             return;
@@ -425,7 +421,7 @@ impl<Pane> Tiles<Pane> {
         self.rects.insert(tile_id, rect);
 
         if let Tile::Container(container) = &mut tile {
-            container.layout(self, style, behavior, rect);
+            container.layout(self, layout, rect);
         }
 
         self.tiles.insert(tile_id, tile);

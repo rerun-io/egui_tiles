@@ -1,6 +1,11 @@
 # `egui_tiles` Changelog
 
 
+## Unreleased
+
+* ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
+
+
 ## 0.16.0 - 2026-06-26
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.15.0..HEAD
 

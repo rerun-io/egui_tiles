@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Ui};
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, layout_tiles};
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
 use super::{
@@ -328,9 +328,11 @@ impl<Pane> Tree<Pane> {
         if self.width.is_finite() {
             rect.set_width(self.width);
         }
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(ui.style(), behavior, rect, root);
+        if layout_tiles(&mut self.tiles, self.root, behavior, ui.style(), rect) {
+            behavior.on_edit(EditAction::TabSelected);
+        }
 
+        if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 

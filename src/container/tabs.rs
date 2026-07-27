@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
 
-use crate::behavior::{EditAction, TabState};
+use crate::behavior::{EditAction, LayoutContext, TabState};
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction, TileId, Tiles, Tree,
     is_being_dragged,
@@ -163,22 +163,21 @@ impl Tabs {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         let prev_active = self.active;
         self.ensure_active(tiles);
         if prev_active != self.active {
-            behavior.on_edit(EditAction::TabSelected);
+            layout.tab_auto_selected.set(true);
         }
 
         let mut active_rect = rect;
-        active_rect.min.y += behavior.tab_bar_height(style);
+        active_rect.min.y += layout.tab_bar_height;
 
         if let Some(active) = self.active {
             // Only lay out the active tab (saves CPU):
-            tiles.layout_tile(style, behavior, active_rect, active);
+            tiles.layout_tile(layout, active_rect, active);
         }
     }
 
