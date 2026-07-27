@@ -1,6 +1,6 @@
 use egui::{
-    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetText,
-    vec2,
+    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetInfo,
+    WidgetText, WidgetType, vec2,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -182,6 +182,20 @@ pub trait Behavior<Pane> {
             tab_response
         };
 
+        // A bare `Ui::interact` reports nothing about itself, so without this a tab is an unnamed
+        // blob to screen readers, and cannot be found by name from `egui_kittest`.
+        //
+        // Deliberately outside the `is_rect_visible` check below: a tab scrolled out of the tab
+        // bar is still a tab.
+        tab_response.widget_info(|| {
+            WidgetInfo::selected(
+                WidgetType::Button,
+                ui.is_enabled(),
+                state.active,
+                galley.text(),
+            )
+        });
+
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
             let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
@@ -222,6 +236,10 @@ pub trait Behavior<Pane> {
                 let close_btn_response = ui
                     .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
                     .on_hover_cursor(egui::CursorIcon::Default);
+
+                close_btn_response.widget_info(|| {
+                    WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), "Close")
+                });
 
                 let visuals = ui.style().interact(&close_btn_response);
 
