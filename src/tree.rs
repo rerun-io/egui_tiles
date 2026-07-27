@@ -474,7 +474,15 @@ impl<Pane> Tree<Pane> {
 
         let preview_options = behavior.preview_options();
 
-        if preview_options.enabled {
+        // `compute_preview_rects` speculatively mutates the live tree (move + simplify + layout)
+        // and then restores it. On the frame the pointer is released, the real drop is committed
+        // later in this same `ui` call (see `preview_dragged_tile`), so we must NOT run the
+        // speculative pass first: any imperfection in the restore would corrupt the tree the
+        // commit builds on. This is especially fatal for apps that re-create their `Tree` from
+        // scratch every frame (e.g. Rerun), where it could drop a tile entirely.
+        let pointer_released = ui.input(|i| i.pointer.any_released());
+
+        if preview_options.enabled && !pointer_released {
             self.compute_preview_rects(dragged_id, behavior, ui.style(), rect);
         }
 
