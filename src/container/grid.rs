@@ -5,7 +5,7 @@ use egui::{
 };
 use itertools::Itertools as _;
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, LayoutContext};
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
     Tiles, Tree,
@@ -137,8 +137,7 @@ impl Grid {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         // clean up any empty holes at the end
@@ -146,7 +145,7 @@ impl Grid {
             self.children.pop();
         }
 
-        let gap = behavior.gap_width(style);
+        let gap = layout.gap_width;
 
         let visible_children_and_holes = self.visible_children_and_holes(tiles);
 
@@ -156,7 +155,7 @@ impl Grid {
 
             let num_cols = match self.layout {
                 GridLayout::Auto => {
-                    behavior.grid_auto_column_count(num_visible_children, rect, gap)
+                    (layout.grid_auto_column_count)(num_visible_children, rect, gap)
                 }
                 GridLayout::Columns(num_columns) => num_columns,
             };
@@ -222,7 +221,7 @@ impl Grid {
                 let col = i % num_cols;
                 let row = i / num_cols;
                 let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
-                tiles.layout_tile(style, behavior, child_rect, child);
+                tiles.layout_tile(layout, child_rect, child);
             }
         }
 
@@ -571,7 +570,7 @@ mod tests {
         };
 
         let style = egui::Style::default();
-        let mut behavior = TestBehavior {};
+        let behavior = TestBehavior {};
         let area = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(1024.0, 768.0));
 
         // Go crazy on it to make sure we never crash:
@@ -579,7 +578,7 @@ mod tests {
 
         for _ in 0..1000 {
             let root = tree.root.unwrap();
-            tree.tiles.layout_tile(&style, &mut behavior, area, root);
+            crate::behavior::layout_tiles(&mut tree.tiles, Some(root), &behavior, &style, area);
 
             // Add some tiles:
             for _ in 0..rng.rand_u64() % 3 {

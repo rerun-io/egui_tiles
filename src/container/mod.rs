@@ -3,6 +3,7 @@ use egui::Rect;
 use crate::Tree;
 
 use super::{Behavior, DropContext, SimplifyAction, TileId, Tiles};
+use crate::behavior::LayoutContext;
 
 mod grid;
 mod linear;
@@ -223,8 +224,7 @@ impl Container {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         if self.is_empty() {
@@ -232,11 +232,11 @@ impl Container {
         }
 
         match self {
-            Self::Tabs(tabs) => tabs.layout(tiles, style, behavior, rect),
+            Self::Tabs(tabs) => tabs.layout(tiles, layout, rect),
             Self::Linear(linear) => {
-                linear.layout(tiles, style, behavior, rect);
+                linear.layout(tiles, layout, rect);
             }
-            Self::Grid(grid) => grid.layout(tiles, style, behavior, rect),
+            Self::Grid(grid) => grid.layout(tiles, layout, rect),
         }
     }
 
