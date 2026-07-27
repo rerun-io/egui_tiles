@@ -254,6 +254,26 @@ pub trait Behavior<Pane> {
         // }
     }
 
+    /// Adds some UI to the tab bar immediately after the last tab.
+    ///
+    /// This is rendered inside the tab scroll area's left-to-right flow, so it
+    /// scrolls together with the tabs and sits right after the last visible tab
+    /// (e.g. a browser-style "➕" button for adding a new tab).
+    ///
+    /// Note: item spacing inside the tab flow is zero, so add your own spacing
+    /// (e.g. `ui.add_space(..)`) if you want a gap before your widget.
+    ///
+    /// Compare with [`Self::top_bar_right_ui`], which pins widgets to the far
+    /// right of the tab bar.
+    fn tab_bar_trailing_ui(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _ui: &mut Ui,
+        _tile_id: TileId,
+        _tabs: &crate::Tabs,
+    ) {
+    }
+
     /// The height of the bar holding tab titles.
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         24.0

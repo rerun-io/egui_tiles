@@ -140,6 +140,22 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         }
     }
 
+    fn tab_bar_trailing_ui(
+        &mut self,
+        _tiles: &egui_tiles::Tiles<Pane>,
+        ui: &mut egui::Ui,
+        tile_id: egui_tiles::TileId,
+        _tabs: &egui_tiles::Tabs,
+    ) {
+        if ui
+            .button("➕")
+            .on_hover_text("Add a new tab (rendered right after the last tab)")
+            .clicked()
+        {
+            self.add_child_to = Some(tile_id);
+        }
+    }
+
     // ---
     // Settings:
 
@@ -238,7 +254,7 @@ impl Default for MyApp {
 
 impl eframe::App for MyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::left("tree").show_inside(ui, |ui| {
+        egui::Panel::left("tree").show(ui, |ui| {
             if ui.button("Reset").clicked() {
                 *self = Default::default();
             }
@@ -280,7 +296,7 @@ impl eframe::App for MyApp {
             }
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             self.tree.ui(&mut self.behavior, ui);
         });
     }

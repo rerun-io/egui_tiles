@@ -203,6 +203,19 @@ impl<Pane> Tiles<Pane> {
 
         id
     }
+    /// Recomputes `next_tile_id` so that newly allocated tiles
+    /// will not collide with any existing `TileId` or any holes
+    /// left in the numbering.
+    ///
+    /// Note: this sets `next_tile_id` to the maximum existing `TileId`+1.
+    pub fn recompute_next_tile_id(&mut self) {
+        self.next_tile_id = self
+            .tiles
+            .keys()
+            .map(|tile_id| tile_id.0 + 1)
+            .max()
+            .unwrap_or(self.next_tile_id);
+    }
 
     #[must_use]
     pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
@@ -481,6 +494,28 @@ impl<Pane> Tiles<Pane> {
                     } else {
                         log::trace!("Simplify: collapsing single-child tabs container");
                         return SimplifyAction::Replace(only_child);
+                    }
+                }
+
+                if options.flatten_tabs_in_tabs {
+                    let mut found = false;
+                    let mut new_children = Vec::new();
+
+                    for &child_id in container.children() {
+                        if let Some(Tile::Container(Container::Tabs(child_tabs))) =
+                            self.get(child_id)
+                        {
+                            new_children.extend(child_tabs.children.iter().copied());
+                            found = true;
+                        } else {
+                            new_children.push(child_id);
+                        }
+                    }
+
+                    if found {
+                        let new_container =
+                            self.insert_new(Tile::Container(Container::new_tabs(new_children)));
+                        return SimplifyAction::Replace(new_container);
                     }
                 }
             } else {

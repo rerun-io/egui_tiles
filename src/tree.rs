@@ -1259,7 +1259,7 @@ mod tests {
         };
 
         let _full_output: egui::FullOutput = ctx.run_ui(raw_input, |ui| {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 // Simulate an app (like Rerun) that re-creates the tree from
                 // its own source of truth every single frame:
                 let (mut tree, _) = create_tree();
