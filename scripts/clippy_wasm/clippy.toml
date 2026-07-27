@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------------
 # Section identical to the main clippy.toml:
 
-msrv = "1.92"
+msrv = "1.95.0"
 
 allow-unwrap-in-tests = true
 
@@ -37,12 +37,11 @@ disallowed-methods = [
   { path = "poll_promise::Promise::block_until_ready_mut", reason = "Cannot block on Web" },
   { path = "poll_promise::Promise::block_until_ready", reason = "Cannot block on Web" },
   { path = "rayon::spawn", reason = "Cannot spawn threads on wasm" },
-  { path = "std::sync::mpsc::Receiver::into_iter", reason = "Cannot block on Web" },
   { path = "std::sync::mpsc::Receiver::iter", reason = "Cannot block on Web" },
   { path = "std::sync::mpsc::Receiver::recv_timeout", reason = "Cannot block on Web" },
   { path = "std::sync::mpsc::Receiver::recv", reason = "Cannot block on Web" },
   { path = "std::thread::spawn", reason = "Cannot spawn threads on wasm" },
-  { path = "std::time::Duration::elapsed", reason = "use `web-time` crate instead for wasm/web compatibility" },
+  { path = "std::time::Instant::elapsed", reason = "use `web-time` crate instead for wasm/web compatibility" },
   { path = "std::time::Instant::now", reason = "use `web-time` crate instead for wasm/web compatibility" },
   { path = "std::time::SystemTime::now", reason = "use `web-time` or `time` crates instead for wasm/web compatibility" },
 ]

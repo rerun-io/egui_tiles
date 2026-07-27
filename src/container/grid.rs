@@ -676,6 +676,10 @@ mod tests {
                 .wrapping_add(self.inc);
         }
 
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Truncation is intentional in a PRNG"
+        )]
         fn rand_u64(&mut self) -> u64 {
             self.state = 0;
             self.inc = self.seed.wrapping_shl(1) | 1;
@@ -686,6 +690,10 @@ mod tests {
             self.state.wrapping_shr(64) as u64 ^ self.state as u64
         }
 
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Truncation is intentional in a PRNG"
+        )]
         fn rand_usize(&mut self) -> usize {
             self.rand_u64() as usize
         }
