@@ -164,8 +164,8 @@ impl Default for PreviewOptions {
         Self {
             enabled: true,
 
-            // Get 90% of the way there in one `Style::animation_time`.
-            reach_this_fraction: 0.9,
+            // Get 95% of the way there in one `Style::animation_time`.
+            reach_this_fraction: 0.95,
         }
     }
 }

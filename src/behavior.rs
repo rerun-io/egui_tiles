@@ -37,9 +37,9 @@ pub struct TabState {
 
 /// Everything the layout pass needs from a [`Behavior`], with the pane type erased.
 ///
-/// The layout pass never looks at a pane's contents — it only needs a few numbers. Gathering
-/// them up front lets the animated drag preview lay out a pane-free skeleton of the tree
-/// (see [`Tiles::skeleton`]), which is impossible with a `&dyn Behavior<Pane>`.
+/// The layout pass never looks at a pane's contents — it only needs a handful of numbers.
+/// Gathering them up front keeps `Pane` out of the layout signatures entirely, which lets the
+/// same code lay out any [`Tiles`], whatever it happens to store in its panes.
 pub(crate) struct LayoutContext<'a> {
     pub gap_width: f32,
     pub tab_bar_height: f32,
@@ -47,19 +47,19 @@ pub(crate) struct LayoutContext<'a> {
 
     /// Set by the layout pass if it had to pick an active tab for a [`crate::Tabs`] container.
     ///
-    /// Reported back to the caller rather than straight to [`Behavior::on_edit`], so that a
-    /// speculative layout of a [`Tiles::skeleton`] cannot fire user-visible edit events.
+    /// Reported back to the caller rather than straight to [`Behavior::on_edit`]: laying out
+    /// the tree is not the place to be emitting user-visible edit events from.
     pub tab_auto_selected: &'a std::cell::Cell<bool>,
 }
 
 /// Lay out `tiles` starting at `root`, using only the pane-agnostic parts of `behavior`.
 ///
-/// Generic over the pane type of `tiles` so it serves both the real tree and the
-/// [`Tiles::skeleton`] that the drag preview speculates on.
+/// Generic over the pane type of `tiles`, which need not be the pane type `behavior` is for.
+///
 /// Returns `true` if the pass had to auto-select an active tab, in which case the caller
-/// should report [`EditAction::TabSelected`] — unless this was a speculative layout.
-pub(crate) fn layout_tiles<Pane, SkeletonPane>(
-    tiles: &mut Tiles<SkeletonPane>,
+/// should report [`EditAction::TabSelected`].
+pub(crate) fn layout_tiles<Pane, TilesPane>(
+    tiles: &mut Tiles<TilesPane>,
     root: Option<TileId>,
     behavior: &dyn Behavior<Pane>,
     style: &egui::Style,
