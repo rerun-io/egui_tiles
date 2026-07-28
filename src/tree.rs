@@ -982,8 +982,8 @@ impl<Pane> Tree<Pane> {
 
         let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
         let t = egui::emath::exponential_smooth_factor(
-            options.smoothness,
-            options.smooth_duration_sec,
+            options.reach_this_fraction,
+            options.in_this_many_seconds,
             dt,
         );
 
@@ -1095,8 +1095,8 @@ fn smooth_preview_rect(
         let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
 
         let t = egui::emath::exponential_smooth_factor(
-            options.smoothness,
-            options.smooth_duration_sec,
+            options.reach_this_fraction,
+            options.in_this_many_seconds,
             dt,
         );
 

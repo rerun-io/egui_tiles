@@ -151,23 +151,25 @@ pub struct PreviewOptions {
     /// When `false`, only a simple highlighted drop zone is shown.
     pub enabled: bool,
 
-    /// How smooth the animation is (0..1, higher = smoother).
+    /// How much of the remaining distance a tile covers in [`Self::in_this_many_seconds`].
     ///
-    /// The `smoothness` parameter of [`egui::emath::exponential_smooth_factor`].
-    pub smoothness: f32,
+    /// Passed as `reach_this_fraction` to [`egui::emath::exponential_smooth_factor`].
+    pub reach_this_fraction: f32,
 
-    /// How long the preview animation takes to converge, in seconds.
+    /// How long a tile takes to cover [`Self::reach_this_fraction`] of the remaining distance.
     ///
-    /// The `half_time` parameter of [`egui::emath::exponential_smooth_factor`].
-    pub smooth_duration_sec: f32,
+    /// Passed as `in_this_many_seconds` to [`egui::emath::exponential_smooth_factor`].
+    pub in_this_many_seconds: f32,
 }
 
 impl Default for PreviewOptions {
     fn default() -> Self {
         Self {
             enabled: true,
-            smoothness: 0.9,
-            smooth_duration_sec: 0.05,
+
+            // Reach 90% of the way there in 0.05 seconds.
+            reach_this_fraction: 0.9,
+            in_this_many_seconds: 0.05,
         }
     }
 }
