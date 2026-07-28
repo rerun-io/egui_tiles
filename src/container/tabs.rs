@@ -227,8 +227,14 @@ impl Tabs {
             crate::cover_tile_if_dragged(tree, behavior, ui, active);
         }
 
-        // We have only laid out the active tab, so we need to switch active tab _after_ the ui pass above:
-        self.active = next_active;
+        // We have only laid out the active tab, so we need to switch active tab _after_ the ui pass above.
+        //
+        // Mid-drag the tab bar draws the tabs this container _would_ have, so `next_active` can
+        // name a tile that is on its way in but is not a child yet. Committing that would leave
+        // this container pointing at a tile it does not contain.
+        if next_active.is_none_or(|active| self.children.contains(&active)) {
+            self.active = next_active;
+        }
     }
 
     /// Returns the next active tab (e.g. the one clicked, or the current).
