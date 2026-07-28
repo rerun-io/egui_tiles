@@ -514,8 +514,10 @@ impl<Pane> Tree<Pane> {
 
             if options.all_panes_must_have_tabs
                 && let Some(tile_id) = self.root
+                && let Some(new_root) = self.tiles.make_all_panes_children_of_tabs(false, tile_id)
             {
-                self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                // The root was a bare pane, and is now wrapped in a tab container.
+                self.root = Some(new_root);
             }
         }
     }
