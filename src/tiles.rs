@@ -506,24 +506,43 @@ impl<Pane> Tiles<Pane> {
                 }
 
                 if options.flatten_tabs_in_tabs {
+                    let was_active = match container {
+                        Container::Tabs(tabs) => tabs.active,
+                        Container::Linear(_) | Container::Grid(_) => None,
+                    };
+
                     let mut found = false;
                     let mut new_children = Vec::new();
+                    let mut new_active = None;
 
                     for &child_id in container.children() {
                         if let Some(Tile::Container(Container::Tabs(child_tabs))) =
                             self.get(child_id)
                         {
+                            if was_active == Some(child_id) {
+                                // The open tab is the container being flattened away, so the
+                                // user is looking at whichever of _its_ tabs was open.
+                                new_active = child_tabs.active;
+                            }
                             new_children.extend(child_tabs.children.iter().copied());
                             found = true;
                         } else {
+                            if was_active == Some(child_id) {
+                                new_active = Some(child_id);
+                            }
                             new_children.push(child_id);
                         }
                     }
 
                     if found {
-                        let new_container =
-                            self.insert_new(Tile::Container(Container::new_tabs(new_children)));
-                        return SimplifyAction::Replace(new_container);
+                        // Keep this container's own id: flattening changes what it holds,
+                        // not which container it is. For the same reason, keep showing the tab
+                        // the user had open.
+                        let mut tabs = Tabs::new(new_children);
+                        if let Some(new_active) = new_active {
+                            tabs.set_active(new_active);
+                        }
+                        *container = Container::Tabs(tabs);
                     }
                 }
             } else {
@@ -582,10 +601,20 @@ impl<Pane> Tiles<Pane> {
         SimplifyAction::Keep
     }
 
-    pub(super) fn make_all_panes_children_of_tabs(&mut self, parent_is_tabs: bool, it: TileId) {
+    /// Returns the id of a new container that should take `it`'s place in its parent, if `it` was
+    /// a pane that had to be wrapped in one.
+    ///
+    /// The pane keeps its own [`TileId`]; it is the new container that gets a fresh one. See
+    /// [`Self::insert_at`] for why that matters.
+    #[must_use]
+    pub(super) fn make_all_panes_children_of_tabs(
+        &mut self,
+        parent_is_tabs: bool,
+        it: TileId,
+    ) -> Option<TileId> {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::debug!("Failed to find tile {it:?} during make_all_panes_children_of_tabs");
-            return;
+            return None;
         };
 
         match &mut tile {
@@ -593,21 +622,26 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = self.insert_new(tile);
-                    self.tiles
-                        .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
-                    return;
+                    self.tiles.insert(it, tile);
+                    let tabs = Container::new_tabs(vec![it]);
+                    return Some(self.insert_new(Tile::Container(tabs)));
                 }
             }
             Tile::Container(container) => {
                 let is_tabs = container.kind() == ContainerKind::Tabs;
-                for &child in container.children() {
-                    self.make_all_panes_children_of_tabs(is_tabs, child);
+                let children: Vec<TileId> = container.children().copied().collect();
+                for child in children {
+                    if let Some(new_child) = self.make_all_panes_children_of_tabs(is_tabs, child)
+                        && container.replace_child(child, new_child).is_none()
+                    {
+                        log::warn!("Bug: {child:?} is no longer a child of {it:?}");
+                    }
                 }
             }
         }
 
         self.tiles.insert(it, tile);
+        None
     }
 
     /// Returns true if the active tile was found in this tree.
@@ -666,7 +700,7 @@ impl<Pane: PartialEq> Tiles<Pane> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Grid, GridLayout, Shares};
+    use crate::{Grid, GridLayout, Shares, Tree};
 
     fn insertion(parent_id: TileId, insertion: ContainerInsertion) -> InsertionPoint {
         InsertionPoint {
@@ -823,6 +857,156 @@ mod tests {
             vec![panes[0], panes[1], wrapper, panes[3]],
             "the wrapper should sit in the cell the wrapped pane occupied"
         );
+    }
+
+    /// Wrapping a pane in the tab container that `all_panes_must_have_tabs` requires must not
+    /// disturb the pane's own [`TileId`], for the same reason [`Tiles::insert_at`] must not.
+    #[test]
+    fn auto_adding_tabs_keeps_the_pane_s_id() {
+        let options = SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        };
+
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let root = tiles.insert_horizontal_tile(vec![a, b]);
+        let mut tree = Tree::new("test", root, tiles);
+
+        tree.simplify(&options);
+
+        for pane in [a, b] {
+            assert!(
+                matches!(tree.tiles.get(pane), Some(Tile::Pane(_))),
+                "pane {pane:?} should still be a pane under its own id, but is {:?}",
+                tree.tiles.get(pane)
+            );
+            let parent = tree.tiles.parent_of(pane).expect("the pane needs a parent");
+            assert_eq!(
+                tree.tiles.get_container(parent).map(Container::kind),
+                Some(ContainerKind::Tabs),
+                "the pane should have gained a tab container as its parent"
+            );
+            assert_ne!(parent, pane, "the tab container needs its own id");
+        }
+
+        assert_eq!(tree.root, Some(root), "the root container is untouched");
+
+        // Running it again must be a no-op — otherwise it would wrap forever.
+        let before = tree.clone();
+        tree.simplify(&options);
+        assert_eq!(before, tree, "simplifying twice should change nothing");
+    }
+
+    /// The same, for a tree whose root *is* a bare pane: there the new tab container becomes the
+    /// root, which only [`Tree`] can arrange.
+    #[test]
+    fn auto_adding_tabs_to_a_root_pane_makes_the_tabs_the_root() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let mut tree = Tree::new("test", a, tiles);
+
+        tree.simplify(&SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        });
+
+        let root = tree.root.expect("the tree should still have a root");
+        assert_ne!(root, a, "the new tab container should be the root");
+        assert!(
+            matches!(tree.tiles.get(a), Some(Tile::Pane(_))),
+            "`a` is still a pane"
+        );
+        assert_eq!(
+            tree.tiles.get_container(root).map(Container::children_vec),
+            Some(vec![a]),
+            "the root tab container should hold the pane"
+        );
+    }
+
+    /// Flattening tabs-in-tabs rearranges what a container holds, so it should keep its id.
+    #[test]
+    fn flattening_tabs_in_tabs_keeps_the_container_s_id() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let inner = tiles.insert_tab_tile(vec![a, b]);
+        let c = tiles.insert_pane("c");
+        let outer = tiles.insert_tab_tile(vec![inner, c]);
+        let mut tree = Tree::new("test", outer, tiles);
+
+        tree.simplify(&SimplificationOptions {
+            flatten_tabs_in_tabs: true,
+            ..SimplificationOptions::OFF
+        });
+
+        assert_eq!(
+            tree.root,
+            Some(outer),
+            "the outer container should still be the root"
+        );
+        assert_eq!(
+            tree.tiles.get_container(outer).map(Container::children_vec),
+            Some(vec![a, b, c]),
+            "the inner container's tabs should have been folded into the outer one"
+        );
+    }
+
+    /// Flattening keeps the container's id, so it should also keep showing whatever tab the user
+    /// had open — including when the open tab is the inner container being flattened away, where
+    /// what they are really looking at is one of *its* tabs.
+    #[test]
+    fn flattening_tabs_in_tabs_keeps_the_open_tab() {
+        // `outer` is `Tabs[ Tabs[a, b], c ]`, and flattens to `Tabs[a, b, c]`.
+        let build = || {
+            let mut tiles = Tiles::default();
+            let a = tiles.insert_pane("a");
+            let b = tiles.insert_pane("b");
+            let inner = tiles.insert_tab_tile(vec![a, b]);
+            let c = tiles.insert_pane("c");
+            let outer = tiles.insert_tab_tile(vec![inner, c]);
+            (Tree::new("test", outer, tiles), a, b, inner, c, outer)
+        };
+        let options = SimplificationOptions {
+            flatten_tabs_in_tabs: true,
+            ..SimplificationOptions::OFF
+        };
+        let active_of = |tree: &Tree<&'static str>, id: TileId| match tree.tiles.get_container(id) {
+            Some(Container::Tabs(tabs)) => tabs.active,
+            _ => panic!("{id:?} should be a tabs container"),
+        };
+
+        // The open tab is `c`, which survives flattening untouched:
+        {
+            let (mut tree, _a, _b, _inner, c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(c);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(c),
+                "`c` was open, and still is"
+            );
+        }
+
+        // The open tab is the inner container, which was itself showing `b`:
+        {
+            let (mut tree, _a, b, inner, _c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(inner) {
+                tabs.set_active(b);
+            }
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(inner);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(b),
+                "the user was looking at `b` through the flattened container, so `b` stays open"
+            );
+        }
     }
 
     /// Inserting into a container that already accepts the tile must not wrap anything.

@@ -7,7 +7,7 @@
 //! The [`Tile`]s are put into a [`Tree`].
 //! Everything is generic over the type of panes, leaving up to the user what to store in the tree.
 //!
-//! Each [`Tile`] is identified by a (random) [`TileId`].
+//! Each [`Tile`] is identified by a [`TileId`], handed out in sequence by the [`Tiles`] it lives in.
 //! The tiles are stored in [`Tiles`].
 //!
 //! The entire state is stored in a single [`Tree`] struct which consists of a [`Tiles`] and a root [`TileId`].
