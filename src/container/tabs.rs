@@ -243,13 +243,20 @@ impl Tabs {
     ) -> Option<TileId> {
         let mut next_active = self.active;
 
-        // Mid-drag, show the tabs this container _would_ have if the tile were dropped now.
-        // `None` whenever no drag is under way, or when the preview is disabled.
-        let preview_tabs = tree.preview_tabs(tile_id).cloned();
-        let tab_children = match &preview_tabs {
-            Some(preview) => preview.children.clone(),
-            None => self.children.clone(),
-        };
+        // Mid-drag, show this container as it _would_ be if the tile were dropped now.
+        let shown = tree.preview_tabs(tile_id).cloned().unwrap_or_else(|| {
+            // Either nothing is being dragged, or this container is absent from the previewed
+            // tree because dropping would collapse it. In the latter case still drop the tile
+            // that is leaving, so the remaining tabs close the gap rather than holding a slot
+            // open for it.
+            let mut shown = self.clone();
+            if let Some(dragged) = drop_context.dragged_tile_id {
+                shown.children.retain(|&child| child != dragged);
+                shown.ensure_active(&tree.tiles);
+            }
+            shown
+        });
+        let tab_children = shown.children.clone();
 
         let tab_bar_height = behavior.tab_bar_height(ui.style());
         let arrow_size = egui::Vec2::splat(tab_bar_height);
@@ -326,10 +333,7 @@ impl Tabs {
 
                             let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
 
-                            let selected = match &preview_tabs {
-                                Some(preview) => preview.active == Some(child_id),
-                                None => self.is_active(child_id),
-                            };
+                            let selected = shown.is_active(child_id);
                             let id = child_id.egui_id(tree.id);
                             let tab_state = TabState {
                                 active: selected,

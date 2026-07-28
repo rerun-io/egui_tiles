@@ -4,8 +4,8 @@ use crate::behavior::{EditAction, layout_tiles};
 use crate::{ContainerInsertion, ContainerKind, PreviewOptions, UiResponse};
 
 use super::{
-    Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tile,
-    TileId, Tiles,
+    Behavior, Container, DropContext, InsertionPoint, SimplificationOptions, SimplifyAction, Tabs,
+    Tile, TileId, Tiles,
 };
 
 /// Rects closer than this (in points, summed over both corners) count as converged.
@@ -91,36 +91,25 @@ impl PreviewMemory {
     }
 }
 
-/// What the tree would look like if the tile being dragged were dropped right now.
-///
-/// Recomputed from scratch every frame by [`Tree::speculate`], which does its work on a
-/// throw-away [`Tiles::skeleton`] and so never touches the tree the user is looking at.
-/// Everything in here is keyed by the ids of the tiles in the _real_ tree.
-#[derive(Clone, Default)]
-struct Speculation {
-    /// The rect each tile would end up with.
-    rects: ahash::HashMap<TileId, Rect>,
-
-    /// How each [`Tabs`](crate::Tabs) container would look.
-    tabs: ahash::HashMap<TileId, PreviewTabs>,
-}
-
-/// How a [`Tabs`](crate::Tabs) container should be drawn mid-drag.
-#[derive(Clone)]
-pub(crate) struct PreviewTabs {
-    pub children: Vec<TileId>,
-    pub active: Option<TileId>,
-}
-
 /// Frame-local drag-preview state, owned by the [`Tree`] for the duration of [`Tree::ui`].
 #[derive(Clone, Default)]
 struct Preview {
     /// Carried over from the previous frame, and stored back at the end of this one.
     memory: PreviewMemory,
 
-    /// Derived fresh each frame from the real tree plus [`PreviewMemory::insertion`];
-    /// never persisted, so it can never go stale.
-    speculation: Option<Speculation>,
+    /// What the tree would look like if the dragged tile were dropped right now: a laid-out
+    /// [`Tiles::skeleton`] with the pending move already applied.
+    ///
+    /// Every tile keeps its [`TileId`] through a move and through simplification, so this is read
+    /// with the real tree's ids: a tile's target rect is `tiles.rect(id)`, and how a `Tabs`
+    /// container would look is `tiles.get_container(id)`.
+    ///
+    /// Just the [`Tiles`], not a whole [`Tree`] — a `Tree` owns a `Preview`, so that would be
+    /// infinitely recursive, and nothing here needs the speculative root anyway.
+    ///
+    /// Derived fresh each frame from the real tree plus [`PreviewMemory::insertion`], so it can
+    /// never go stale. Never persisted.
+    tiles: Option<Tiles<TileId>>,
 }
 
 /// The top level type. Contains all persistent state, including layouts and sizes.
@@ -486,8 +475,8 @@ impl<Pane> Tree<Pane> {
             self.preview.memory.insertion = None;
         }
 
-        // Speculation is derived, never stored: worst case it is missing for a frame.
-        self.preview.speculation = self.preview.memory.insertion.and_then(|insertion| {
+        // Derived, never stored: worst case the preview is missing for a frame.
+        self.preview.tiles = self.preview.memory.insertion.and_then(|insertion| {
             let dragged_id = dragged_id?;
             Some(self.speculate(dragged_id, insertion, behavior, ui.style(), rect))
         });
@@ -709,8 +698,10 @@ impl<Pane> Tree<Pane> {
 
             if options.all_panes_must_have_tabs
                 && let Some(tile_id) = self.root
+                && let Some(new_root) = self.tiles.make_all_panes_children_of_tabs(false, tile_id)
             {
-                self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                // The root was a bare pane, and is now wrapped in a tab container.
+                self.root = Some(new_root);
             }
         }
     }
@@ -915,9 +906,11 @@ impl<Pane> Tree<Pane> {
 
     /// Work out what the tree would look like if the dragged tile were dropped right now.
     ///
-    /// The move, the simplification and the layout all run against a [`Tiles::skeleton`] — a
-    /// copy of the tree's structure in which every pane is replaced by its own [`TileId`]. The
-    /// real tree is only ever read, so no amount of trouble in here can lose a pane.
+    /// The move, the simplification and the layout all run against a [`Tiles::skeleton`] — a copy
+    /// of the tree's structure in which every pane is replaced by its own [`TileId`]. The real
+    /// tree is only ever read, so no amount of trouble in here can lose a pane.
+    ///
+    /// Tiles keep their ids throughout, so the result is readable with the real tree's ids.
     fn speculate(
         &self,
         dragged_id: TileId,
@@ -925,7 +918,7 @@ impl<Pane> Tree<Pane> {
         behavior: &dyn Behavior<Pane>,
         style: &egui::Style,
         rect: Rect,
-    ) -> Speculation {
+    ) -> Tiles<TileId> {
         let simplification_options = behavior.simplification_options();
 
         let mut skeleton = Tree {
@@ -946,86 +939,23 @@ impl<Pane> Tree<Pane> {
         skeleton.simplify(&simplification_options);
         layout_tiles(&mut skeleton.tiles, skeleton.root, behavior, style, rect);
 
-        // The whole point of speculating on a skeleton is that panes cannot get lost. Assert
-        // it, so that a future tree edit which drops or duplicates one is caught here rather
-        // than by a puzzled user.
+        // Speculating on a skeleton means panes cannot get lost. Assert it, so that a future tree
+        // edit which drops, duplicates or relocates one is caught here rather than by a puzzled
+        // user -- the latter would silently break every lookup below, which goes by id.
+        debug_assert!(
+            skeleton.tiles.iter().all(|(&id, tile)| match tile {
+                Tile::Pane(real_id) => *real_id == id,
+                Tile::Container(_) => true,
+            }),
+            "the speculative pass moved a pane to a different id"
+        );
         debug_assert_eq!(
             sorted_skeleton_pane_ids(&skeleton.tiles),
             sorted_pane_ids(&self.tiles),
             "the speculative pass lost or duplicated a pane"
         );
 
-        self.harvest(&skeleton, dragged_id)
-    }
-
-    /// Translate a laid-out [`Tiles::skeleton`] back into the ids of the real tiles.
-    fn harvest(&self, skeleton: &Tree<TileId>, dragged_id: TileId) -> Speculation {
-        let real_id = |skeleton_id: TileId| -> Option<TileId> {
-            match skeleton.tiles.get(skeleton_id)? {
-                // A pane carries its real id, so it stays identifiable however many times the
-                // speculative edits relocate it.
-                Tile::Pane(real_id) => Some(*real_id),
-
-                // Ids are stable across the wrapping that a move does, so a skeleton container
-                // is the real container with the same id -- but only where the real tree has a
-                // container there too. Simplification can invent containers at ids that hold a
-                // pane in the real tree: `all_panes_must_have_tabs` wraps every pane in a
-                // `Tabs` at the pane's own id. Those have no counterpart to animate.
-                Tile::Container(_) => {
-                    matches!(self.tiles.get(skeleton_id), Some(Tile::Container(_)))
-                        .then_some(skeleton_id)
-                }
-            }
-        };
-
-        let mut rects = ahash::HashMap::default();
-        #[expect(clippy::iter_over_hash_type)] // Each tile is mapped independently.
-        for (&skeleton_id, &rect) in &skeleton.tiles.rects {
-            if let Some(real_id) = real_id(skeleton_id) {
-                rects.insert(real_id, rect);
-            }
-        }
-
-        let mut tabs = ahash::HashMap::default();
-        for (&skeleton_id, tile) in skeleton.tiles.iter() {
-            if let Tile::Container(Container::Tabs(skeleton_tabs)) = tile
-                && let Some(real_tabs_id) = real_id(skeleton_id)
-            {
-                tabs.insert(
-                    real_tabs_id,
-                    PreviewTabs {
-                        children: skeleton_tabs
-                            .children
-                            .iter()
-                            .filter_map(|&child| real_id(child))
-                            .collect(),
-                        active: skeleton_tabs.active.and_then(real_id),
-                    },
-                );
-            }
-        }
-
-        // A `Tabs` container can be simplified away in the skeleton while still being drawn in
-        // the real tree. Show those without the tile that is on its way out.
-        for (&tile_id, tile) in self.tiles.iter() {
-            if let Tile::Container(Container::Tabs(real_tabs)) = tile
-                && !tabs.contains_key(&tile_id)
-            {
-                let children: Vec<TileId> = real_tabs
-                    .children
-                    .iter()
-                    .copied()
-                    .filter(|&child| child != dragged_id)
-                    .collect();
-                let active = real_tabs
-                    .active
-                    .filter(|active| children.contains(active))
-                    .or_else(|| children.first().copied());
-                tabs.insert(tile_id, PreviewTabs { children, active });
-            }
-        }
-
-        Speculation { rects, tabs }
+        skeleton.tiles
     }
 
     /// Exponentially smooth every animated tile's rect towards where it should be.
@@ -1038,11 +968,13 @@ impl<Pane> Tree<Pane> {
         let Self { tiles, preview, .. } = self;
         let Preview {
             memory,
-            speculation,
+            tiles: preview_tiles,
         } = preview;
 
         let no_targets = ahash::HashMap::default();
-        let targets = speculation.as_ref().map_or(&no_targets, |it| &it.rects);
+        let targets = preview_tiles
+            .as_ref()
+            .map_or(&no_targets, |preview| &preview.rects);
 
         if targets.is_empty() && memory.smoothed_rects.is_empty() {
             return;
@@ -1122,8 +1054,14 @@ impl<Pane> Tree<Pane> {
     }
 
     /// How a [`Tabs`](crate::Tabs) container should be drawn mid-drag, if a drag is under way.
-    pub(crate) fn preview_tabs(&self, tile_id: TileId) -> Option<&PreviewTabs> {
-        self.preview.speculation.as_ref()?.tabs.get(&tile_id)
+    pub(crate) fn preview_tabs(&self, tile_id: TileId) -> Option<&Tabs> {
+        match self.preview.tiles.as_ref()?.get(tile_id)? {
+            Tile::Container(Container::Tabs(tabs)) => Some(tabs),
+
+            // The container was simplified away, or replaced by one of a different kind, in the
+            // tree the drop would produce. Nothing sensible to preview.
+            Tile::Container(_) | Tile::Pane(_) => None,
+        }
     }
 }
 
@@ -1517,6 +1455,58 @@ mod tests {
         assert!(
             children.contains(&c),
             "dropping should have moved the pane into the tabs container, but it holds {children:?}"
+        );
+    }
+
+    /// Dragging a tab out of a container that will collapse as a result should still show that
+    /// container without the tab that is leaving — the remaining tabs close the gap.
+    #[test]
+    fn tab_bar_previews_a_tab_leaving() {
+        let ctx = egui::Context::default();
+
+        // `Tabs[a, b]` on the left, pane `c` on the right. Dragging `a` out leaves `Tabs[b]`,
+        // which simplification collapses, so the tabs container is absent from the preview.
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let tabs = tiles.insert_tab_tile(vec![a, b]);
+        let c = tiles.insert_pane("c");
+        let root = tiles.insert_horizontal_tile(vec![tabs, c]);
+        let mut tree = Tree::new(TREE_ID, root, tiles);
+
+        let mut behavior = TabRecorder::default();
+
+        run_frame_with(
+            &ctx,
+            &mut tree,
+            &mut behavior,
+            Pos2::new(200.0, 300.0),
+            None,
+            false,
+        );
+        assert_eq!(
+            behavior.take_drawn_tabs(),
+            vec![(a, true), (b, false)],
+            "sanity: the tab bar shows both tabs"
+        );
+
+        // Drag `a` over pane `c`, and hold it there:
+        let over_c = Pos2::new(700.0, 300.0);
+        for _ in 0..4 {
+            run_frame_with(&ctx, &mut tree, &mut behavior, over_c, Some(a), true);
+        }
+        behavior.take_drawn_tabs();
+        run_frame_with(&ctx, &mut tree, &mut behavior, over_c, Some(a), true);
+
+        let drawn: Vec<TileId> = behavior
+            .take_drawn_tabs()
+            .into_iter()
+            .map(|(tile_id, _)| tile_id)
+            .collect();
+        assert_eq!(
+            drawn,
+            vec![b],
+            "the tab bar should already show itself without the tab being dragged out"
         );
     }
 

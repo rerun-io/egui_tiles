@@ -548,9 +548,9 @@ impl<Pane> Tiles<Pane> {
                     }
 
                     if found {
-                        let new_container =
-                            self.insert_new(Tile::Container(Container::new_tabs(new_children)));
-                        return SimplifyAction::Replace(new_container);
+                        // Keep this container's own id: flattening changes what it holds,
+                        // not which container it is.
+                        *container = Container::new_tabs(new_children);
                     }
                 }
             } else {
@@ -609,10 +609,20 @@ impl<Pane> Tiles<Pane> {
         SimplifyAction::Keep
     }
 
-    pub(super) fn make_all_panes_children_of_tabs(&mut self, parent_is_tabs: bool, it: TileId) {
+    /// Returns the id of a new container that should take `it`'s place in its parent, if `it` was
+    /// a pane that had to be wrapped in one.
+    ///
+    /// The pane keeps its own [`TileId`]; it is the new container that gets a fresh one. See
+    /// [`Self::insert_at`] for why that matters.
+    #[must_use]
+    pub(super) fn make_all_panes_children_of_tabs(
+        &mut self,
+        parent_is_tabs: bool,
+        it: TileId,
+    ) -> Option<TileId> {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::debug!("Failed to find tile {it:?} during make_all_panes_children_of_tabs");
-            return;
+            return None;
         };
 
         match &mut tile {
@@ -620,21 +630,26 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = self.insert_new(tile);
-                    self.tiles
-                        .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
-                    return;
+                    self.tiles.insert(it, tile);
+                    let tabs = Container::new_tabs(vec![it]);
+                    return Some(self.insert_new(Tile::Container(tabs)));
                 }
             }
             Tile::Container(container) => {
                 let is_tabs = container.kind() == ContainerKind::Tabs;
-                for &child in container.children() {
-                    self.make_all_panes_children_of_tabs(is_tabs, child);
+                let children: Vec<TileId> = container.children().copied().collect();
+                for child in children {
+                    if let Some(new_child) = self.make_all_panes_children_of_tabs(is_tabs, child)
+                        && container.replace_child(child, new_child).is_none()
+                    {
+                        log::warn!("Bug: {child:?} is no longer a child of {it:?}");
+                    }
                 }
             }
         }
 
         self.tiles.insert(it, tile);
+        None
     }
 
     /// Returns true if the active tile was found in this tree.
