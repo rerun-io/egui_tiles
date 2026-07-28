@@ -33,13 +33,6 @@ pub struct Tiles<Pane> {
     /// Filled in by the layout step at the start of each frame.
     #[cfg_attr(feature = "serde", serde(default, skip))]
     pub(super) rects: ahash::HashMap<TileId, Rect>,
-
-    /// When `Some`, every id a tile is moved to is recorded here.
-    ///
-    /// Only ever enabled on the throw-away skeleton built by [`Self::skeleton`];
-    /// see [`Self::insert_new_replacing`].
-    #[cfg_attr(feature = "serde", serde(default, skip))]
-    renames: Option<Vec<(TileId, TileId)>>,
 }
 
 impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
@@ -48,8 +41,7 @@ impl<Pane: PartialEq> PartialEq for Tiles<Pane> {
             next_tile_id: _, // ignored
             tiles,
             invisible,
-            rects: _,   // ignore transient state
-            renames: _, // ignore transient state
+            rects: _, // ignore transient state
         } = self;
         tiles == &other.tiles && invisible == &other.invisible
     }
@@ -62,7 +54,6 @@ impl<Pane> Default for Tiles<Pane> {
             tiles: Default::default(),
             invisible: Default::default(),
             rects: Default::default(),
-            renames: None,
         }
     }
 }
@@ -233,26 +224,6 @@ impl<Pane> Tiles<Pane> {
         id
     }
 
-    /// Move the tile that used to live at `old_id` to a freshly allocated id.
-    ///
-    /// Every place that relocates an _existing_ tile to a new id must go through here.
-    /// The drag preview speculates on a [`Self::skeleton`] and needs to map the resulting
-    /// rects back onto the real tree; without a record of the relocation, the tile the user
-    /// dropped onto would be animated from the wrong place.
-    #[must_use]
-    fn insert_new_replacing(&mut self, old_id: TileId, tile: Tile<Pane>) -> TileId {
-        let new_id = self.insert_new(tile);
-        if let Some(renames) = &mut self.renames {
-            renames.push((old_id, new_id));
-        }
-        new_id
-    }
-
-    /// Every `(old_id, new_id)` relocation made since this was built by [`Self::skeleton`].
-    pub(super) fn renames(&self) -> &[(TileId, TileId)] {
-        self.renames.as_deref().unwrap_or_default()
-    }
-
     /// A structural copy of these tiles, with each pane replaced by its own [`TileId`].
     ///
     /// Neither layout nor simplification ever looks at a pane's contents, so this carries
@@ -277,7 +248,6 @@ impl<Pane> Tiles<Pane> {
                 .collect(),
             invisible: self.invisible.clone(),
             rects: Default::default(),
-            renames: Some(Vec::new()),
         }
     }
 
@@ -578,10 +548,8 @@ impl<Pane> Tiles<Pane> {
                     }
 
                     if found {
-                        let new_container = self.insert_new_replacing(
-                            it,
-                            Tile::Container(Container::new_tabs(new_children)),
-                        );
+                        let new_container =
+                            self.insert_new(Tile::Container(Container::new_tabs(new_children)));
                         return SimplifyAction::Replace(new_container);
                     }
                 }
@@ -652,7 +620,7 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = self.insert_new_replacing(it, tile);
+                    let new_id = self.insert_new(tile);
                     self.tiles
                         .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
                     return;

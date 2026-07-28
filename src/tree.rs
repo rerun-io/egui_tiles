@@ -946,9 +946,9 @@ impl<Pane> Tree<Pane> {
         skeleton.simplify(&simplification_options);
         layout_tiles(&mut skeleton.tiles, skeleton.root, behavior, style, rect);
 
-        // The whole point of speculating on a skeleton is that panes cannot get lost.
-        // Assert it, so that any future tree edit which relocates a tile without recording it
-        // (see `Tiles::insert_new_replacing`) is caught here rather than by a puzzled user.
+        // The whole point of speculating on a skeleton is that panes cannot get lost. Assert
+        // it, so that a future tree edit which drops or duplicates one is caught here rather
+        // than by a puzzled user.
         debug_assert_eq!(
             sorted_skeleton_pane_ids(&skeleton.tiles),
             sorted_pane_ids(&self.tiles),
@@ -960,33 +960,21 @@ impl<Pane> Tree<Pane> {
 
     /// Translate a laid-out [`Tiles::skeleton`] back into the ids of the real tiles.
     fn harvest(&self, skeleton: &Tree<TileId>, dragged_id: TileId) -> Speculation {
-        // `(old_id, new_id)` pairs, resolved so that a tile relocated more than once still
-        // points back at the id it started out with. `renames()` is in chronological order.
-        let mut renamed_from = ahash::HashMap::default();
-        for &(old_id, new_id) in skeleton.tiles.renames() {
-            let origin = renamed_from.get(&old_id).copied().unwrap_or(old_id);
-            renamed_from.insert(new_id, origin);
-        }
-
-        // Ids left behind by a relocation now hold a brand new container that has no
-        // counterpart in the real tree.
-        let vacated: ahash::HashSet<TileId> = skeleton
-            .tiles
-            .renames()
-            .iter()
-            .map(|&(old_id, _)| old_id)
-            .collect();
-
         let real_id = |skeleton_id: TileId| -> Option<TileId> {
             match skeleton.tiles.get(skeleton_id)? {
-                // Panes carry their real id, so they survive any number of relocations.
+                // A pane carries its real id, so it stays identifiable however many times the
+                // speculative edits relocate it.
                 Tile::Pane(real_id) => Some(*real_id),
 
-                Tile::Container(_) => renamed_from
-                    .get(&skeleton_id)
-                    .copied()
-                    .or_else(|| (!vacated.contains(&skeleton_id)).then_some(skeleton_id))
-                    .filter(|&id| matches!(self.tiles.get(id), Some(Tile::Container(_)))),
+                // Ids are stable across the wrapping that a move does, so a skeleton container
+                // is the real container with the same id -- but only where the real tree has a
+                // container there too. Simplification can invent containers at ids that hold a
+                // pane in the real tree: `all_panes_must_have_tabs` wraps every pane in a
+                // `Tabs` at the pane's own id. Those have no counterpart to animate.
+                Tile::Container(_) => {
+                    matches!(self.tiles.get(skeleton_id), Some(Tile::Container(_)))
+                        .then_some(skeleton_id)
+                }
             }
         };
 
