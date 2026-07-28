@@ -533,24 +533,43 @@ impl<Pane> Tiles<Pane> {
                 }
 
                 if options.flatten_tabs_in_tabs {
+                    let was_active = match container {
+                        Container::Tabs(tabs) => tabs.active,
+                        Container::Linear(_) | Container::Grid(_) => None,
+                    };
+
                     let mut found = false;
                     let mut new_children = Vec::new();
+                    let mut new_active = None;
 
                     for &child_id in container.children() {
                         if let Some(Tile::Container(Container::Tabs(child_tabs))) =
                             self.get(child_id)
                         {
+                            if was_active == Some(child_id) {
+                                // The open tab is the container being flattened away, so the
+                                // user is looking at whichever of _its_ tabs was open.
+                                new_active = child_tabs.active;
+                            }
                             new_children.extend(child_tabs.children.iter().copied());
                             found = true;
                         } else {
+                            if was_active == Some(child_id) {
+                                new_active = Some(child_id);
+                            }
                             new_children.push(child_id);
                         }
                     }
 
                     if found {
                         // Keep this container's own id: flattening changes what it holds,
-                        // not which container it is.
-                        *container = Container::new_tabs(new_children);
+                        // not which container it is. For the same reason, keep showing the tab
+                        // the user had open.
+                        let mut tabs = Tabs::new(new_children);
+                        if let Some(new_active) = new_active {
+                            tabs.set_active(new_active);
+                        }
+                        *container = Container::Tabs(tabs);
                     }
                 }
             } else {
@@ -959,6 +978,62 @@ mod tests {
             Some(vec![a, b, c]),
             "the inner container's tabs should have been folded into the outer one"
         );
+    }
+
+    /// Flattening keeps the container's id, so it should also keep showing whatever tab the user
+    /// had open — including when the open tab is the inner container being flattened away, where
+    /// what they are really looking at is one of *its* tabs.
+    #[test]
+    fn flattening_tabs_in_tabs_keeps_the_open_tab() {
+        // `outer` is `Tabs[ Tabs[a, b], c ]`, and flattens to `Tabs[a, b, c]`.
+        let build = || {
+            let mut tiles = Tiles::default();
+            let a = tiles.insert_pane("a");
+            let b = tiles.insert_pane("b");
+            let inner = tiles.insert_tab_tile(vec![a, b]);
+            let c = tiles.insert_pane("c");
+            let outer = tiles.insert_tab_tile(vec![inner, c]);
+            (Tree::new("test", outer, tiles), a, b, inner, c, outer)
+        };
+        let options = SimplificationOptions {
+            flatten_tabs_in_tabs: true,
+            ..SimplificationOptions::OFF
+        };
+        let active_of = |tree: &Tree<&'static str>, id: TileId| match tree.tiles.get_container(id) {
+            Some(Container::Tabs(tabs)) => tabs.active,
+            _ => panic!("{id:?} should be a tabs container"),
+        };
+
+        // The open tab is `c`, which survives flattening untouched:
+        {
+            let (mut tree, _a, _b, _inner, c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(c);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(c),
+                "`c` was open, and still is"
+            );
+        }
+
+        // The open tab is the inner container, which was itself showing `b`:
+        {
+            let (mut tree, _a, b, inner, _c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(inner) {
+                tabs.set_active(b);
+            }
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(inner);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(b),
+                "the user was looking at `b` through the flattened container, so `b` stays open"
+            );
+        }
     }
 
     /// Inserting into a container that already accepts the tile must not wrap anything.
