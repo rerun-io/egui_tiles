@@ -153,15 +153,17 @@ impl Tabs {
     }
 
     /// Swap out one tab for another, keeping its position and whether it was the open one.
-    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> bool {
-        let Some(slot) = self.children.iter_mut().find(|child| **child == old) else {
-            return false;
-        };
-        *slot = new;
+    ///
+    /// Returns the index of the tab that was swapped,
+    /// or `None` if `old` was not a tab of this container.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == old)?;
+        self.children[index] = new;
         if self.active == Some(old) {
             self.active = Some(new);
         }
-        true
+        Some(index)
     }
 
     pub fn set_active(&mut self, child: TileId) {

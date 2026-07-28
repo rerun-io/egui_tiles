@@ -268,21 +268,26 @@ fn harness() -> egui_kittest::Harness<'static, App> {
     harness
 }
 
-/// Drag the pane named `source` onto whatever widget is labelled `target_label`, and let go.
+/// The widgets a pane can be grabbed by, or dropped onto: the drag handle inside the pane, and
+/// the pane's tab when it sits in a tab bar.
 ///
-/// The drag goes through the real widgets — find the pane's drag handle by its accessibility
-/// label, press it, move the pointer, release — rather than by poking `egui_tiles` internals, so
-/// this exercises the path a user actually takes. Returns `false` if either widget is not on
-/// screen (an inactive tab's contents, say).
-fn drag_pane_onto(
+/// Both are found by accessibility label, which is why a tab needs one.
+fn grab_points(pane: &str) -> [String; 2] {
+    [drag_handle_label(pane), pane.to_owned()]
+}
+
+/// Drag whatever is labelled `source_label` onto whatever is labelled `target_label`, and let go.
+///
+/// The drag goes through the real widgets — find them by accessibility label, press, move the
+/// pointer, release — rather than by poking `egui_tiles` internals, so this exercises the path a
+/// user actually takes. Returns `false` if either widget is not on screen, e.g. the drag handle
+/// inside an inactive tab.
+fn drag_onto(
     harness: &mut egui_kittest::Harness<'_, App>,
-    source: &str,
+    source_label: &str,
     target_label: &str,
 ) -> bool {
-    let Some(from) = harness
-        .query_by_label(&drag_handle_label(source))
-        .map(|node| node.rect())
-    else {
+    let Some(from) = harness.query_by_label(source_label).map(|node| node.rect()) else {
         return false;
     };
     let Some(to) = harness.query_by_label(target_label).map(|node| node.rect()) else {
@@ -311,46 +316,47 @@ fn all_panes() -> String {
 
 /// Every way of dropping one pane onto another must leave all four panes in place.
 ///
-/// Dropping *onto* a pane is the interesting case: `egui_tiles` reuses the target's `TileId` for
-/// the container it wraps them both in, which is exactly the sharp edge documented on
-/// `Blueprint::sync_from_tree`.
+/// Each pane can be grabbed, and aimed at, in two ways: by the drag handle inside it, and by its
+/// tab when it sits in a tab bar. Dragging *by the tab* is the only way to move a pane that is not
+/// the open tab, so without it a quarter of the tree is untouchable from a test.
 #[test]
 fn dropping_a_pane_never_loses_it() {
     let mut dragged = 0;
     let mut skipped = 0;
 
     for source in PANES {
-        for target in PANES {
-            if source == target {
-                continue;
-            }
-
-            // Aim both at the pane itself, and at its tab in a tab bar (when it has one).
-            for target_label in [drag_handle_label(target), target.to_owned()] {
-                let mut harness = harness();
-                let before = harness.state().blueprint.root.describe();
-
-                if !drag_pane_onto(&mut harness, source, &target_label) {
-                    // The target is not on screen — an inactive tab's contents, say.
-                    skipped += 1;
+        for source_label in grab_points(source) {
+            for target in PANES {
+                if source == target {
                     continue;
                 }
-                dragged += 1;
 
-                let app = harness.state();
+                for target_label in grab_points(target) {
+                    let mut harness = harness();
+                    let before = harness.state().blueprint.root.describe();
 
-                assert_eq!(
-                    app.blueprint.root.sorted_pane_ids().join(", "),
-                    all_panes(),
-                    "dragging {source} onto {target_label} lost a pane: {before} -> {}",
-                    app.blueprint.root.describe()
-                );
+                    if !drag_onto(&mut harness, &source_label, &target_label) {
+                        // Not on screen: the drag handle inside a tab that isn't open.
+                        skipped += 1;
+                        continue;
+                    }
+                    dragged += 1;
 
-                // Otherwise the check above would pass by never having dragged anything.
-                assert_eq!(
-                    app.behavior.tiles_dropped, 1,
-                    "dragging {source} onto {target_label} committed no drop"
-                );
+                    let app = harness.state();
+
+                    assert_eq!(
+                        app.blueprint.root.sorted_pane_ids().join(", "),
+                        all_panes(),
+                        "dragging {source_label} onto {target_label} lost a pane: {before} -> {}",
+                        app.blueprint.root.describe()
+                    );
+
+                    // Otherwise the check above would pass by never having dragged anything.
+                    assert_eq!(
+                        app.behavior.tiles_dropped, 1,
+                        "dragging {source_label} onto {target_label} committed no drop"
+                    );
+                }
             }
         }
     }
@@ -376,26 +382,29 @@ fn many_drags_in_a_row_never_lose_a_pane() {
                 continue;
             }
 
-            for target_label in [drag_handle_label(target), target.to_owned()] {
-                let before = harness.state().blueprint.root.describe();
-                if !drag_pane_onto(&mut harness, source, &target_label) {
-                    continue;
-                }
-                drags += 1;
+            for source_label in grab_points(source) {
+                for target_label in grab_points(target) {
+                    let before = harness.state().blueprint.root.describe();
+                    if !drag_onto(&mut harness, &source_label, &target_label) {
+                        continue;
+                    }
+                    drags += 1;
 
-                let app = harness.state();
-                assert_eq!(
-                    app.blueprint.root.sorted_pane_ids().join(", "),
-                    all_panes(),
-                    "drag {drags} ({source} onto {target_label}) lost a pane: {before} -> {}",
-                    app.blueprint.root.describe()
-                );
-                assert_eq!(
-                    app.behavior.tiles_dropped,
-                    dropped_before + 1,
-                    "drag {drags} ({source} onto {target_label}) committed no drop"
-                );
-                dropped_before = app.behavior.tiles_dropped;
+                    let app = harness.state();
+                    assert_eq!(
+                        app.blueprint.root.sorted_pane_ids().join(", "),
+                        all_panes(),
+                        "drag {drags} ({source_label} onto {target_label}) lost a pane: \
+                         {before} -> {}",
+                        app.blueprint.root.describe()
+                    );
+                    assert_eq!(
+                        app.behavior.tiles_dropped,
+                        dropped_before + 1,
+                        "drag {drags} ({source_label} onto {target_label}) committed no drop"
+                    );
+                    dropped_before = app.behavior.tiles_dropped;
+                }
             }
         }
     }

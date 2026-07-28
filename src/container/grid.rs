@@ -111,17 +111,6 @@ impl Grid {
 
     /// Returns the child already at the given index, if any.
     #[must_use]
-    /// Swap out one child for another, keeping its cell.
-    ///
-    /// The column and row shares are positional, so they need no fixing up.
-    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> bool {
-        let Some(slot) = self.children.iter_mut().find(|child| **child == Some(old)) else {
-            return false;
-        };
-        *slot = Some(new);
-        true
-    }
-
     pub fn replace_at(&mut self, index: usize, child: TileId) -> Option<TileId> {
         if let Some(slot) = self.children.get_mut(index) {
             slot.replace(child)
@@ -130,6 +119,19 @@ impl Grid {
             self.children.push(Some(child));
             None
         }
+    }
+
+    /// Swap out one child for another, keeping its cell.
+    ///
+    /// The column and row shares are positional, so they need no fixing up.
+    ///
+    /// Returns the index of the cell that was swapped,
+    /// or `None` if `old` was not a child of this grid.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == Some(old))?;
+        self.children[index] = Some(new);
+        Some(index)
     }
 
     fn collapse_holes(&mut self) {

@@ -178,8 +178,10 @@ impl Container {
 
     /// Swap out one child for another, keeping its place and its share of the space.
     ///
-    /// Returns `false` if `old` was not a child of this container.
-    pub fn replace_child(&mut self, old: TileId, new: TileId) -> bool {
+    /// Returns the child index that was swapped, mirroring [`Self::remove_child`],
+    /// or `None` if `old` was not a child of this container.
+    #[must_use]
+    pub fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
         match self {
             Self::Tabs(tabs) => tabs.replace_child(old, new),
             Self::Linear(linear) => linear.replace_child(old, new),
