@@ -144,6 +144,18 @@ impl Linear {
         slf
     }
 
+    /// Swap out one child for another, keeping its position and its share of the space.
+    ///
+    /// Returns the index of the child that was swapped,
+    /// or `None` if `old` was not a child of this container.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == old)?;
+        self.children[index] = new;
+        self.shares.replace_with(old, new);
+        Some(index)
+    }
+
     pub fn add_child(&mut self, child: TileId) {
         self.children.push(child);
     }

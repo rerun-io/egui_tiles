@@ -121,6 +121,19 @@ impl Grid {
         }
     }
 
+    /// Swap out one child for another, keeping its cell.
+    ///
+    /// The column and row shares are positional, so they need no fixing up.
+    ///
+    /// Returns the index of the cell that was swapped,
+    /// or `None` if `old` was not a child of this grid.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == Some(old))?;
+        self.children[index] = Some(new);
+        Some(index)
+    }
+
     fn collapse_holes(&mut self) {
         log::trace!("Collaping grid holes");
         self.children.retain(|child| child.is_some());
