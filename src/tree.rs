@@ -38,6 +38,19 @@ fn sorted_skeleton_pane_ids(tiles: &Tiles<TileId>) -> Vec<u64> {
     ids
 }
 
+/// How far to move a smoothed rect towards its target this frame.
+///
+/// [`egui::Style::animation_time`] sets the pace, so the drag preview animates in step with the
+/// rest of the ui.
+fn smoothing_factor(ui: &Ui, options: &PreviewOptions) -> f32 {
+    let dt = ui.input(|input| input.stable_dt).at_most(0.1);
+    egui::emath::exponential_smooth_factor(
+        options.reach_this_fraction,
+        ui.style().animation_time,
+        dt,
+    )
+}
+
 /// Are `a` and `b` close enough to be considered the same rect?
 fn rects_close_enough(a: Rect, b: Rect) -> bool {
     a.min.distance(b.min) + a.max.distance(b.max) < RECT_CONVERGENCE_THRESHOLD
@@ -481,7 +494,7 @@ impl<Pane> Tree<Pane> {
             Some(self.speculate(dragged_id, insertion, behavior, ui.style(), rect))
         });
 
-        self.update_smoothed_rects(ui.ctx(), dragged_id, &preview_options);
+        self.update_smoothed_rects(ui, dragged_id, &preview_options);
 
         if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
@@ -961,7 +974,7 @@ impl<Pane> Tree<Pane> {
     /// Exponentially smooth every animated tile's rect towards where it should be.
     fn update_smoothed_rects(
         &mut self,
-        ctx: &egui::Context,
+        ui: &Ui,
         dragged_id: Option<TileId>,
         options: &PreviewOptions,
     ) {
@@ -980,12 +993,7 @@ impl<Pane> Tree<Pane> {
             return;
         }
 
-        let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
-        let t = egui::emath::exponential_smooth_factor(
-            options.reach_this_fraction,
-            options.in_this_many_seconds,
-            dt,
-        );
+        let t = smoothing_factor(ui, options);
 
         // Start animating any tile that has a target but isn't animating yet:
         #[expect(clippy::iter_over_hash_type)] // Each tile animates independently.
@@ -1024,7 +1032,7 @@ impl<Pane> Tree<Pane> {
         });
 
         if any_animating {
-            ctx.request_repaint();
+            ui.ctx().request_repaint();
         }
     }
 
@@ -1080,25 +1088,18 @@ fn clear_smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId) {
 
 /// Take the preview rectangle and smooth it over time.
 fn smooth_preview_rect(
-    ctx: &egui::Context,
+    ui: &Ui,
     dragged_tile_id: TileId,
     new_rect: Rect,
     options: &PreviewOptions,
 ) -> Rect {
     let data_id = smooth_preview_rect_id(dragged_tile_id);
-
-    let dt = ctx.input(|input| input.stable_dt).at_most(0.1);
+    let t = smoothing_factor(ui, options);
 
     let mut requires_repaint = false;
 
-    let smoothed = ctx.data_mut(|data| {
+    let smoothed = ui.data_mut(|data| {
         let smoothed: &mut Rect = data.get_temp_mut_or(data_id, new_rect);
-
-        let t = egui::emath::exponential_smooth_factor(
-            options.reach_this_fraction,
-            options.in_this_many_seconds,
-            dt,
-        );
 
         *smoothed = smoothed.lerp_towards(&new_rect, t);
 
@@ -1111,7 +1112,7 @@ fn smooth_preview_rect(
     });
 
     if requires_repaint {
-        ctx.request_repaint();
+        ui.ctx().request_repaint();
     }
 
     smoothed
