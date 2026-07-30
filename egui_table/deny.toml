@@ -30,8 +30,11 @@ all-features = true
 
 [advisories]
 version = 2
+# Stale ignores fail CI rather than warn, so the entries below cannot rot silently.
+unused-ignored-advisory = "deny"
 ignore = [
-  "RUSTSEC-2024-0436", # unmaintained paste pulled via metal/wgpu, see https://github.com/gfx-rs/metal-rs/issues/349
+  { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38.4 via zbus_xml 5.1.0 -> zbus-lockstep -> atspi-common -> accesskit, and 0.39.2 via wayland-scanner (a proc-macro, so build-time only). Both reach only the `demo` crate, which is `publish = false`; `cargo tree -p egui_table` pulls neither. Blocked by zbus_xml requiring ^0.38 and wayland-scanner requiring ^0.39, while the fix is >=0.41.0. Remove when both move to quick-xml 0.41 and we re-lock." },
+  { id = "RUSTSEC-2026-0195", reason = "Same two quick-xml paths, same blockers and same exit as RUSTSEC-2026-0194 above: reaches only the unpublished `demo` crate, and 0.41.0 is unreachable while zbus_xml pins ^0.38 and wayland-scanner pins ^0.39." },
 ]
 
 

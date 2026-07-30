@@ -14,9 +14,8 @@
 # Note that by default lychee will only check markdown and html files,
 # to check any other files you have to point to them explicitly, e.g.:
 # `lychee **/*.rs`
-# To make things worse, `exclude_path` is ignored for these globs,
-# so local runs with lots of gitignored files will be slow.
-# (https://github.com/lycheeverse/lychee/issues/1405)
+# `exclude_path` applies to those globs too, as of lychee 0.18
+# (https://github.com/lycheeverse/lychee/issues/1405).
 #
 # This unfortunately doesn't list anything for non-glob checks.
 ################################################################################
@@ -44,6 +43,9 @@ exclude_path = [
   "target_wasm",
   "target",
   "venv",
+
+  # This file. The `exclude` patterns below are not links to check.
+  "lychee.toml",
 ]
 
 # Exclude URLs and mail addresses from checking (supports regex).
@@ -74,4 +76,8 @@ exclude = [
   'https://github.com/rerun-io/egui_table/commit/\.*', # Ignore links to our own commits (typically in changelog).
   'https://github.com/rerun-io/egui_table/pull/\.*',   # Ignore links to our own pull requests (typically in changelog).
   'https://www.unicode.org/.*',                        # Avoid unicode.org rate-limiting
+
+  # Badge images are generated on demand and time out under load; a 408 says nothing
+  # about link rot. The pages they link *to* are still checked.
+  'https://docs\.rs/.*/badge\.svg',
 ]
