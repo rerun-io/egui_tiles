@@ -110,15 +110,11 @@ impl TreeBehavior {
                 ui.end_row();
 
                 ui.label("Max tab bar rows:");
-                ui.add(
-                    egui::DragValue::new(max_tab_bar_rows)
-                        .range(1..=4)
-                        .speed(0.05),
-                )
-                .on_hover_text(
-                    "Above 1, a tab bar too crowded for one row wraps into further rows \
+                ui.add(egui::Slider::new(max_tab_bar_rows, 1..=4))
+                    .on_hover_text(
+                        "Above 1, a tab bar too crowded for one row wraps into further rows \
                      instead of scrolling. Add tabs with ➕, or narrow the window, to see it.",
-                );
+                    );
                 ui.end_row();
 
                 ui.label("Gap width:");
