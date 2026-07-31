@@ -60,6 +60,9 @@ pub(crate) struct WrapState {
 
     /// The width of each tab, in the order the tabs were drawn.
     pub widths: Vec<f32>,
+
+    /// The width [`Behavior::top_bar_right_ui`] took, which the tabs have to leave free.
+    pub right_width: f32,
 }
 
 /// What one pass over the tabs produced, whether they wrapped or scrolled.
@@ -77,7 +80,10 @@ struct TabBarOutput {
     /// The width of each tab drawn, in order, to wrap by next frame.
     widths: Vec<f32>,
 
-    /// How many rows the tabs took, or zero if wrapping was not tried or did not fit.
+    /// The width [`Behavior::top_bar_right_ui`] took, to wrap by next frame.
+    right_width: f32,
+
+    /// How many rows the tabs took.
     rows: usize,
 }
 
@@ -346,8 +352,8 @@ impl Tabs {
             ..TabBarOutput::default()
         };
 
-        if max_rows > 1 {
-            self.wrapping_tab_bar_ui(
+        let wrapped = max_rows > 1
+            && self.wrapping_tab_bar_ui(
                 tree,
                 behavior,
                 &mut ui,
@@ -360,9 +366,8 @@ impl Tabs {
                 },
                 &mut output,
             );
-        }
 
-        if output.rows == 0 {
+        if !wrapped {
             self.scrolling_tab_bar_ui(
                 tree,
                 behavior,
@@ -380,7 +385,17 @@ impl Tabs {
         }
         let widths = std::mem::take(&mut output.widths);
         let rows = output.rows;
-        ui.data_mut(|data| data.insert_temp(wrap_id, WrapState { rows, widths }));
+        let right_width = output.right_width;
+        ui.data_mut(|data| {
+            data.insert_temp(
+                wrap_id,
+                WrapState {
+                    rows,
+                    widths,
+                    right_width,
+                },
+            );
+        });
 
         self.tab_drop_zones(&ui, drop_context, tile_id, &output);
 
@@ -426,8 +441,10 @@ impl Tabs {
 
     /// Draws every tab in one row per line, when they fit within the allowed number of rows.
     ///
-    /// Leaves `output.rows` at zero if they do not, which is the caller's signal to fall back to
-    /// a single scrolling row.
+    /// Returns `false` without drawing anything if they do not, which is the caller's signal to
+    /// fall back to a single scrolling row. Both the tab widths and the width of
+    /// [`Behavior::top_bar_right_ui`] come from what the previous frame measured, so that deciding
+    /// whether the tabs fit draws nothing that the fallback would then draw a second time.
     fn wrapping_tab_bar_ui<Pane>(
         &self,
         tree: &mut Tree<Pane>,
@@ -436,13 +453,29 @@ impl Tabs {
         drop_context: &DropContext,
         wrap: &WrapLayout<'_>,
         output: &mut TabBarOutput,
-    ) {
+    ) -> bool {
         let tile_id = wrap.tile_id;
         let bar_rect = ui.max_rect();
+        let available = bar_rect.width() - wrap.previous.right_width;
+
+        let visible: Vec<(usize, TileId)> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|&(_, &child_id)| tree.is_visible(child_id))
+            .map(|(index, &child_id)| (index, child_id))
+            .collect();
+
+        let Some(plan) = wrap_rows(&wrap.previous.widths, available, wrap.max_rows) else {
+            return false;
+        };
+        if plan.iter().sum::<usize>() != visible.len() {
+            return false;
+        }
+
         let first_row = bar_rect
             .split_top_bottom_at_y(bar_rect.top() + wrap.row_height)
             .0;
-
         let mut right_ui = ui.new_child(
             egui::UiBuilder::new()
                 .max_rect(first_row)
@@ -456,22 +489,7 @@ impl Tabs {
             self,
             &mut unused_offset,
         );
-        let available = bar_rect.width() - right_ui.min_rect().width();
-
-        let visible: Vec<(usize, TileId)> = self
-            .children
-            .iter()
-            .enumerate()
-            .filter(|&(_, &child_id)| tree.is_visible(child_id))
-            .map(|(index, &child_id)| (index, child_id))
-            .collect();
-
-        let Some(plan) = wrap_rows(&wrap.previous.widths, available, wrap.max_rows) else {
-            return;
-        };
-        if plan.iter().sum::<usize>() != visible.len() {
-            return;
-        }
+        output.right_width = right_ui.min_rect().width();
 
         Self::drag_background(tree, behavior, ui, tile_id);
 
@@ -502,6 +520,7 @@ impl Tabs {
             drawn += count;
         }
         output.rows = plan.len();
+        true
     }
 
     fn drag_background<Pane>(
@@ -594,7 +613,9 @@ impl Tabs {
 
             // Allow user to add buttons such as "add new tab".
             // They can also read and modify the scroll state if they want.
+            let before_right_ui = ui.min_rect().width();
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
+            output.right_width = ui.min_rect().width() - before_right_ui;
 
             let scroll_area_width = scroll_state.update(ui, arrow_size);
 
