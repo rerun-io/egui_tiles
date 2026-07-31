@@ -328,7 +328,24 @@ impl<Pane> Tree<Pane> {
         if self.width.is_finite() {
             rect.set_width(self.width);
         }
-        if layout_tiles(&mut self.tiles, self.root, behavior, ui.style(), rect) {
+        let max_tab_bar_rows = behavior.max_tab_bar_rows().max(1);
+        let tree_id = self.id;
+        let tab_bar_rows = |tile_id| {
+            if max_tab_bar_rows <= 1 {
+                1
+            } else {
+                crate::container::tab_bar_rows(ui.ctx(), tile_id, tree_id)
+                    .clamp(1, max_tab_bar_rows)
+            }
+        };
+        if layout_tiles(
+            &mut self.tiles,
+            self.root,
+            behavior,
+            ui.style(),
+            &tab_bar_rows,
+            rect,
+        ) {
             behavior.on_edit(EditAction::TabSelected);
         }
 
