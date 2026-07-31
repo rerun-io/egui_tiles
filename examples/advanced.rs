@@ -60,6 +60,7 @@ impl Pane {
 struct TreeBehavior {
     simplification_options: egui_tiles::SimplificationOptions,
     tab_bar_height: f32,
+    max_tab_bar_rows: usize,
     gap_width: f32,
     add_child_to: Option<egui_tiles::TileId>,
 }
@@ -69,6 +70,7 @@ impl Default for TreeBehavior {
         Self {
             simplification_options: Default::default(),
             tab_bar_height: 24.0,
+            max_tab_bar_rows: 1,
             gap_width: 2.0,
             add_child_to: None,
         }
@@ -80,6 +82,7 @@ impl TreeBehavior {
         let Self {
             simplification_options,
             tab_bar_height,
+            max_tab_bar_rows,
             gap_width,
             add_child_to: _,
         } = self;
@@ -103,6 +106,18 @@ impl TreeBehavior {
                     egui::DragValue::new(tab_bar_height)
                         .range(0.0..=100.0)
                         .speed(1.0),
+                );
+                ui.end_row();
+
+                ui.label("Max tab bar rows:");
+                ui.add(
+                    egui::DragValue::new(max_tab_bar_rows)
+                        .range(1..=4)
+                        .speed(0.05),
+                )
+                .on_hover_text(
+                    "Above 1, a tab bar too crowded for one row wraps into further rows \
+                     instead of scrolling. Add tabs with ➕, or narrow the window, to see it.",
                 );
                 ui.end_row();
 
@@ -161,6 +176,10 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         self.tab_bar_height
+    }
+
+    fn max_tab_bar_rows(&self) -> usize {
+        self.max_tab_bar_rows
     }
 
     fn gap_width(&self, _style: &egui::Style) -> f32 {
