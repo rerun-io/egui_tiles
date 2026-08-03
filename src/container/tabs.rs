@@ -276,8 +276,18 @@ impl Tabs {
                 ui.available_size(),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
+                    // Left custom slot — first call in this LTR child layout
+                    // means leftmost on screen, so it sits to the left of the
+                    // left scroll-arrow.
+                    behavior.tab_bar_left_ui(&tree.tiles, ui, tile_id, self);
+
                     let left_arrow_id = ui.make_persistent_id((tile_id, "left_scroll_arrow"));
                     scroll_state.left_arrow(ui, arrow_size, left_arrow_id);
+
+                    // Clamp the precomputed width so it can't exceed what's
+                    // left after the leading slot + left arrow consumed space
+                    // inside this LTR child ui.
+                    let scroll_area_width = scroll_area_width.min(ui.available_width()).max(0.0);
 
                     // Prepare to show the scroll area with the tabs:
 

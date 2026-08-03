@@ -140,6 +140,16 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         }
     }
 
+    fn tab_bar_left_ui(
+        &mut self,
+        _tiles: &egui_tiles::Tiles<Pane>,
+        ui: &mut egui::Ui,
+        _tile_id: egui_tiles::TileId,
+        _tabs: &egui_tiles::Tabs,
+    ) {
+        ui.label("☰");
+    }
+
     fn tab_bar_trailing_ui(
         &mut self,
         _tiles: &egui_tiles::Tiles<Pane>,
