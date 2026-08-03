@@ -1,7 +1,9 @@
 use egui::{Pos2, Rect};
 
+use crate::behavior::LayoutContext;
+
 use super::{
-    Behavior, Container, ContainerInsertion, ContainerKind, GcAction, Grid, InsertionPoint, Linear,
+    Behavior, Container, ContainerInsertion, ContainerKind, GcAction, InsertionPoint, Linear,
     LinearDir, SimplificationOptions, SimplifyAction, Tabs, Tile, TileId,
 };
 
@@ -201,6 +203,19 @@ impl<Pane> Tiles<Pane> {
 
         id
     }
+    /// Recomputes `next_tile_id` so that newly allocated tiles
+    /// will not collide with any existing `TileId` or any holes
+    /// left in the numbering.
+    ///
+    /// Note: this sets `next_tile_id` to the maximum existing `TileId`+1.
+    pub fn recompute_next_tile_id(&mut self) {
+        self.next_tile_id = self
+            .tiles
+            .keys()
+            .map(|tile_id| tile_id.0 + 1)
+            .max()
+            .unwrap_or(self.next_tile_id);
+    }
 
     #[must_use]
     pub fn insert_new(&mut self, tile: Tile<Pane>) -> TileId {
@@ -261,7 +276,23 @@ impl<Pane> Tiles<Pane> {
         self.parent_of(tile_id).is_none()
     }
 
-    pub(super) fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
+    /// Insert `inserted_id` into the tree at `insertion_point`.
+    ///
+    /// When the insertion point's parent is not already a container of the required kind, that
+    /// parent gets wrapped in a new container holding both it and `inserted_id`. The parent keeps
+    /// its own [`TileId`] and the *new* container is the one given a freshly allocated id, so a
+    /// `TileId` always keeps referring to the same tile. Applications that key their own state off
+    /// `TileId`s depend on that.
+    ///
+    /// Returns the id of the new container, when one was needed. Since [`Tiles`] does not know
+    /// what the tree's root is, the caller must re-point the root at it if the wrapped tile
+    /// happened to be the root.
+    #[must_use]
+    pub(super) fn insert_at(
+        &mut self,
+        insertion_point: InsertionPoint,
+        inserted_id: TileId,
+    ) -> Option<TileId> {
         let InsertionPoint {
             parent_id,
             insertion,
@@ -269,73 +300,91 @@ impl<Pane> Tiles<Pane> {
 
         let Some(mut parent_tile) = self.tiles.remove(&parent_id) else {
             log::debug!("Failed to insert: could not find parent {parent_id:?}");
-            return;
+            return None;
         };
 
-        match insertion {
-            ContainerInsertion::Tabs(index) => {
-                if let Tile::Container(Container::Tabs(tabs)) = &mut parent_tile {
-                    let index = index.min(tabs.children.len());
-                    tabs.children.insert(index, inserted_id);
-                    tabs.set_active(inserted_id);
-                    self.tiles.insert(parent_id, parent_tile);
-                } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    let mut tabs = Tabs::new(vec![new_tile_id]);
-                    tabs.children.insert(index.min(1), inserted_id);
-                    tabs.set_active(inserted_id);
-                    self.tiles
-                        .insert(parent_id, Tile::Container(Container::Tabs(tabs)));
-                }
+        // Can the parent take the tile as-is, or does it need wrapping in a new container?
+        let inserted_into_parent = match (&mut parent_tile, insertion) {
+            (Tile::Container(Container::Tabs(tabs)), ContainerInsertion::Tabs(index)) => {
+                let index = index.min(tabs.children.len());
+                tabs.children.insert(index, inserted_id);
+                tabs.set_active(inserted_id);
+                true
             }
-            ContainerInsertion::Horizontal(index) => {
-                if let Tile::Container(Container::Linear(Linear {
-                    dir: LinearDir::Horizontal,
-                    children,
-                    ..
-                })) = &mut parent_tile
-                {
-                    let index = index.min(children.len());
-                    children.insert(index, inserted_id);
-                    self.tiles.insert(parent_id, parent_tile);
-                } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    let mut linear = Linear::new(LinearDir::Horizontal, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), inserted_id);
-                    self.tiles
-                        .insert(parent_id, Tile::Container(Container::Linear(linear)));
-                }
+
+            (
+                Tile::Container(Container::Linear(
+                    linear @ Linear {
+                        dir: LinearDir::Horizontal,
+                        ..
+                    },
+                )),
+                ContainerInsertion::Horizontal(index),
+            )
+            | (
+                Tile::Container(Container::Linear(
+                    linear @ Linear {
+                        dir: LinearDir::Vertical,
+                        ..
+                    },
+                )),
+                ContainerInsertion::Vertical(index),
+            ) => {
+                let index = index.min(linear.children.len());
+                linear.children.insert(index, inserted_id);
+                true
             }
-            ContainerInsertion::Vertical(index) => {
-                if let Tile::Container(Container::Linear(Linear {
-                    dir: LinearDir::Vertical,
-                    children,
-                    ..
-                })) = &mut parent_tile
-                {
-                    let index = index.min(children.len());
-                    children.insert(index, inserted_id);
-                    self.tiles.insert(parent_id, parent_tile);
-                } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    let mut linear = Linear::new(LinearDir::Vertical, vec![new_tile_id]);
-                    linear.children.insert(index.min(1), inserted_id);
-                    self.tiles
-                        .insert(parent_id, Tile::Container(Container::Linear(linear)));
-                }
+
+            (Tile::Container(Container::Grid(grid)), ContainerInsertion::Grid(index)) => {
+                grid.insert_at(index, inserted_id);
+                true
             }
-            ContainerInsertion::Grid(index) => {
-                if let Tile::Container(Container::Grid(grid)) = &mut parent_tile {
-                    grid.insert_at(index, inserted_id);
-                    self.tiles.insert(parent_id, parent_tile);
-                } else {
-                    let new_tile_id = self.insert_new(parent_tile);
-                    let grid = Grid::new(vec![new_tile_id, inserted_id]);
-                    self.tiles
-                        .insert(parent_id, Tile::Container(Container::Grid(grid)));
-                }
-            }
+
+            _ => false,
+        };
+
+        // Either way the parent goes back exactly where it was, under its original id.
+        self.tiles.insert(parent_id, parent_tile);
+
+        if inserted_into_parent {
+            return None;
         }
+
+        // Look up the grandparent _before_ creating the wrapper, or `parent_of` would find the
+        // wrapper itself.
+        let grandparent_id = self.parent_of(parent_id);
+
+        let mut children = vec![parent_id];
+        children.insert(insertion.index().min(1), inserted_id);
+
+        let container = match insertion {
+            ContainerInsertion::Tabs(_) => {
+                let mut tabs = Tabs::new(children);
+                tabs.set_active(inserted_id);
+                Container::Tabs(tabs)
+            }
+            ContainerInsertion::Horizontal(_) => {
+                Container::new_linear(LinearDir::Horizontal, children)
+            }
+            ContainerInsertion::Vertical(_) => Container::new_linear(LinearDir::Vertical, children),
+            ContainerInsertion::Grid(_) => Container::new_grid(children),
+        };
+        let wrapper_id = self.insert_new(Tile::Container(container));
+
+        // Whoever referred to the parent now refers to the container wrapping it.
+        // `grandparent_id` is `None` when the parent is the root, which the caller handles.
+        if let Some(grandparent_id) = grandparent_id
+            && let Some(Tile::Container(grandparent)) = self.get_mut(grandparent_id)
+            && grandparent.replace_child(parent_id, wrapper_id).is_none()
+        {
+            // `grandparent_id` came from `parent_of`, so this should be unreachable.
+            log::warn!(
+                "Bug: {grandparent_id:?} was the parent of {parent_id:?}, \
+                 but does not list it as a child"
+            );
+        }
+
+        Some(wrapper_id)
     }
 
     /// Detect cycles, duplications, and other invalid state, and fix it.
@@ -398,13 +447,7 @@ impl<Pane> Tiles<Pane> {
         GcAction::Keep
     }
 
-    pub(super) fn layout_tile(
-        &mut self,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
-        rect: Rect,
-        tile_id: TileId,
-    ) {
+    pub(super) fn layout_tile(&mut self, layout: &LayoutContext<'_>, rect: Rect, tile_id: TileId) {
         let Some(mut tile) = self.tiles.remove(&tile_id) else {
             log::debug!("Failed to find tile {tile_id:?} during layout");
             return;
@@ -412,7 +455,7 @@ impl<Pane> Tiles<Pane> {
         self.rects.insert(tile_id, rect);
 
         if let Tile::Container(container) = &mut tile {
-            container.layout(self, style, behavior, rect);
+            container.layout(self, layout, rect);
         }
 
         self.tiles.insert(tile_id, tile);
@@ -459,6 +502,47 @@ impl<Pane> Tiles<Pane> {
                     } else {
                         log::trace!("Simplify: collapsing single-child tabs container");
                         return SimplifyAction::Replace(only_child);
+                    }
+                }
+
+                if options.flatten_tabs_in_tabs {
+                    let was_active = match container {
+                        Container::Tabs(tabs) => tabs.active,
+                        Container::Linear(_) | Container::Grid(_) => None,
+                    };
+
+                    let mut found = false;
+                    let mut new_children = Vec::new();
+                    let mut new_active = None;
+
+                    for &child_id in container.children() {
+                        if let Some(Tile::Container(Container::Tabs(child_tabs))) =
+                            self.get(child_id)
+                        {
+                            if was_active == Some(child_id) {
+                                // The open tab is the container being flattened away, so the
+                                // user is looking at whichever of _its_ tabs was open.
+                                new_active = child_tabs.active;
+                            }
+                            new_children.extend(child_tabs.children.iter().copied());
+                            found = true;
+                        } else {
+                            if was_active == Some(child_id) {
+                                new_active = Some(child_id);
+                            }
+                            new_children.push(child_id);
+                        }
+                    }
+
+                    if found {
+                        // Keep this container's own id: flattening changes what it holds,
+                        // not which container it is. For the same reason, keep showing the tab
+                        // the user had open.
+                        let mut tabs = Tabs::new(new_children);
+                        if let Some(new_active) = new_active {
+                            tabs.set_active(new_active);
+                        }
+                        *container = Container::Tabs(tabs);
                     }
                 }
             } else {
@@ -517,10 +601,20 @@ impl<Pane> Tiles<Pane> {
         SimplifyAction::Keep
     }
 
-    pub(super) fn make_all_panes_children_of_tabs(&mut self, parent_is_tabs: bool, it: TileId) {
+    /// Returns the id of a new container that should take `it`'s place in its parent, if `it` was
+    /// a pane that had to be wrapped in one.
+    ///
+    /// The pane keeps its own [`TileId`]; it is the new container that gets a fresh one. See
+    /// [`Self::insert_at`] for why that matters.
+    #[must_use]
+    pub(super) fn make_all_panes_children_of_tabs(
+        &mut self,
+        parent_is_tabs: bool,
+        it: TileId,
+    ) -> Option<TileId> {
         let Some(mut tile) = self.tiles.remove(&it) else {
             log::debug!("Failed to find tile {it:?} during make_all_panes_children_of_tabs");
-            return;
+            return None;
         };
 
         match &mut tile {
@@ -528,21 +622,26 @@ impl<Pane> Tiles<Pane> {
                 if !parent_is_tabs {
                     // Add tabs to this pane:
                     log::trace!("Auto-adding Tabs-parent to pane {it:?}");
-                    let new_id = self.insert_new(tile);
-                    self.tiles
-                        .insert(it, Tile::Container(Container::new_tabs(vec![new_id])));
-                    return;
+                    self.tiles.insert(it, tile);
+                    let tabs = Container::new_tabs(vec![it]);
+                    return Some(self.insert_new(Tile::Container(tabs)));
                 }
             }
             Tile::Container(container) => {
                 let is_tabs = container.kind() == ContainerKind::Tabs;
-                for &child in container.children() {
-                    self.make_all_panes_children_of_tabs(is_tabs, child);
+                let children: Vec<TileId> = container.children().copied().collect();
+                for child in children {
+                    if let Some(new_child) = self.make_all_panes_children_of_tabs(is_tabs, child)
+                        && container.replace_child(child, new_child).is_none()
+                    {
+                        log::warn!("Bug: {child:?} is no longer a child of {it:?}");
+                    }
                 }
             }
         }
 
         self.tiles.insert(it, tile);
+        None
     }
 
     /// Returns true if the active tile was found in this tree.
@@ -593,5 +692,340 @@ impl<Pane: PartialEq> Tiles<Pane> {
                 }
             })
             .map(|(tile_id, _)| *tile_id)
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Grid, GridLayout, Shares, Tree};
+
+    fn insertion(parent_id: TileId, insertion: ContainerInsertion) -> InsertionPoint {
+        InsertionPoint {
+            parent_id,
+            insertion,
+        }
+    }
+
+    /// Wrapping a tile in a new container must not disturb the wrapped tile's own [`TileId`].
+    ///
+    /// Applications may key their own state off `TileId`s (Rerun does), so an id has to keep
+    /// referring to the same tile for as long as that tile exists.
+    #[test]
+    fn wrapping_a_tile_keeps_its_id() {
+        for insertion_kind in [
+            ContainerInsertion::Tabs(1),
+            ContainerInsertion::Horizontal(1),
+            ContainerInsertion::Vertical(1),
+            ContainerInsertion::Grid(1),
+        ] {
+            let mut tiles = Tiles::default();
+            let a = tiles.insert_pane("a");
+            let b = tiles.insert_pane("b");
+            let root = tiles.insert_horizontal_tile(vec![a, b]);
+            let dropped = tiles.insert_pane("dropped");
+
+            // Drop `dropped` onto pane `a`, which has to wrap `a` in a new container:
+            let wrapper = tiles
+                .insert_at(insertion(a, insertion_kind), dropped)
+                .expect("wrapping a pane should have created a container");
+
+            assert_eq!(
+                tiles.get(a),
+                Some(&Tile::Pane("a")),
+                "{insertion_kind:?}: pane `a` must still be a pane, under its original id"
+            );
+            assert_ne!(
+                wrapper, a,
+                "{insertion_kind:?}: the new container needs its own id"
+            );
+
+            let wrapper_children = tiles
+                .get_container(wrapper)
+                .expect("the wrapper should be a container")
+                .children_vec();
+            assert!(
+                wrapper_children.contains(&a) && wrapper_children.contains(&dropped),
+                "{insertion_kind:?}: the wrapper should hold both tiles, but holds \
+                 {wrapper_children:?}"
+            );
+
+            // ...and the grandparent should now point at the wrapper rather than at `a`:
+            assert_eq!(
+                tiles
+                    .get_container(root)
+                    .expect("root should be a container")
+                    .children_vec(),
+                vec![wrapper, b],
+                "{insertion_kind:?}: the root should hold the wrapper in `a`'s old place"
+            );
+            assert_eq!(
+                tiles.parent_of(a),
+                Some(wrapper),
+                "{insertion_kind:?}: `a` should now live inside the wrapper"
+            );
+        }
+    }
+
+    /// The wrapper takes over the wrapped tile's place in the layout, so it must inherit its
+    /// share of the parent's space -- otherwise the layout jumps on drop.
+    #[test]
+    fn the_wrapper_inherits_the_wrapped_tile_s_share() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let root = tiles.insert_horizontal_tile(vec![a, b]);
+        let dropped = tiles.insert_pane("dropped");
+
+        // Give `a` a distinctly lopsided share:
+        let mut shares = Shares::default();
+        shares.set_share(a, 3.0);
+        shares.set_share(b, 1.0);
+        if let Some(Tile::Container(Container::Linear(linear))) = tiles.get_mut(root) {
+            linear.shares = shares;
+        }
+
+        let wrapper = tiles
+            .insert_at(insertion(a, ContainerInsertion::Vertical(1)), dropped)
+            .expect("wrapping a pane should have created a container");
+
+        let Some(Tile::Container(Container::Linear(linear))) = tiles.get(root) else {
+            panic!("root should still be a linear container");
+        };
+        assert_eq!(
+            linear.shares[wrapper], 3.0,
+            "the wrapper should have taken over `a`'s share"
+        );
+        assert_eq!(linear.shares[b], 1.0, "`b`'s share should be untouched");
+    }
+
+    /// If the wrapped tile was the open tab, the container replacing it should be the open tab.
+    #[test]
+    fn the_wrapper_inherits_being_the_active_tab() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let root = tiles.insert_tab_tile(vec![a, b]);
+        let dropped = tiles.insert_pane("dropped");
+
+        if let Some(Tile::Container(Container::Tabs(tabs))) = tiles.get_mut(root) {
+            tabs.set_active(a);
+        }
+
+        let wrapper = tiles
+            .insert_at(insertion(a, ContainerInsertion::Vertical(1)), dropped)
+            .expect("wrapping a pane should have created a container");
+
+        let Some(Tile::Container(Container::Tabs(tabs))) = tiles.get(root) else {
+            panic!("root should still be a tabs container");
+        };
+        assert_eq!(
+            tabs.active,
+            Some(wrapper),
+            "the wrapper took `a`'s place, so it should be the open tab"
+        );
+    }
+
+    /// A grid's shares are positional, so the wrapper has to land in the wrapped tile's cell.
+    #[test]
+    fn the_wrapper_takes_the_wrapped_tile_s_grid_cell() {
+        let mut tiles = Tiles::default();
+        let panes: Vec<TileId> = ["a", "b", "c", "d"]
+            .into_iter()
+            .map(|pane| tiles.insert_pane(pane))
+            .collect();
+        let mut grid = Grid::new(panes.clone());
+        grid.layout = GridLayout::Columns(2);
+        let root = tiles.insert_new(Tile::Container(Container::Grid(grid)));
+        let dropped = tiles.insert_pane("dropped");
+
+        // Wrap the third pane, i.e. the one in the bottom-left cell:
+        let wrapper = tiles
+            .insert_at(
+                insertion(panes[2], ContainerInsertion::Vertical(1)),
+                dropped,
+            )
+            .expect("wrapping a pane should have created a container");
+
+        assert_eq!(
+            tiles
+                .get_container(root)
+                .expect("root should be a container")
+                .children_vec(),
+            vec![panes[0], panes[1], wrapper, panes[3]],
+            "the wrapper should sit in the cell the wrapped pane occupied"
+        );
+    }
+
+    /// Wrapping a pane in the tab container that `all_panes_must_have_tabs` requires must not
+    /// disturb the pane's own [`TileId`], for the same reason [`Tiles::insert_at`] must not.
+    #[test]
+    fn auto_adding_tabs_keeps_the_pane_s_id() {
+        let options = SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        };
+
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let root = tiles.insert_horizontal_tile(vec![a, b]);
+        let mut tree = Tree::new("test", root, tiles);
+
+        tree.simplify(&options);
+
+        for pane in [a, b] {
+            assert!(
+                matches!(tree.tiles.get(pane), Some(Tile::Pane(_))),
+                "pane {pane:?} should still be a pane under its own id, but is {:?}",
+                tree.tiles.get(pane)
+            );
+            let parent = tree.tiles.parent_of(pane).expect("the pane needs a parent");
+            assert_eq!(
+                tree.tiles.get_container(parent).map(Container::kind),
+                Some(ContainerKind::Tabs),
+                "the pane should have gained a tab container as its parent"
+            );
+            assert_ne!(parent, pane, "the tab container needs its own id");
+        }
+
+        assert_eq!(tree.root, Some(root), "the root container is untouched");
+
+        // Running it again must be a no-op — otherwise it would wrap forever.
+        let before = tree.clone();
+        tree.simplify(&options);
+        assert_eq!(before, tree, "simplifying twice should change nothing");
+    }
+
+    /// The same, for a tree whose root *is* a bare pane: there the new tab container becomes the
+    /// root, which only [`Tree`] can arrange.
+    #[test]
+    fn auto_adding_tabs_to_a_root_pane_makes_the_tabs_the_root() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let mut tree = Tree::new("test", a, tiles);
+
+        tree.simplify(&SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        });
+
+        let root = tree.root.expect("the tree should still have a root");
+        assert_ne!(root, a, "the new tab container should be the root");
+        assert!(
+            matches!(tree.tiles.get(a), Some(Tile::Pane(_))),
+            "`a` is still a pane"
+        );
+        assert_eq!(
+            tree.tiles.get_container(root).map(Container::children_vec),
+            Some(vec![a]),
+            "the root tab container should hold the pane"
+        );
+    }
+
+    /// Flattening tabs-in-tabs rearranges what a container holds, so it should keep its id.
+    #[test]
+    fn flattening_tabs_in_tabs_keeps_the_container_s_id() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let inner = tiles.insert_tab_tile(vec![a, b]);
+        let c = tiles.insert_pane("c");
+        let outer = tiles.insert_tab_tile(vec![inner, c]);
+        let mut tree = Tree::new("test", outer, tiles);
+
+        tree.simplify(&SimplificationOptions {
+            flatten_tabs_in_tabs: true,
+            ..SimplificationOptions::OFF
+        });
+
+        assert_eq!(
+            tree.root,
+            Some(outer),
+            "the outer container should still be the root"
+        );
+        assert_eq!(
+            tree.tiles.get_container(outer).map(Container::children_vec),
+            Some(vec![a, b, c]),
+            "the inner container's tabs should have been folded into the outer one"
+        );
+    }
+
+    /// Flattening keeps the container's id, so it should also keep showing whatever tab the user
+    /// had open — including when the open tab is the inner container being flattened away, where
+    /// what they are really looking at is one of *its* tabs.
+    #[test]
+    fn flattening_tabs_in_tabs_keeps_the_open_tab() {
+        // `outer` is `Tabs[ Tabs[a, b], c ]`, and flattens to `Tabs[a, b, c]`.
+        let build = || {
+            let mut tiles = Tiles::default();
+            let a = tiles.insert_pane("a");
+            let b = tiles.insert_pane("b");
+            let inner = tiles.insert_tab_tile(vec![a, b]);
+            let c = tiles.insert_pane("c");
+            let outer = tiles.insert_tab_tile(vec![inner, c]);
+            (Tree::new("test", outer, tiles), a, b, inner, c, outer)
+        };
+        let options = SimplificationOptions {
+            flatten_tabs_in_tabs: true,
+            ..SimplificationOptions::OFF
+        };
+        let active_of = |tree: &Tree<&'static str>, id: TileId| match tree.tiles.get_container(id) {
+            Some(Container::Tabs(tabs)) => tabs.active,
+            _ => panic!("{id:?} should be a tabs container"),
+        };
+
+        // The open tab is `c`, which survives flattening untouched:
+        {
+            let (mut tree, _a, _b, _inner, c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(c);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(c),
+                "`c` was open, and still is"
+            );
+        }
+
+        // The open tab is the inner container, which was itself showing `b`:
+        {
+            let (mut tree, _a, b, inner, _c, outer) = build();
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(inner) {
+                tabs.set_active(b);
+            }
+            if let Some(Tile::Container(Container::Tabs(tabs))) = tree.tiles.get_mut(outer) {
+                tabs.set_active(inner);
+            }
+            tree.simplify(&options);
+            assert_eq!(
+                active_of(&tree, outer),
+                Some(b),
+                "the user was looking at `b` through the flattened container, so `b` stays open"
+            );
+        }
+    }
+
+    /// Inserting into a container that already accepts the tile must not wrap anything.
+    #[test]
+    fn inserting_into_a_matching_container_creates_nothing() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let root = tiles.insert_horizontal_tile(vec![a]);
+        let dropped = tiles.insert_pane("dropped");
+
+        let wrapper = tiles.insert_at(insertion(root, ContainerInsertion::Horizontal(0)), dropped);
+
+        assert_eq!(wrapper, None, "a horizontal container takes it directly");
+        assert_eq!(
+            tiles
+                .get_container(root)
+                .expect("root should be a container")
+                .children_vec(),
+            vec![dropped, a]
+        );
     }
 }

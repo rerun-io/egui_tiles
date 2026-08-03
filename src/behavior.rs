@@ -1,6 +1,6 @@
 use egui::{
-    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetText,
-    vec2,
+    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetInfo,
+    WidgetText, WidgetType, vec2,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -33,6 +33,57 @@ pub struct TabState {
 
     /// Should the tab have a close button?
     pub closable: bool,
+}
+
+/// Everything the layout pass needs from a [`Behavior`], with the pane type erased.
+///
+/// The layout pass never looks at a pane's contents — it only needs a handful of numbers.
+/// Gathering them up front keeps `Pane` out of the layout signatures entirely, which lets the
+/// same code lay out any [`Tiles`], whatever it happens to store in its panes.
+pub(crate) struct LayoutContext<'a> {
+    pub gap_width: f32,
+    pub tab_bar_height: f32,
+    pub grid_auto_column_count: &'a dyn Fn(usize, Rect, f32) -> usize,
+
+    /// Set by the layout pass if it had to pick an active tab for a [`crate::Tabs`] container.
+    ///
+    /// Reported back to the caller rather than straight to [`Behavior::on_edit`]: laying out
+    /// the tree is not the place to be emitting user-visible edit events from.
+    pub tab_auto_selected: &'a std::cell::Cell<bool>,
+}
+
+/// Lay out `tiles` starting at `root`, using only the pane-agnostic parts of `behavior`.
+///
+/// Generic over the pane type of `tiles`, which need not be the pane type `behavior` is for.
+///
+/// Returns `true` if the pass had to auto-select an active tab, in which case the caller
+/// should report [`EditAction::TabSelected`].
+pub(crate) fn layout_tiles<Pane, TilesPane>(
+    tiles: &mut Tiles<TilesPane>,
+    root: Option<TileId>,
+    behavior: &dyn Behavior<Pane>,
+    style: &egui::Style,
+    rect: Rect,
+) -> bool {
+    let Some(root) = root else {
+        return false;
+    };
+
+    let grid_auto_column_count = |num_visible_children, rect, gap| {
+        behavior.grid_auto_column_count(num_visible_children, rect, gap)
+    };
+    let tab_auto_selected = std::cell::Cell::new(false);
+
+    let layout = LayoutContext {
+        gap_width: behavior.gap_width(style),
+        tab_bar_height: behavior.tab_bar_height(style),
+        grid_auto_column_count: &grid_auto_column_count,
+        tab_auto_selected: &tab_auto_selected,
+    };
+
+    tiles.layout_tile(&layout, rect, root);
+
+    tab_auto_selected.get()
 }
 
 /// Trait defining how the [`super::Tree`] and its panes should be shown.
@@ -131,6 +182,20 @@ pub trait Behavior<Pane> {
             tab_response
         };
 
+        // A bare `Ui::interact` reports nothing about itself, so without this a tab is an unnamed
+        // blob to screen readers, and cannot be found by name from `egui_kittest`.
+        //
+        // Deliberately outside the `is_rect_visible` check below: a tab scrolled out of the tab
+        // bar is still a tab.
+        tab_response.widget_info(|| {
+            WidgetInfo::selected(
+                WidgetType::Button,
+                ui.is_enabled(),
+                state.active,
+                galley.text(),
+            )
+        });
+
         // Show a gap when dragged
         if ui.is_rect_visible(tab_rect) && !state.is_being_dragged {
             let bg_color = self.tab_bg_color(ui.visuals(), tiles, tile_id, state);
@@ -171,6 +236,10 @@ pub trait Behavior<Pane> {
                 let close_btn_response = ui
                     .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
                     .on_hover_cursor(egui::CursorIcon::Default);
+
+                close_btn_response.widget_info(|| {
+                    WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), "Close")
+                });
 
                 let visuals = ui.style().interact(&close_btn_response);
 
@@ -264,6 +333,26 @@ pub trait Behavior<Pane> {
     /// To match the visual height of the scroll arrows, use
     /// `ui.add_sized(egui::Vec2::splat(self.tab_bar_height(...)), widget)`.
     fn tab_bar_left_ui(
+        &mut self,
+        _tiles: &Tiles<Pane>,
+        _ui: &mut Ui,
+        _tile_id: TileId,
+        _tabs: &crate::Tabs,
+    ) {
+    }
+
+    /// Adds some UI to the tab bar immediately after the last tab.
+    ///
+    /// This is rendered inside the tab scroll area's left-to-right flow, so it
+    /// scrolls together with the tabs and sits right after the last visible tab
+    /// (e.g. a browser-style "➕" button for adding a new tab).
+    ///
+    /// Note: item spacing inside the tab flow is zero, so add your own spacing
+    /// (e.g. `ui.add_space(..)`) if you want a gap before your widget.
+    ///
+    /// Compare with [`Self::top_bar_right_ui`], which pins widgets to the far
+    /// right of the tab bar.
+    fn tab_bar_trailing_ui(
         &mut self,
         _tiles: &Tiles<Pane>,
         _ui: &mut Ui,

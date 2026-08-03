@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Vec2, scroll_area::ScrollBarVisibility, vec2};
 
-use crate::behavior::{EditAction, TabState};
+use crate::behavior::{EditAction, LayoutContext, TabState};
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, SimplifyAction, TileId, Tiles, Tree,
     is_being_dragged,
@@ -100,36 +100,43 @@ impl ScrollState {
         (self.available.x / 3.0).at_least(20.0)
     }
 
-    pub fn left_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2) {
+    fn arrow_button(ui: &mut egui::Ui, arrow_size: Vec2, id: egui::Id, glyph: &str) -> bool {
+        let glyph_size = arrow_size.y * 0.5;
+        ui.scope_builder(egui::UiBuilder::new().id(id), |ui| {
+            ui.add_sized(
+                arrow_size,
+                egui::Button::new(egui::RichText::new(glyph).size(glyph_size)),
+            )
+        })
+        .inner
+        .clicked()
+    }
+
+    fn hidden_arrow_marker(ui: &egui::Ui, arrow_size: Vec2, id: egui::Id) {
+        let rect = ui
+            .layout()
+            .align_size_within_rect(arrow_size, ui.available_rect_before_wrap());
+        ui.interact(rect, id, egui::Sense::hover());
+    }
+
+    pub fn left_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2, id: egui::Id) {
         if !self.show_left_arrow {
+            Self::hidden_arrow_marker(ui, arrow_size, id);
             return;
         }
 
-        let glyph_size = arrow_size.y * 0.5;
-        if ui
-            .add_sized(
-                arrow_size,
-                egui::Button::new(egui::RichText::new("⏴").size(glyph_size)),
-            )
-            .clicked()
-        {
+        if Self::arrow_button(ui, arrow_size, id, "⏴") {
             self.offset_debt -= self.scroll_increment();
         }
     }
 
-    pub fn right_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2) {
+    pub fn right_arrow(&mut self, ui: &mut egui::Ui, arrow_size: Vec2, id: egui::Id) {
         if !self.show_right_arrow {
+            Self::hidden_arrow_marker(ui, arrow_size, id);
             return;
         }
 
-        let glyph_size = arrow_size.y * 0.5;
-        if ui
-            .add_sized(
-                arrow_size,
-                egui::Button::new(egui::RichText::new("⏵").size(glyph_size)),
-            )
-            .clicked()
-        {
+        if Self::arrow_button(ui, arrow_size, id, "⏵") {
             self.offset_debt += self.scroll_increment();
         }
     }
@@ -145,6 +152,20 @@ impl Tabs {
         self.children.push(child);
     }
 
+    /// Swap out one tab for another, keeping its position and whether it was the open one.
+    ///
+    /// Returns the index of the tab that was swapped,
+    /// or `None` if `old` was not a tab of this container.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == old)?;
+        self.children[index] = new;
+        if self.active == Some(old) {
+            self.active = Some(new);
+        }
+        Some(index)
+    }
+
     pub fn set_active(&mut self, child: TileId) {
         self.active = Some(child);
     }
@@ -156,22 +177,21 @@ impl Tabs {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         let prev_active = self.active;
         self.ensure_active(tiles);
         if prev_active != self.active {
-            behavior.on_edit(EditAction::TabSelected);
+            layout.tab_auto_selected.set(true);
         }
 
         let mut active_rect = rect;
-        active_rect.min.y += behavior.tab_bar_height(style);
+        active_rect.min.y += layout.tab_bar_height;
 
         if let Some(active) = self.active {
             // Only lay out the active tab (saves CPU):
-            tiles.layout_tile(style, behavior, active_rect, active);
+            tiles.layout_tile(layout, active_rect, active);
         }
     }
 
@@ -249,7 +269,8 @@ impl Tabs {
             let scroll_area_width = scroll_state.update(ui, arrow_size);
 
             // We're in a right-to-left layout, so start with the right scroll-arrow:
-            scroll_state.right_arrow(ui, arrow_size);
+            let right_arrow_id = ui.make_persistent_id((tile_id, "right_scroll_arrow"));
+            scroll_state.right_arrow(ui, arrow_size, right_arrow_id);
 
             ui.allocate_ui_with_layout(
                 ui.available_size(),
@@ -260,7 +281,8 @@ impl Tabs {
                     // left scroll-arrow.
                     behavior.tab_bar_left_ui(&tree.tiles, ui, tile_id, self);
 
-                    scroll_state.left_arrow(ui, arrow_size);
+                    let left_arrow_id = ui.make_persistent_id((tile_id, "left_scroll_arrow"));
+                    scroll_state.left_arrow(ui, arrow_size, left_arrow_id);
 
                     // Clamp the precomputed width so it can't exceed what's
                     // left after the leading slot + left arrow consumed space
@@ -336,6 +358,10 @@ impl Tabs {
                                 dragged_index = Some(i);
                             }
                         }
+
+                        // Allow the user to add a trailing widget after the last tab
+                        // (e.g. a "➕" button), inside the tab scroll area's flow.
+                        behavior.tab_bar_trailing_ui(&tree.tiles, ui, tile_id, self);
                     });
 
                     scroll_state.offset = output.state.offset.x;

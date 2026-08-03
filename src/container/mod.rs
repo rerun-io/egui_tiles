@@ -3,6 +3,7 @@ use egui::Rect;
 use crate::Tree;
 
 use super::{Behavior, DropContext, SimplifyAction, TileId, Tiles};
+use crate::behavior::LayoutContext;
 
 mod grid;
 mod linear;
@@ -175,6 +176,19 @@ impl Container {
         }
     }
 
+    /// Swap out one child for another, keeping its place and its share of the space.
+    ///
+    /// Returns the child index that was swapped, mirroring [`Self::remove_child`],
+    /// or `None` if `old` was not a child of this container.
+    #[must_use]
+    pub fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        match self {
+            Self::Tabs(tabs) => tabs.replace_child(old, new),
+            Self::Linear(linear) => linear.replace_child(old, new),
+            Self::Grid(grid) => grid.replace_child(old, new),
+        }
+    }
+
     /// Returns child index, if found.
     pub fn remove_child(&mut self, child: TileId) -> Option<usize> {
         match self {
@@ -223,8 +237,7 @@ impl Container {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         if self.is_empty() {
@@ -232,11 +245,11 @@ impl Container {
         }
 
         match self {
-            Self::Tabs(tabs) => tabs.layout(tiles, style, behavior, rect),
+            Self::Tabs(tabs) => tabs.layout(tiles, layout, rect),
             Self::Linear(linear) => {
-                linear.layout(tiles, style, behavior, rect);
+                linear.layout(tiles, layout, rect);
             }
-            Self::Grid(grid) => grid.layout(tiles, style, behavior, rect),
+            Self::Grid(grid) => grid.layout(tiles, layout, rect),
         }
     }
 

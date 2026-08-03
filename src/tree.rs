@@ -1,6 +1,6 @@
 use egui::{NumExt as _, Rect, Ui};
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, layout_tiles};
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
 
 use super::{
@@ -328,9 +328,11 @@ impl<Pane> Tree<Pane> {
         if self.width.is_finite() {
             rect.set_width(self.width);
         }
-        if let Some(root) = self.root {
-            self.tiles.layout_tile(ui.style(), behavior, rect, root);
+        if layout_tiles(&mut self.tiles, self.root, behavior, ui.style(), rect) {
+            behavior.on_edit(EditAction::TabSelected);
+        }
 
+        if let Some(root) = self.root {
             self.tile_ui(behavior, &mut drop_context, ui, root);
         }
 
@@ -512,8 +514,10 @@ impl<Pane> Tree<Pane> {
 
             if options.all_panes_must_have_tabs
                 && let Some(tile_id) = self.root
+                && let Some(new_root) = self.tiles.make_all_panes_children_of_tabs(false, tile_id)
             {
-                self.tiles.make_all_panes_children_of_tabs(false, tile_id);
+                // The root was a bare pane, and is now wrapped in a tab container.
+                self.root = Some(new_root);
             }
         }
     }
@@ -631,7 +635,7 @@ impl<Pane> Tree<Pane> {
                         }
                         Container::Grid(grid) => {
                             if reflow_grid {
-                                self.tiles.insert_at(insertion_point, moved_tile_id);
+                                self.insert_at(insertion_point, moved_tile_id);
                             } else {
                                 let dest_tile = grid.replace_at(dest_index, moved_tile_id);
                                 if let Some(dest) = dest_tile {
@@ -646,7 +650,17 @@ impl<Pane> Tree<Pane> {
         }
 
         // Moving to a new parent
-        self.tiles.insert_at(insertion_point, moved_tile_id);
+        self.insert_at(insertion_point, moved_tile_id);
+    }
+
+    /// [`Tiles::insert_at`], plus the root fix-up that only the [`Tree`] can do.
+    fn insert_at(&mut self, insertion_point: InsertionPoint, inserted_id: TileId) {
+        if let Some(wrapper_id) = self.tiles.insert_at(insertion_point, inserted_id)
+            && self.root == Some(insertion_point.parent_id)
+        {
+            // The root got wrapped in a new container, which is now the root.
+            self.root = Some(wrapper_id);
+        }
     }
 
     /// Find the currently dragged tile, if any.
@@ -750,4 +764,56 @@ fn smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId, new_rect: R
     }
 
     smoothed
+}
+
+// ----------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ContainerInsertion;
+
+    /// Wrapping the root leaves the wrapped tile with its own id, so the _new_ container has to
+    /// become the root. Only the [`Tree`] knows what the root is, so [`Tiles`] hands it back.
+    #[test]
+    fn wrapping_the_root_makes_the_new_container_the_root() {
+        let mut tiles = Tiles::default();
+        let a = tiles.insert_pane("a");
+        let b = tiles.insert_pane("b");
+        let root = tiles.insert_horizontal_tile(vec![a, b]);
+        let dropped = tiles.insert_pane("dropped");
+        let mut tree = Tree::new("test", root, tiles);
+
+        // A vertical insertion into a horizontal container has to wrap it:
+        tree.move_tile(
+            dropped,
+            InsertionPoint {
+                parent_id: root,
+                insertion: ContainerInsertion::Vertical(1),
+            },
+            false,
+        );
+
+        let new_root = tree.root.expect("the tree should still have a root");
+        assert_ne!(
+            new_root, root,
+            "the wrapping container should be the new root"
+        );
+        assert_eq!(
+            tree.tiles
+                .get_container(root)
+                .expect("the old root should still be a container under its own id")
+                .children_vec(),
+            vec![a, b],
+            "the wrapped container should be untouched"
+        );
+        assert_eq!(
+            tree.tiles
+                .get_container(new_root)
+                .expect("the new root should be a container")
+                .children_vec(),
+            vec![root, dropped],
+        );
+        assert_eq!(tree.tiles.parent_of(root), Some(new_root));
+    }
 }

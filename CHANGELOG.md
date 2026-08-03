@@ -1,6 +1,19 @@
 # `egui_tiles` Changelog
 
 
+## Unreleased
+
+* ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
+
+
+## 0.16.0 - 2026-06-26
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.15.0..HEAD
+
+* Tabs: Derive scroll-arrow size from tab_bar_height [#130](https://github.com/rerun-io/egui_tiles/pull/130) by [@SpruceCloud](https://github.com/SpruceCloud)
+* Update to egui 0.35 [#133](https://github.com/rerun-io/egui_tiles/pull/133) by [@lucasmerlin](https://github.com/lucasmerlin)
+
+
+
 ## 0.15.0 - 2026-03-27
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.14.0..HEAD
 

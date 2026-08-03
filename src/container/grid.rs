@@ -5,7 +5,7 @@ use egui::{
 };
 use itertools::Itertools as _;
 
-use crate::behavior::EditAction;
+use crate::behavior::{EditAction, LayoutContext};
 use crate::{
     Behavior, ContainerInsertion, DropContext, InsertionPoint, ResizeState, SimplifyAction, TileId,
     Tiles, Tree,
@@ -121,6 +121,19 @@ impl Grid {
         }
     }
 
+    /// Swap out one child for another, keeping its cell.
+    ///
+    /// The column and row shares are positional, so they need no fixing up.
+    ///
+    /// Returns the index of the cell that was swapped,
+    /// or `None` if `old` was not a child of this grid.
+    #[must_use]
+    pub(super) fn replace_child(&mut self, old: TileId, new: TileId) -> Option<usize> {
+        let index = self.children.iter().position(|child| *child == Some(old))?;
+        self.children[index] = Some(new);
+        Some(index)
+    }
+
     fn collapse_holes(&mut self) {
         log::trace!("Collaping grid holes");
         self.children.retain(|child| child.is_some());
@@ -137,8 +150,7 @@ impl Grid {
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
-        style: &egui::Style,
-        behavior: &mut dyn Behavior<Pane>,
+        layout: &LayoutContext<'_>,
         rect: Rect,
     ) {
         // clean up any empty holes at the end
@@ -146,7 +158,7 @@ impl Grid {
             self.children.pop();
         }
 
-        let gap = behavior.gap_width(style);
+        let gap = layout.gap_width;
 
         let visible_children_and_holes = self.visible_children_and_holes(tiles);
 
@@ -156,7 +168,7 @@ impl Grid {
 
             let num_cols = match self.layout {
                 GridLayout::Auto => {
-                    behavior.grid_auto_column_count(num_visible_children, rect, gap)
+                    (layout.grid_auto_column_count)(num_visible_children, rect, gap)
                 }
                 GridLayout::Columns(num_columns) => num_columns,
             };
@@ -222,7 +234,7 @@ impl Grid {
                 let col = i % num_cols;
                 let row = i / num_cols;
                 let child_rect = Rect::from_x_y_ranges(self.col_ranges[col], self.row_ranges[row]);
-                tiles.layout_tile(style, behavior, child_rect, child);
+                tiles.layout_tile(layout, child_rect, child);
             }
         }
 
@@ -571,7 +583,7 @@ mod tests {
         };
 
         let style = egui::Style::default();
-        let mut behavior = TestBehavior {};
+        let behavior = TestBehavior {};
         let area = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(1024.0, 768.0));
 
         // Go crazy on it to make sure we never crash:
@@ -579,7 +591,7 @@ mod tests {
 
         for _ in 0..1000 {
             let root = tree.root.unwrap();
-            tree.tiles.layout_tile(&style, &mut behavior, area, root);
+            crate::behavior::layout_tiles(&mut tree.tiles, Some(root), &behavior, &style, area);
 
             // Add some tiles:
             for _ in 0..rng.rand_u64() % 3 {
@@ -674,6 +686,10 @@ mod tests {
                 .wrapping_add(self.inc);
         }
 
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Truncation is intentional in a PRNG"
+        )]
         fn rand_u64(&mut self) -> u64 {
             self.state = 0;
             self.inc = self.seed.wrapping_shl(1) | 1;
@@ -684,6 +700,10 @@ mod tests {
             self.state.wrapping_shr(64) as u64 ^ self.state as u64
         }
 
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Truncation is intentional in a PRNG"
+        )]
         fn rand_usize(&mut self) -> usize {
             self.rand_u64() as usize
         }

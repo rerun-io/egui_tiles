@@ -7,7 +7,7 @@
 //! The [`Tile`]s are put into a [`Tree`].
 //! Everything is generic over the type of panes, leaving up to the user what to store in the tree.
 //!
-//! Each [`Tile`] is identified by a (random) [`TileId`].
+//! Each [`Tile`] is identified by a [`TileId`], handed out in sequence by the [`Tiles`] it lives in.
 //! The tiles are stored in [`Tiles`].
 //!
 //! The entire state is stored in a single [`Tree`] struct which consists of a [`Tiles`] and a root [`TileId`].
@@ -171,6 +171,9 @@ pub struct SimplificationOptions {
     /// If a horizontal container contain another horizontal container, join them?
     /// Same for vertical containers. Does NOT apply to grid container or tab containers.
     pub join_nested_linear_containers: bool,
+
+    // Flatten tabs in tabs?
+    pub flatten_tabs_in_tabs: bool,
 }
 
 impl SimplificationOptions {
@@ -192,6 +195,7 @@ impl SimplificationOptions {
         prune_single_child_containers: false,
         all_panes_must_have_tabs: false,
         join_nested_linear_containers: false,
+        flatten_tabs_in_tabs: false,
     };
 }
 
@@ -204,6 +208,7 @@ impl Default for SimplificationOptions {
             prune_single_child_containers: true,
             all_panes_must_have_tabs: false,
             join_nested_linear_containers: true,
+            flatten_tabs_in_tabs: false,
         }
     }
 }
