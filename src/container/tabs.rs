@@ -409,7 +409,20 @@ impl Tabs {
 
     pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
         self.children.retain_mut(|child| match simplify(*child) {
-            SimplifyAction::Remove => false,
+            SimplifyAction::Remove => {
+                // The tab being removed may be the open one, and this is the only place that
+                // still knows it happened. The `Replace` arm below already carries `active`
+                // across; leaving it out here means `simplify` can return a container whose open
+                // tab is a tile that no longer exists anywhere in the tree.
+                //
+                // `None` rather than "the next tab": which tab to open instead is a question for
+                // whoever shows the container (`ensure_active` answers it at layout time from
+                // what is visible), while "the open tab is gone" is a fact this pass knows.
+                if self.active == Some(*child) {
+                    self.active = None;
+                }
+                false
+            }
             SimplifyAction::Keep => true,
             SimplifyAction::Replace(new) => {
                 if self.active == Some(*child) {
@@ -426,5 +439,64 @@ impl Tabs {
         let index = self.children.iter().position(|&child| child == needle)?;
         self.children.remove(index);
         Some(index)
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use crate::{Container, SimplificationOptions, Tile, Tiles, Tree};
+
+    /// `simplify` must let go of a tab it removes.
+    ///
+    /// Pruning an empty container is routine, and it can be the container's *open* tab.
+    /// [`Tabs::simplify_children`] carries `active` across a `Replace` but not across a `Remove`,
+    /// so `simplify` can hand back a tab container whose open tab is a tile that is no longer in
+    /// the tree. `Tabs::layout` papers over it on the next frame, but everything that looks at the
+    /// tree in between - deciding which pane to reveal, taking a snapshot, writing a save - sees
+    /// the dangling id, and a save puts it on disk.
+    #[test]
+    fn simplify_lets_go_of_a_tab_it_removes() {
+        let mut tiles = Tiles::default();
+        let empty = tiles.insert_horizontal_tile(vec![]);
+        let pane = tiles.insert_pane("keep");
+        // Two survivors, not one: with a single child left, `prune_single_child_tabs` would
+        // dissolve the tab container itself and take the damaged field with it - a scene that
+        // passes whether or not the bug is there.
+        let other = tiles.insert_pane("keep too");
+        let root = tiles.insert_tab_tile(vec![empty, pane, other]);
+        let mut tree = Tree::new("simplify_active", root, tiles);
+
+        match tree.tiles.get(root) {
+            Some(Tile::Container(Container::Tabs(tabs))) => assert_eq!(
+                tabs.active,
+                Some(empty),
+                "setup: the container about to be pruned is the open tab"
+            ),
+            other => panic!("expected a tab container, got {other:?}"),
+        }
+
+        tree.simplify(&SimplificationOptions::default());
+
+        assert!(
+            tree.tiles.get(empty).is_none(),
+            "the empty container should have been pruned"
+        );
+        match tree.tiles.get(root) {
+            Some(Tile::Container(Container::Tabs(tabs))) => {
+                if let Some(active) = tabs.active {
+                    assert!(
+                        tree.tiles.get(active).is_some(),
+                        "the open tab must be a tile that still exists"
+                    );
+                    assert!(
+                        tabs.children.contains(&active),
+                        "the open tab must be one of the container's own tabs"
+                    );
+                }
+            }
+            other => panic!("expected a tab container, got {other:?}"),
+        }
     }
 }
