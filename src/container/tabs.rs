@@ -49,6 +49,90 @@ struct ScrollState {
     pub showed_right_arrow_prev: bool,
 }
 
+/// What a wrapped tab bar measured last frame.
+///
+/// Kept in `egui`'s temporary memory rather than in [`Tabs`], so that adding it breaks no
+/// caller's struct literal, and so the layout pass can read it without a tile at hand.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct WrapState {
+    /// How many rows the tabs took.
+    pub rows: usize,
+
+    /// The width of each tab, in the order the tabs were drawn.
+    pub widths: Vec<f32>,
+
+    /// The width [`Behavior::top_bar_right_ui`] took, which the tabs have to leave free.
+    pub right_width: f32,
+}
+
+/// What one pass over the tabs produced, whether they wrapped or scrolled.
+#[derive(Default)]
+struct TabBarOutput {
+    /// The tab to open next frame — the one clicked, or the one already open.
+    next_active: Option<TileId>,
+
+    /// Where each tab ended up, for the drop zones.
+    button_rects: ahash::HashMap<TileId, Rect>,
+
+    /// Index into [`Tabs::children`] of the tab being dragged, if any.
+    dragged_index: Option<usize>,
+
+    /// The width of each tab drawn, in order, to wrap by next frame.
+    widths: Vec<f32>,
+
+    /// The width [`Behavior::top_bar_right_ui`] took, to wrap by next frame.
+    right_width: f32,
+
+    /// How many rows the tabs took.
+    rows: usize,
+}
+
+struct WrapLayout<'a> {
+    tile_id: TileId,
+    row_height: f32,
+    max_rows: usize,
+    previous: &'a WrapState,
+}
+
+pub(crate) fn wrap_state_id(tile_id: TileId, tree_id: egui::Id) -> egui::Id {
+    tile_id.egui_id(tree_id).with("tab_bar_wrap")
+}
+
+/// How many rows the tab bar of `tile_id` took last frame, or 1 if it has not been drawn yet.
+pub(crate) fn tab_bar_rows(context: &egui::Context, tile_id: TileId, tree_id: egui::Id) -> usize {
+    context
+        .data(|data| data.get_temp::<WrapState>(wrap_state_id(tile_id, tree_id)))
+        .map_or(1, |state| state.rows.max(1))
+}
+
+/// Splits `widths` into rows no wider than `available`, or `None` if that needs more than
+/// `max_rows`.
+///
+/// Greedy, which is what a tab bar wants: tabs keep their order, and a row is filled before the
+/// next one is started, so a tab only ever moves down when the one before it no longer fits.
+fn wrap_rows(widths: &[f32], available: f32, max_rows: usize) -> Option<Vec<usize>> {
+    if widths.is_empty() {
+        return Some(vec![0]);
+    }
+    let mut rows = vec![0usize];
+    let mut used = 0.0;
+    for &width in widths {
+        let fits = used == 0.0 || used + width <= available;
+        if !fits {
+            if rows.len() >= max_rows {
+                return None;
+            }
+            rows.push(0);
+            used = 0.0;
+        }
+        if let Some(row) = rows.last_mut() {
+            *row += 1;
+        }
+        used += width;
+    }
+    Some(rows)
+}
+
 impl ScrollState {
     /// Returns the space left for the tabs after the scroll arrows.
     pub fn update(&mut self, ui: &egui::Ui, arrow_size: Vec2) -> f32 {
@@ -179,6 +263,7 @@ impl Tabs {
         tiles: &mut Tiles<Pane>,
         layout: &LayoutContext<'_>,
         rect: Rect,
+        tile_id: TileId,
     ) {
         let prev_active = self.active;
         self.ensure_active(tiles);
@@ -187,7 +272,7 @@ impl Tabs {
         }
 
         let mut active_rect = rect;
-        active_rect.min.y += layout.tab_bar_height;
+        active_rect.min.y += layout.tab_bar_height * (layout.tab_bar_rows)(tile_id) as f32;
 
         if let Some(active) = self.active {
             // Only lay out the active tab (saves CPU):
@@ -241,18 +326,282 @@ impl Tabs {
         drop_context: &mut DropContext,
         tile_id: TileId,
     ) -> Option<TileId> {
-        let mut next_active = self.active;
+        let row_height = behavior.tab_bar_height(ui.style());
+        let max_rows = behavior.max_tab_bar_rows().max(1);
 
-        let tab_bar_height = behavior.tab_bar_height(ui.style());
-        let arrow_size = egui::Vec2::splat(tab_bar_height);
-        let tab_bar_rect = rect.split_top_bottom_at_y(rect.top() + tab_bar_height).0;
+        let wrap_id = wrap_state_id(tile_id, tree.id);
+        let previous = ui
+            .data(|data| data.get_temp::<WrapState>(wrap_id))
+            .unwrap_or_default();
+        let rows_reserved = if max_rows > 1 {
+            previous.rows.clamp(1, max_rows)
+        } else {
+            1
+        };
+
+        let tab_bar_rect = rect
+            .split_top_bottom_at_y(rect.top() + row_height * rows_reserved as f32)
+            .0;
         let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(tab_bar_rect));
-
-        let mut button_rects = ahash::HashMap::default();
-        let mut dragged_index = None;
 
         ui.painter()
             .rect_filled(ui.max_rect(), 0.0, behavior.tab_bar_color(ui.visuals()));
+
+        let mut output = TabBarOutput {
+            next_active: self.active,
+            ..TabBarOutput::default()
+        };
+
+        let wrapped = max_rows > 1
+            && self.wrapping_tab_bar_ui(
+                tree,
+                behavior,
+                &mut ui,
+                drop_context,
+                &WrapLayout {
+                    tile_id,
+                    row_height,
+                    max_rows,
+                    previous: &previous,
+                },
+                &mut output,
+            );
+
+        if !wrapped {
+            self.scrolling_tab_bar_ui(
+                tree,
+                behavior,
+                &mut ui,
+                drop_context,
+                tile_id,
+                row_height,
+                &mut output,
+            );
+            output.rows = 1;
+        }
+
+        if output.rows != rows_reserved {
+            ui.ctx().request_repaint();
+        }
+        let widths = std::mem::take(&mut output.widths);
+        let rows = output.rows;
+        let right_width = output.right_width;
+        ui.data_mut(|data| {
+            data.insert_temp(
+                wrap_id,
+                WrapState {
+                    rows,
+                    widths,
+                    right_width,
+                },
+            );
+        });
+
+        self.tab_drop_zones(&ui, drop_context, tile_id, &output);
+
+        output.next_active
+    }
+
+    fn tab_drop_zones(
+        &self,
+        ui: &egui::Ui,
+        drop_context: &mut DropContext,
+        tile_id: TileId,
+        output: &TabBarOutput,
+    ) {
+        let preview_thickness = 6.0;
+        let dragged_index = output.dragged_index;
+        let button_rects = &output.button_rects;
+        let after_rect = |rect: Rect| {
+            let dragged_size = if let Some(dragged_index) = dragged_index {
+                button_rects[&self.children[dragged_index]].size()
+            } else {
+                rect.size()
+            };
+            Rect::from_min_size(
+                rect.right_top() + vec2(ui.spacing().item_spacing.x, 0.0),
+                dragged_size,
+            )
+        };
+        super::linear::drop_zones(
+            preview_thickness,
+            &self.children,
+            dragged_index,
+            super::LinearDir::Horizontal,
+            |tile_id| button_rects.get(&tile_id).copied(),
+            |rect, i| {
+                drop_context.suggest_rect(
+                    InsertionPoint::new(tile_id, ContainerInsertion::Tabs(i)),
+                    rect,
+                );
+            },
+            after_rect,
+        );
+    }
+
+    /// Draws every tab in one row per line, when they fit within the allowed number of rows.
+    ///
+    /// Returns `false` without drawing anything if they do not, which is the caller's signal to
+    /// fall back to a single scrolling row. Both the tab widths and the width of
+    /// [`Behavior::top_bar_right_ui`] come from what the previous frame measured, so that deciding
+    /// whether the tabs fit draws nothing that the fallback would then draw a second time.
+    fn wrapping_tab_bar_ui<Pane>(
+        &self,
+        tree: &mut Tree<Pane>,
+        behavior: &mut dyn Behavior<Pane>,
+        ui: &mut egui::Ui,
+        drop_context: &DropContext,
+        wrap: &WrapLayout<'_>,
+        output: &mut TabBarOutput,
+    ) -> bool {
+        let tile_id = wrap.tile_id;
+        let bar_rect = ui.max_rect();
+        let available = bar_rect.width() - wrap.previous.right_width;
+
+        let visible: Vec<(usize, TileId)> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|&(_, &child_id)| tree.is_visible(child_id))
+            .map(|(index, &child_id)| (index, child_id))
+            .collect();
+
+        let Some(plan) = wrap_rows(&wrap.previous.widths, available, wrap.max_rows) else {
+            return false;
+        };
+        if plan.iter().sum::<usize>() != visible.len() {
+            return false;
+        }
+
+        let first_row = bar_rect
+            .split_top_bottom_at_y(bar_rect.top() + wrap.row_height)
+            .0;
+        let mut right_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(first_row)
+                .layout(egui::Layout::right_to_left(egui::Align::Center)),
+        );
+        let mut unused_offset = 0.0;
+        behavior.top_bar_right_ui(
+            &tree.tiles,
+            &mut right_ui,
+            tile_id,
+            self,
+            &mut unused_offset,
+        );
+        output.right_width = right_ui.min_rect().width();
+
+        Self::drag_background(tree, behavior, ui, tile_id);
+
+        let mut drawn = 0;
+        for (row_index, count) in plan.iter().enumerate() {
+            let top = bar_rect.top() + wrap.row_height * row_index as f32;
+            let row_rect = Rect::from_min_size(
+                egui::pos2(bar_rect.left(), top),
+                vec2(available, wrap.row_height),
+            );
+            let mut row_ui = ui.new_child(
+                egui::UiBuilder::new()
+                    .max_rect(row_rect)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+            );
+            row_ui.spacing_mut().item_spacing.x = 0.0;
+            self.tabs_ui(
+                tree,
+                behavior,
+                &mut row_ui,
+                drop_context,
+                &visible[drawn..drawn + count],
+                output,
+            );
+            if row_index + 1 == plan.len() {
+                behavior.tab_bar_trailing_ui(&tree.tiles, &mut row_ui, tile_id, self);
+            }
+            drawn += count;
+        }
+        output.rows = plan.len();
+        true
+    }
+
+    fn drag_background<Pane>(
+        tree: &Tree<Pane>,
+        behavior: &mut dyn Behavior<Pane>,
+        ui: &egui::Ui,
+        tile_id: TileId,
+    ) {
+        if tree.is_root(tile_id) || !behavior.is_tile_draggable(&tree.tiles, tile_id) {
+            return;
+        }
+        let sense = egui::Sense::click_and_drag();
+        if ui
+            .interact(ui.max_rect(), ui.id().with("background"), sense)
+            .on_hover_cursor(egui::CursorIcon::Grab)
+            .drag_started()
+        {
+            behavior.on_edit(EditAction::TileDragged);
+            ui.set_dragged_id(tile_id.egui_id(tree.id));
+        }
+    }
+
+    fn tabs_ui<Pane>(
+        &self,
+        tree: &mut Tree<Pane>,
+        behavior: &mut dyn Behavior<Pane>,
+        ui: &mut egui::Ui,
+        drop_context: &DropContext,
+        children: &[(usize, TileId)],
+        output: &mut TabBarOutput,
+    ) {
+        for &(index, child_id) in children {
+            let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
+            let tab_state = TabState {
+                active: self.is_active(child_id),
+                is_being_dragged,
+                closable: behavior.is_tab_closable(&tree.tiles, child_id),
+            };
+            let id = child_id.egui_id(tree.id);
+            let response = behavior.tab_ui(&mut tree.tiles, ui, id, child_id, &tab_state);
+
+            if response.clicked() {
+                behavior.on_edit(EditAction::TabSelected);
+                output.next_active = Some(child_id);
+            }
+
+            if let Some(mouse_pos) = drop_context.mouse_pos
+                && drop_context.dragged_tile_id.is_some()
+                && response.rect.contains(mouse_pos)
+            {
+                behavior.on_edit(EditAction::TabSelected);
+                output.next_active = Some(child_id);
+            }
+
+            output.widths.push(response.rect.width());
+            output.button_rects.insert(child_id, response.rect);
+            if is_being_dragged {
+                output.dragged_index = Some(index);
+            }
+        }
+    }
+
+    #[expect(clippy::too_many_arguments)]
+    fn scrolling_tab_bar_ui<Pane>(
+        &self,
+        tree: &mut Tree<Pane>,
+        behavior: &mut dyn Behavior<Pane>,
+        ui: &mut egui::Ui,
+        drop_context: &DropContext,
+        tile_id: TileId,
+        tab_bar_height: f32,
+        output: &mut TabBarOutput,
+    ) {
+        let arrow_size = egui::Vec2::splat(tab_bar_height);
+        let visible: Vec<(usize, TileId)> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|&(_, &child_id)| tree.is_visible(child_id))
+            .map(|(index, &child_id)| (index, child_id))
+            .collect();
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let scroll_state_id = ui.make_persistent_id(tile_id);
@@ -264,7 +613,9 @@ impl Tabs {
 
             // Allow user to add buttons such as "add new tab".
             // They can also read and modify the scroll state if they want.
+            let before_right_ui = ui.min_rect().width();
             behavior.top_bar_right_ui(&tree.tiles, ui, tile_id, self, &mut scroll_state.offset);
+            output.right_width = ui.min_rect().width() - before_right_ui;
 
             let scroll_area_width = scroll_state.update(ui, arrow_size);
 
@@ -302,109 +653,26 @@ impl Tabs {
                         .auto_shrink([false; 2])
                         .horizontal_scroll_offset(scroll_state.offset);
 
-                    let output = scroll_area.show(ui, |ui| {
-                        if !tree.is_root(tile_id)
-                            && behavior.is_tile_draggable(&tree.tiles, tile_id)
-                        {
-                            // Make the background behind the buttons draggable (to drag the parent container tile).
-                            // We also sense clicks to avoid eager-dragging on mouse-down.
-                            let sense = egui::Sense::click_and_drag();
-                            if ui
-                                .interact(ui.max_rect(), ui.id().with("background"), sense)
-                                .on_hover_cursor(egui::CursorIcon::Grab)
-                                .drag_started()
-                            {
-                                behavior.on_edit(EditAction::TileDragged);
-                                ui.set_dragged_id(tile_id.egui_id(tree.id));
-                            }
-                        }
+                    let scrolled = scroll_area.show(ui, |ui| {
+                        Self::drag_background(tree, behavior, ui, tile_id);
 
                         ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
-                        for (i, &child_id) in self.children.iter().enumerate() {
-                            if !tree.is_visible(child_id) {
-                                continue;
-                            }
-
-                            let is_being_dragged = is_being_dragged(ui, tree.id, child_id);
-
-                            let selected = self.is_active(child_id);
-                            let id = child_id.egui_id(tree.id);
-                            let tab_state = TabState {
-                                active: selected,
-                                is_being_dragged,
-                                closable: behavior.is_tab_closable(&tree.tiles, child_id),
-                            };
-
-                            let response =
-                                behavior.tab_ui(&mut tree.tiles, ui, id, child_id, &tab_state);
-
-                            if response.clicked() {
-                                behavior.on_edit(EditAction::TabSelected);
-                                next_active = Some(child_id);
-                            }
-
-                            if let Some(mouse_pos) = drop_context.mouse_pos
-                                && drop_context.dragged_tile_id.is_some()
-                                && response.rect.contains(mouse_pos)
-                            {
-                                // Expand this tab - maybe the user wants to drop something into it!
-                                behavior.on_edit(EditAction::TabSelected);
-                                next_active = Some(child_id);
-                            }
-
-                            button_rects.insert(child_id, response.rect);
-                            if is_being_dragged {
-                                dragged_index = Some(i);
-                            }
-                        }
+                        self.tabs_ui(tree, behavior, ui, drop_context, &visible, output);
 
                         // Allow the user to add a trailing widget after the last tab
                         // (e.g. a "➕" button), inside the tab scroll area's flow.
                         behavior.tab_bar_trailing_ui(&tree.tiles, ui, tile_id, self);
                     });
 
-                    scroll_state.offset = output.state.offset.x;
-                    scroll_state.content_size = output.content_size;
-                    scroll_state.available = output.inner_rect.size();
+                    scroll_state.offset = scrolled.state.offset.x;
+                    scroll_state.content_size = scrolled.content_size;
+                    scroll_state.available = scrolled.inner_rect.size();
                 },
             );
 
             ui.data_mut(|data| data.insert_temp(scroll_state_id, scroll_state));
         });
-
-        // -----------
-        // Drop zones:
-
-        let preview_thickness = 6.0;
-        let after_rect = |rect: Rect| {
-            let dragged_size = if let Some(dragged_index) = dragged_index {
-                // We actually know the size of this thing
-                button_rects[&self.children[dragged_index]].size()
-            } else {
-                rect.size() // guess that the size is the same as the last button
-            };
-            Rect::from_min_size(
-                rect.right_top() + vec2(ui.spacing().item_spacing.x, 0.0),
-                dragged_size,
-            )
-        };
-        super::linear::drop_zones(
-            preview_thickness,
-            &self.children,
-            dragged_index,
-            super::LinearDir::Horizontal,
-            |tile_id| button_rects.get(&tile_id).copied(),
-            |rect, i| {
-                drop_context.suggest_rect(
-                    InsertionPoint::new(tile_id, ContainerInsertion::Tabs(i)),
-                    rect,
-                );
-            },
-            after_rect,
-        );
-
-        next_active
     }
 
     pub(super) fn simplify_children(&mut self, mut simplify: impl FnMut(TileId) -> SimplifyAction) {
@@ -426,5 +694,35 @@ impl Tabs {
         let index = self.children.iter().position(|&child| child == needle)?;
         self.children.remove(index);
         Some(index)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wrap_rows;
+
+    #[test]
+    fn tabs_that_fit_stay_on_one_row() {
+        assert_eq!(wrap_rows(&[30.0, 30.0, 30.0], 100.0, 2), Some(vec![3]));
+    }
+
+    #[test]
+    fn a_row_is_filled_before_the_next_one_is_started() {
+        assert_eq!(wrap_rows(&[60.0, 60.0, 30.0], 100.0, 2), Some(vec![1, 2]));
+    }
+
+    #[test]
+    fn tabs_that_need_more_rows_than_allowed_do_not_wrap() {
+        assert_eq!(wrap_rows(&[60.0, 60.0, 60.0], 100.0, 2), None);
+    }
+
+    #[test]
+    fn a_tab_wider_than_the_bar_still_gets_its_own_row() {
+        assert_eq!(wrap_rows(&[300.0, 30.0], 100.0, 2), Some(vec![1, 1]));
+    }
+
+    #[test]
+    fn an_empty_bar_is_one_row() {
+        assert_eq!(wrap_rows(&[], 100.0, 2), Some(vec![0]));
     }
 }

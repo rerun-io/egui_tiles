@@ -591,7 +591,14 @@ mod tests {
 
         for _ in 0..1000 {
             let root = tree.root.unwrap();
-            crate::behavior::layout_tiles(&mut tree.tiles, Some(root), &behavior, &style, area);
+            crate::behavior::layout_tiles(
+                &mut tree.tiles,
+                Some(root),
+                &behavior,
+                &style,
+                &|_| 1,
+                area,
+            );
 
             // Add some tiles:
             for _ in 0..rng.rand_u64() % 3 {

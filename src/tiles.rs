@@ -455,7 +455,7 @@ impl<Pane> Tiles<Pane> {
         self.rects.insert(tile_id, rect);
 
         if let Tile::Container(container) = &mut tile {
-            container.layout(self, layout, rect);
+            container.layout(self, layout, rect, tile_id);
         }
 
         self.tiles.insert(tile_id, tile);

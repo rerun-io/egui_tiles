@@ -45,6 +45,13 @@ pub(crate) struct LayoutContext<'a> {
     pub tab_bar_height: f32,
     pub grid_auto_column_count: &'a dyn Fn(usize, Rect, f32) -> usize,
 
+    /// How many rows a given tab bar took last frame.
+    ///
+    /// A wrapped tab bar is as tall as the rows it needed, and how many that is depends on how
+    /// wide the tabs turned out — which the layout pass runs too early to know. So it reads what
+    /// the last frame measured, and a bar that has just changed shape is one frame behind.
+    pub tab_bar_rows: &'a dyn Fn(TileId) -> usize,
+
     /// Set by the layout pass if it had to pick an active tab for a [`crate::Tabs`] container.
     ///
     /// Reported back to the caller rather than straight to [`Behavior::on_edit`]: laying out
@@ -63,6 +70,7 @@ pub(crate) fn layout_tiles<Pane, TilesPane>(
     root: Option<TileId>,
     behavior: &dyn Behavior<Pane>,
     style: &egui::Style,
+    tab_bar_rows: &dyn Fn(TileId) -> usize,
     rect: Rect,
 ) -> bool {
     let Some(root) = root else {
@@ -78,6 +86,7 @@ pub(crate) fn layout_tiles<Pane, TilesPane>(
         gap_width: behavior.gap_width(style),
         tab_bar_height: behavior.tab_bar_height(style),
         grid_auto_column_count: &grid_auto_column_count,
+        tab_bar_rows,
         tab_auto_selected: &tab_auto_selected,
     };
 
@@ -361,9 +370,24 @@ pub trait Behavior<Pane> {
     ) {
     }
 
-    /// The height of the bar holding tab titles.
+    /// The height of one row of the bar holding tab titles.
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         24.0
+    }
+
+    /// How many rows a tab bar may wrap into before it starts scrolling instead.
+    ///
+    /// The default of `1` keeps a tab bar to a single row that scrolls once the
+    /// tabs no longer fit, with arrows at either end. Raising it lets a crowded
+    /// bar break into further rows first, which is worth it wherever a tab bar
+    /// is narrow — a side panel of eight tabs otherwise hides half of them
+    /// behind an arrow, and a tab you cannot see is a tab you will not use.
+    ///
+    /// Tabs wrap only if they fit within this many rows; beyond that the bar
+    /// falls back to a single scrolling row rather than growing without end.
+    /// Returning `0` is read as `1`.
+    fn max_tab_bar_rows(&self) -> usize {
+        1
     }
 
     /// Width of the gap between tiles in a horizontal or vertical layout,
