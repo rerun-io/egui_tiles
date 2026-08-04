@@ -393,9 +393,7 @@ impl<Pane> Tiles<Pane> {
     ///
     /// Finally free up any tiles that are no longer reachable from the root.
     ///
-    /// Returns whether the root survived. It does not when the tile is missing from the arena, or
-    /// when [`Behavior::retain_pane`] asks for it to go - and the caller owns the root, so it is
-    /// the caller that has to stop calling that tile a root.
+    /// Returns whether the root survived.
     #[must_use]
     pub(super) fn gc_root(
         &mut self,
