@@ -438,6 +438,15 @@ impl<Pane> Tiles<Pane> {
         };
         if !visited.insert(tile_id) {
             log::warn!("Cycle or duplication detected");
+            // Put the tile back before telling the caller to drop it.
+            //
+            // What is duplicated is the *reference*, not the tile: we got here through a second
+            // parent, and the tile is still alive under the first one. Returning without the
+            // re-insert deletes it from the arena outright, and then the first parent names a
+            // child that no longer exists - damage strictly worse than the sharing it was meant
+            // to repair. `simplify` unravels it from there: the parent looks empty, gets pruned,
+            // its parent looks empty, and a tree that was merely ill-formed ends up gone.
+            self.tiles.insert(tile_id, tile);
             return GcAction::Remove;
         }
 
