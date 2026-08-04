@@ -534,11 +534,6 @@ impl<Pane> Tree<Pane> {
     /// Garbage-collect tiles that are no longer reachable from the root tile.
     ///
     /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
-    ///
-    /// A root the collector could not keep stops being the root here: either the [`Behavior`]
-    /// asked for that pane to go, or the tile was not in the arena to begin with. Leaving it in
-    /// place would mean `root` names a tile that does not exist - a tree that renders nothing and
-    /// reports `is_empty() == false`, so nothing downstream can even tell that it is empty.
     pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
         if !self.tiles.gc_root(behavior, self.root) {
             self.root = None;
