@@ -392,13 +392,20 @@ impl<Pane> Tiles<Pane> {
     /// Will also call [`Behavior::retain_pane`] to check if a users wants to remove a pane.
     ///
     /// Finally free up any tiles that are no longer reachable from the root.
-    pub(super) fn gc_root(&mut self, behavior: &mut dyn Behavior<Pane>, root_id: Option<TileId>) {
+    ///
+    /// Returns whether the root survived.
+    #[must_use]
+    pub(super) fn gc_root(
+        &mut self,
+        behavior: &mut dyn Behavior<Pane>,
+        root_id: Option<TileId>,
+    ) -> bool {
         let mut visited = Default::default();
 
-        if let Some(root_id) = root_id {
-            // We ignore the returned root action, because we will never remove the root.
-            let _root_action = self.gc_tile_id(behavior, &mut visited, root_id);
-        }
+        let root_kept = match root_id {
+            Some(root_id) => self.gc_tile_id(behavior, &mut visited, root_id) == GcAction::Keep,
+            None => true,
+        };
 
         if visited.len() < self.tiles.len() {
             // This should only happen if the user set up the tree in a bad state,
@@ -415,6 +422,8 @@ impl<Pane> Tiles<Pane> {
 
         self.invisible.retain(|tile_id| visited.contains(tile_id));
         self.tiles.retain(|tile_id, _| visited.contains(tile_id));
+
+        root_kept
     }
 
     /// Detect cycles, duplications, and other invalid state, and remove them.

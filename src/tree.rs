@@ -535,7 +535,9 @@ impl<Pane> Tree<Pane> {
     ///
     /// This is also called by [`Self::ui`], so usually you don't need to call this yourself.
     pub fn gc(&mut self, behavior: &mut dyn Behavior<Pane>) {
-        self.tiles.gc_root(behavior, self.root);
+        if !self.tiles.gc_root(behavior, self.root) {
+            self.root = None;
+        }
     }
 
     /// Move a tile to a new container, at the specified insertion index.
@@ -817,6 +819,28 @@ mod tests {
         assert_eq!(tree.tiles.parent_of(root), Some(new_root));
     }
 
+    /// Drops one specific pane, the way an application closes a document.
+    struct DropPane(&'static str);
+
+    impl Behavior<&'static str> for DropPane {
+        fn pane_ui(
+            &mut self,
+            _ui: &mut egui::Ui,
+            _tile_id: TileId,
+            _pane: &mut &'static str,
+        ) -> UiResponse {
+            UiResponse::None
+        }
+
+        fn tab_title_for_pane(&mut self, pane: &&'static str) -> egui::WidgetText {
+            (*pane).into()
+        }
+
+        fn retain_pane(&mut self, pane: &&'static str) -> bool {
+            *pane != self.0
+        }
+    }
+
     /// Keeps every pane; `gc` needs a [`Behavior`], these tests are not about `retain_pane`.
     struct KeepEverything;
 
@@ -833,6 +857,28 @@ mod tests {
         fn tab_title_for_pane(&mut self, pane: &&'static str) -> egui::WidgetText {
             (*pane).into()
         }
+    }
+
+    /// A root the collector had to drop must stop being the root.
+    ///
+    /// A single pane can be the root - `simplify` produces exactly that once a tab container is
+    /// down to one child - and `retain_pane` is how an application closes it. `gc` then removed
+    /// the tile and left `root` naming it, so the tree rendered nothing while
+    /// `is_empty()` still said `false`: no way for the caller to notice, and no way to recover
+    /// except by writing `tree.root = None` by hand.
+    #[test]
+    fn gc_clears_a_root_it_had_to_drop() {
+        let mut tiles = Tiles::default();
+        let only = tiles.insert_pane("doomed");
+        let mut tree = Tree::new("root_pane", only, tiles);
+
+        tree.gc(&mut DropPane("doomed"));
+
+        assert_eq!(
+            tree.root, None,
+            "the root tile is gone, so the tree must not still name it"
+        );
+        assert!(tree.is_empty(), "an empty tree has to say that it is empty");
     }
 
     /// A tile named as a child by two containers must lose the second *reference*, not itself.
