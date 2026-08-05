@@ -1,9 +1,29 @@
 # `egui_tiles` Changelog
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.16.0..HEAD
 
+## 0.17.0 - 2026-08-05
 
-## Unreleased
-
+### Breaking changes:
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
+
+### Other changes:
+* Add `SimplificationOptions::flatten_tabs_in_tabs` [#77](https://github.com/rerun-io/egui_tiles/pull/77)
+* Add `Tiles::recompute_next_tile_id` [#114](https://github.com/rerun-io/egui_tiles/pull/114)
+* Update dependencies [#138](https://github.com/rerun-io/egui_tiles/pull/138)
+* Add `Behavior::tab_bar_trailing_ui` (trailing tab-bar slot) [#135](https://github.com/rerun-io/egui_tiles/pull/135)
+* Fix unstable widget IDs for tab scroll arrows [#137](https://github.com/rerun-io/egui_tiles/pull/137)
+* Update MSRV to 1.95 [#140](https://github.com/rerun-io/egui_tiles/pull/140)
+* Keep the pane type out of the layout pass [#141](https://github.com/rerun-io/egui_tiles/pull/141)
+* Add an example for apps that rebuild the tree every frame [#145](https://github.com/rerun-io/egui_tiles/pull/145)
+* Report tabs to accessibility tools [#143](https://github.com/rerun-io/egui_tiles/pull/143)
+* Drag panes by their tab in the drag-and-drop tests [#146](https://github.com/rerun-io/egui_tiles/pull/146)
+* Keep a tile's TileId when it gets wrapped in a container [#144](https://github.com/rerun-io/egui_tiles/pull/144)
+* Keep tile ids stable through simplification too [#147](https://github.com/rerun-io/egui_tiles/pull/147)
+* Tabs: Add support for adding buttons before the left arrow in the tab bar [#131](https://github.com/rerun-io/egui_tiles/pull/131)
+* Clear the open tab when `simplify` removes it [#149](https://github.com/rerun-io/egui_tiles/pull/149)
+* Don't delete a shared tile during garbage collection [#148](https://github.com/rerun-io/egui_tiles/pull/148)
+* Update egui to 0.36 [#152](https://github.com/rerun-io/egui_tiles/pull/152)
+* Clear the root when garbage collection had to drop it [#150](https://github.com/rerun-io/egui_tiles/pull/150)
 
 
 ## 0.16.0 - 2026-06-26
