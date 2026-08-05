@@ -17,9 +17,9 @@ opt-level = 2 # fast and small wasm
 [workspace.dependencies]
 egui_table = { version = "0.9.0", path = "egui_table", default-features = false }
 
-eframe = { version = "0.35.0", default-features = false }
-egui = { version = "0.35.0", default-features = false }
-egui_kittest = { version = "0.35.0" }
+eframe = { version = "0.36.0", default-features = false }
+egui = { version = "0.36.0", default-features = false }
+egui_kittest = { version = "0.36.0" }
 env_logger = { version = "0.10.2", default-features = false, features = [
     "auto-color",
     "humantime",
@@ -38,8 +38,9 @@ web-sys = "0.3.91"
 # egui_kittest = { git = "https://github.com/emilk/egui", branch = "main" }
 
 # If you fork https://github.com/emilk/egui you can test with:
-# egui = { path = "../../egui/crates/egui" }
-# eframe = { path = "../../egui/crates/eframe" }
+# egui = { path = "../egui/crates/egui" }
+# egui_kittest = { path = "../egui/crates/egui_kittest" }
+# eframe = { path = "../egui/crates/eframe" }
 
 # ----------------------------------------------------------------------------------------
 # Lints:

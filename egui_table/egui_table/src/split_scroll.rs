@@ -71,8 +71,6 @@ impl SplitScroll {
         } = self;
 
         ui.scope(|ui| {
-            ui.visuals_mut().clip_rect_margin = 0.0; // Everything else looks awful
-
             let mut rect = ui.cursor();
             rect.max = rect.min + fixed_size + scroll_outer_size;
             ui.shrink_clip_rect(rect);
