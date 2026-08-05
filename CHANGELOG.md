@@ -3,7 +3,10 @@ Full diff at https://github.com/rerun-io/egui_tiles/compare/0.16.0..HEAD
 
 ## 0.17.0 - 2026-08-05
 
+### Breaking changes:
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
+
+### Other changes:
 * Add `SimplificationOptions::flatten_tabs_in_tabs` [#77](https://github.com/rerun-io/egui_tiles/pull/77)
 * Add `Tiles::recompute_next_tile_id` [#114](https://github.com/rerun-io/egui_tiles/pull/114)
 * Update dependencies [#138](https://github.com/rerun-io/egui_tiles/pull/138)
