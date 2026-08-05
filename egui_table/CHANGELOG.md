@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0 - 2026-08-05
+
+#### PRs
+* Increase MSRV to 1.95 [#60](https://github.com/rerun-io/egui_table/pull/60) by [@emilk](https://github.com/emilk)
+* Update egui to 0.36 [#61](https://github.com/rerun-io/egui_table/pull/61) by [@lucasmerlin](https://github.com/lucasmerlin)
+
+
 ## 0.9.0 - 2026-06-26
 
 #### PRs
