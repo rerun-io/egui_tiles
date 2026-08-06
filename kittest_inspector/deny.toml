@@ -34,6 +34,12 @@ ignore = [
   # bincode is an indirect dep through rmcp. The bincode team ceased development due to a
   # harassment incident; there is no functional security risk, just no future updates.
   { id = "RUSTSEC-2025-0141", reason = "Transitive dep via rmcp; no security impact, only unmaintained status" },
+
+  # quick-xml 0.39 is pinned by wayland-scanner (via winit), so we can't reach the fixed 0.41.
+  # wayland-scanner is a build-time proc-macro that parses the wayland protocol XML shipped with
+  # the crate — no untrusted input, and nothing of it runs at runtime.
+  { id = "RUSTSEC-2026-0194", reason = "quick-xml via wayland-scanner: build-time only, trusted input" },
+  { id = "RUSTSEC-2026-0195", reason = "quick-xml via wayland-scanner: build-time only, trusted input" },
 ]
 
 
