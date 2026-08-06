@@ -333,6 +333,28 @@ impl PressKeyModifiers {
     }
 }
 
+/// Hold `modifiers` down for the duration of `action`, then release them.
+async fn with_modifiers<T>(
+    bridge: &Bridge,
+    modifiers: egui::Modifiers,
+    action: impl AsyncFnOnce() -> ToolResult<T>,
+) -> ToolResult<T> {
+    if modifiers == egui::Modifiers::NONE {
+        return action().await;
+    }
+    bridge
+        .apply_events(vec![Event::ModifiersChanged(modifiers)])
+        .await?;
+    let result = action().await;
+    // Release even when the action failed, so the next call doesn't inherit a stuck modifier.
+    let released = bridge
+        .apply_events(vec![Event::ModifiersChanged(egui::Modifiers::NONE)])
+        .await;
+    let value = result?;
+    released?;
+    Ok(value)
+}
+
 /// Which mouse button a `click`/`drag` uses. `left`/`right` are accepted as aliases for
 /// `primary`/`secondary`.
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, JsonSchema)]
@@ -655,7 +677,10 @@ impl UiServer {
                 modifiers,
             });
         }
-        bridge.apply_events(events).await?;
+        with_modifiers(bridge, modifiers, async || {
+            bridge.apply_events(events).await
+        })
+        .await?;
         Ok(CallToolResult::structured(json!({
             "ok": true,
             "clicked_id": node_id,
@@ -696,7 +721,10 @@ impl UiServer {
                 modifiers,
             },
         ];
-        bridge.apply_events(events).await?;
+        with_modifiers(bridge, modifiers, async || {
+            bridge.apply_events(events).await
+        })
+        .await?;
         Ok(CallToolResult::structured(json!({
             "ok": true,
             "scrolled_id": node_id,
@@ -718,37 +746,42 @@ impl UiServer {
         let modifiers = args.modifiers.to_egui();
         let steps = args.steps.max(1);
 
-        bridge
-            .apply_events(vec![
-                Event::PointerMoved(start_pos),
-                Event::PointerButton {
-                    pos: start_pos,
-                    button: egui::PointerButton::Primary,
-                    pressed: true,
-                    modifiers,
-                },
-            ])
-            .await?;
-
-        for i in 1..=steps {
-            let t = i as f32 / steps as f32;
-            let waypoint = egui::Pos2::new(
-                start_pos.x + (end_pos.x - start_pos.x) * t,
-                start_pos.y + (end_pos.y - start_pos.y) * t,
-            );
+        // One hold spans the whole gesture: the modifier state persists across the frames the
+        // press, the waypoints, and the release are spread over.
+        with_modifiers(bridge, modifiers, async || {
             bridge
-                .apply_events(vec![Event::PointerMoved(waypoint)])
+                .apply_events(vec![
+                    Event::PointerMoved(start_pos),
+                    Event::PointerButton {
+                        pos: start_pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers,
+                    },
+                ])
                 .await?;
-        }
 
-        bridge
-            .apply_events(vec![Event::PointerButton {
-                pos: end_pos,
-                button: egui::PointerButton::Primary,
-                pressed: false,
-                modifiers,
-            }])
-            .await?;
+            for i in 1..=steps {
+                let t = i as f32 / steps as f32;
+                let waypoint = egui::Pos2::new(
+                    start_pos.x + (end_pos.x - start_pos.x) * t,
+                    start_pos.y + (end_pos.y - start_pos.y) * t,
+                );
+                bridge
+                    .apply_events(vec![Event::PointerMoved(waypoint)])
+                    .await?;
+            }
+
+            bridge
+                .apply_events(vec![Event::PointerButton {
+                    pos: end_pos,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers,
+                }])
+                .await
+        })
+        .await?;
         Ok(CallToolResult::structured(json!({
             "ok": true,
             "start_id": start_id,
@@ -885,24 +918,27 @@ impl UiServer {
         let key =
             egui::Key::from_name(&args.key).ok_or_else(|| format!("unknown key `{}`", args.key))?;
         let modifiers = args.modifiers.to_egui();
-        bridge
-            .apply_events(vec![
-                Event::Key {
-                    key,
-                    physical_key: None,
-                    pressed: true,
-                    repeat: false,
-                    modifiers,
-                },
-                Event::Key {
-                    key,
-                    physical_key: None,
-                    pressed: false,
-                    repeat: false,
-                    modifiers,
-                },
-            ])
-            .await?;
+        with_modifiers(bridge, modifiers, async || {
+            bridge
+                .apply_events(vec![
+                    Event::Key {
+                        key,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers,
+                    },
+                    Event::Key {
+                        key,
+                        physical_key: None,
+                        pressed: false,
+                        repeat: false,
+                        modifiers,
+                    },
+                ])
+                .await
+        })
+        .await?;
         Ok(CallToolResult::structured(
             json!({ "ok": true, "key": args.key }),
         ))
