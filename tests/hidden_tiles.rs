@@ -28,6 +28,9 @@ impl Behavior<&'static str> for TestBehavior {
 
 const VIEWPORT: egui::Vec2 = egui::vec2(800.0, 600.0);
 
+/// What `TestBehavior` leaves between two tiles, since it keeps the default `Behavior::gap_width`.
+const GAP_WIDTH: f32 = 1.0;
+
 /// Two panes side by side, each wrapped in its own tab container by `all_panes_must_have_tabs`.
 fn harness() -> egui_kittest::Harness<'static, Tree<&'static str>> {
     let mut tiles = Tiles::default();
@@ -56,14 +59,22 @@ fn pane(tree: &Tree<&'static str>, name: &str) -> Option<TileId> {
         .map(|(tile_id, _)| *tile_id)
 }
 
-/// The width the pane's slot takes up in the root container, tab bar and all.
-fn slot_width(tree: &Tree<&'static str>, name: &str) -> f32 {
+/// The rect the pane's slot in the root container was laid out in, tab bar and all,
+/// or `None` if it was never laid out.
+fn slot_rect(tree: &Tree<&'static str>, name: &str) -> Option<egui::Rect> {
     let pane_id = pane(tree, name).expect("the pane should still be in the tree");
     let slot = tree
         .tiles
         .parent_of(pane_id)
         .expect("`all_panes_must_have_tabs` should have given the pane a tab container");
-    tree.tiles.rect(slot).map_or(0.0, |rect| rect.width())
+    tree.tiles.rect(slot)
+}
+
+/// The width the pane's slot takes up in the root container, tab bar and all.
+fn slot_width(tree: &Tree<&'static str>, name: &str) -> f32 {
+    slot_rect(tree, name)
+        .expect("the slot should have been laid out")
+        .width()
 }
 
 /// The width the whole tree was laid out in.
@@ -79,34 +90,34 @@ fn hiding_a_pane_gives_its_space_to_its_sibling() {
     let mut harness = harness();
 
     let whole_width = tree_width(harness.state());
-    let split_width = slot_width(harness.state(), "b");
-    assert!(
-        split_width < whole_width / 2.0 + 1.0,
-        "the two panes should share the width to begin with, but `b` got {split_width} \
-         out of {whole_width}"
+    let split_width = (whole_width - GAP_WIDTH) / 2.0;
+    assert_eq!(
+        slot_width(harness.state(), "b"),
+        split_width,
+        "the two panes should split the {whole_width} the tree was laid out in"
     );
 
     let hidden = pane(harness.state(), "a").expect("pane `a`");
     harness.state_mut().set_visible(hidden, false);
     harness.run();
 
-    let full_width = slot_width(harness.state(), "b");
-    assert!(
-        full_width > whole_width - 1.0,
-        "`b` is the only thing left to show, so it should have the whole width of \
-         {whole_width}, but got {full_width}"
+    assert_eq!(
+        slot_width(harness.state(), "b"),
+        whole_width,
+        "`b` is the only thing left to show, so it should have the whole width"
     );
     assert_eq!(
-        slot_width(harness.state(), "a"),
-        0.0,
+        slot_rect(harness.state(), "a"),
+        None,
         "the tab container around the hidden pane should not be laid out"
     );
 
     harness.state_mut().set_visible(hidden, true);
     harness.run();
 
-    assert!(
-        (slot_width(harness.state(), "b") - split_width).abs() < 1.0,
+    assert_eq!(
+        slot_width(harness.state(), "b"),
+        split_width,
         "showing the pane again should restore the split"
     );
 }
