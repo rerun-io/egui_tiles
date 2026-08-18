@@ -80,6 +80,10 @@
 //! Invisible tiles still retain their ordering in the container their in until
 //! they are made visible again.
 //!
+//! A container whose children are all invisible is not laid out either.
+//! [`Tiles::is_visible`] reports the flag you set yourself, while
+//! [`Tiles::is_visible_in_layout`] reports what actually gets space.
+//!
 //! ## Shares
 //! The relative sizes of linear layout (horizontal or vertical) and grid columns and rows are specified by _shares_.
 //! If the shares are `1,2,3` it means the first element gets `1/6` of the space, the second `2/6`, and the third `3/6`.
