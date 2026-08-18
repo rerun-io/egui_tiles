@@ -102,7 +102,7 @@ impl<Pane> Tiles<Pane> {
     ///
     /// If the tile isn't visible, or is in an inactive tab, this return `None`.
     pub fn rect(&self, tile_id: TileId) -> Option<Rect> {
-        if self.is_visible(tile_id) {
+        if self.is_visible_in_layout(tile_id) {
             self.rects.get(&tile_id).copied()
         } else {
             None
@@ -147,6 +147,31 @@ impl<Pane> Tiles<Pane> {
         !self.invisible.contains(&tile_id)
     }
 
+    /// Is this tile given any space in the layout?
+    ///
+    /// Like [`Self::is_visible`], except a container whose children are all invisible is
+    /// skipped too: it would take up space to show nothing.
+    ///
+    /// An empty container hides nothing and is still a drop target, so it keeps its space.
+    pub fn is_visible_in_layout(&self, tile_id: TileId) -> bool {
+        if !self.is_visible(tile_id) {
+            return false;
+        }
+
+        let Some(Tile::Container(container)) = self.get(tile_id) else {
+            return true;
+        };
+
+        let mut has_children = false;
+        for &child_id in container.children() {
+            has_children = true;
+            if self.is_visible_in_layout(child_id) {
+                return true;
+            }
+        }
+        !has_children
+    }
+
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
@@ -164,7 +189,7 @@ impl<Pane> Tiles<Pane> {
 
     /// This excludes all tiles that are invisible or are inactive tabs, recursively.
     pub(crate) fn collect_active_tiles(&self, tile_id: TileId, tiles: &mut Vec<TileId>) {
-        if !self.is_visible(tile_id) {
+        if !self.is_visible_in_layout(tile_id) {
             return;
         }
         tiles.push(tile_id);
@@ -1025,6 +1050,67 @@ mod tests {
                 "the user was looking at `b` through the flattened container, so `b` stays open"
             );
         }
+    }
+
+    /// A tab container whose only pane is hidden has nothing left to show, so it should get no
+    /// space of its own. Showing the pane again should bring the container back.
+    #[test]
+    fn a_container_with_nothing_to_show_is_not_laid_out() {
+        let mut tiles = Tiles::default();
+        let pane = tiles.insert_pane("a");
+        let tabs = tiles.insert_tab_tile(vec![pane]);
+
+        assert!(tiles.is_visible_in_layout(tabs));
+
+        tiles.set_visible(pane, false);
+        assert!(
+            !tiles.is_visible_in_layout(tabs),
+            "the tab container has only a hidden pane left to show"
+        );
+        assert!(
+            tiles.is_visible(tabs),
+            "the container itself was never hidden, and asking for the flag should say so"
+        );
+
+        tiles.set_visible(pane, true);
+        assert!(
+            tiles.is_visible_in_layout(tabs),
+            "showing the pane again should bring back the container around it"
+        );
+    }
+
+    /// Nothing visible anywhere in the subtree means nothing to lay out, however deep it is.
+    #[test]
+    fn hiding_the_only_pane_hides_every_container_above_it() {
+        let mut tiles = Tiles::default();
+        let pane = tiles.insert_pane("a");
+        let tabs = tiles.insert_tab_tile(vec![pane]);
+        let inner = tiles.insert_horizontal_tile(vec![tabs]);
+        let outer = tiles.insert_vertical_tile(vec![inner]);
+
+        tiles.set_visible(pane, false);
+
+        for tile_id in [tabs, inner, outer] {
+            assert!(
+                !tiles.is_visible_in_layout(tile_id),
+                "{tile_id:?} has nothing but the hidden pane below it"
+            );
+        }
+    }
+
+    /// An empty container is not hiding anything, and it is still a place to drop tiles into,
+    /// so it keeps its space.
+    #[test]
+    fn an_empty_container_keeps_its_space() {
+        let mut tiles = Tiles::<&str>::default();
+        let empty = tiles.insert_tab_tile(vec![]);
+        assert!(tiles.is_visible_in_layout(empty));
+
+        tiles.set_visible(empty, false);
+        assert!(
+            !tiles.is_visible_in_layout(empty),
+            "hiding it explicitly still hides it"
+        );
     }
 
     /// Inserting into a container that already accepts the tile must not wrap anything.

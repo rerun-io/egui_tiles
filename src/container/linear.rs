@@ -120,7 +120,7 @@ impl Linear {
         self.children
             .iter()
             .copied()
-            .filter(|&child_id| tiles.is_visible(child_id))
+            .filter(|&child_id| tiles.is_visible_in_layout(child_id))
             .collect()
     }
 

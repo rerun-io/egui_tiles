@@ -266,6 +266,13 @@ impl<Pane> Tree<Pane> {
         self.tiles.is_visible(tile_id)
     }
 
+    /// Is this tile given any space in the layout?
+    ///
+    /// See [`Tiles::is_visible_in_layout`].
+    pub fn is_visible_in_layout(&self, tile_id: TileId) -> bool {
+        self.tiles.is_visible_in_layout(tile_id)
+    }
+
     /// Tiles are visible by default.
     ///
     /// Invisible tiles still retain their place in the tile hierarchy.
@@ -275,14 +282,13 @@ impl<Pane> Tree<Pane> {
 
     /// All visible tiles.
     ///
-    /// This excludes all tiles that are invisible or are inactive tabs, recursively.
+    /// This excludes all tiles that are invisible or are inactive tabs, recursively,
+    /// as well as containers left with nothing visible to show.
     ///
     /// The order of the returned tiles is arbitrary.
     pub fn active_tiles(&self) -> Vec<TileId> {
         let mut tiles = vec![];
-        if let Some(root) = self.root
-            && self.is_visible(root)
-        {
+        if let Some(root) = self.root {
             self.tiles.collect_active_tiles(root, &mut tiles);
         }
         tiles
@@ -371,7 +377,7 @@ impl<Pane> Tree<Pane> {
         ui: &Ui,
         tile_id: TileId,
     ) {
-        if !self.is_visible(tile_id) {
+        if !self.is_visible_in_layout(tile_id) {
             return;
         }
         // NOTE: important that we get the rect and tile in two steps,

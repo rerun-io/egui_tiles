@@ -197,12 +197,12 @@ impl Tabs {
 
     pub fn next_active<Pane>(&self, tiles: &Tiles<Pane>) -> Option<TileId> {
         self.active
-            .filter(|active| self.children.contains(active) && tiles.is_visible(*active))
+            .filter(|active| self.children.contains(active) && tiles.is_visible_in_layout(*active))
             .or_else(|| {
                 self.children
                     .iter()
                     .copied()
-                    .find(|&child_id| tiles.is_visible(child_id))
+                    .find(|&child_id| tiles.is_visible_in_layout(child_id))
             })
     }
 
@@ -322,7 +322,7 @@ impl Tabs {
                         ui.spacing_mut().item_spacing.x = 0.0; // Tabs have spacing built-in
 
                         for (i, &child_id) in self.children.iter().enumerate() {
-                            if !tree.is_visible(child_id) {
+                            if !tree.is_visible_in_layout(child_id) {
                                 continue;
                             }
 

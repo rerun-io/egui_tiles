@@ -142,7 +142,7 @@ impl Grid {
     fn visible_children_and_holes<Pane>(&self, tiles: &Tiles<Pane>) -> Vec<Option<TileId>> {
         self.children
             .iter()
-            .filter(|id| id.is_none_or(|id| tiles.is_visible(id)))
+            .filter(|id| id.is_none_or(|id| tiles.is_visible_in_layout(id)))
             .copied()
             .collect()
     }
@@ -264,7 +264,7 @@ impl Grid {
     ) {
         for &child in &self.children {
             if let Some(child) = child
-                && tree.is_visible(child)
+                && tree.is_visible_in_layout(child)
             {
                 tree.tile_ui(behavior, drop_context, ui, child);
                 crate::cover_tile_if_dragged(tree, behavior, ui, child);

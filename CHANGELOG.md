@@ -1,6 +1,12 @@
 # `egui_tiles` Changelog
 Full diff at https://github.com/rerun-io/egui_tiles/compare/0.16.0..HEAD
 
+## Unreleased
+
+### Other changes:
+* Don't lay out a container that has nothing visible to show.
+
+
 ## 0.17.0 - 2026-08-05
 
 ### Breaking changes:
