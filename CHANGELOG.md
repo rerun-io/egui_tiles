@@ -1,7 +1,13 @@
 # `egui_tiles` Changelog
-Full diff at https://github.com/rerun-io/egui_tiles/compare/0.16.0..HEAD
+
+## 0.17.1 - 2026-08-18
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.17.0..HEAD
+
+* Fix visibility layouting [#156](https://github.com/rerun-io/egui_tiles/pull/156) by [@IsseW](https://github.com/IsseW)
+
 
 ## 0.17.0 - 2026-08-05
+Full diff at https://github.com/rerun-io/egui_tiles/compare/0.16.0..HEAD
 
 ### Breaking changes:
 * ⚠️ `Linear::layout` is no longer `pub`. It took `&mut Tiles` and a `&mut dyn Behavior`, so it could not be called usefully from outside the crate.
