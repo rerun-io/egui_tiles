@@ -135,6 +135,6 @@ fn a_hidden_pane_leaves_no_active_tiles_behind() {
     assert!(
         !active.contains(&hidden)
             && !active.contains(&tree.tiles.parent_of(hidden).expect("the tab container")),
-        "neither the hidden pane nor the container around it is active: {active:?}"
+        "neither the hidden pane nor the container around it should be active: {active:?}"
     );
 }
