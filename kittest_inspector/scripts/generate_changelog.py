@@ -24,7 +24,7 @@ from git import Repo  # pip install GitPython
 from tqdm import tqdm
 
 OWNER = "rerun-io"
-REPO = "new_repo_name"
+REPO = "kittest_inspector"
 INCLUDE_LABELS = False  # It adds quite a bit of visual noise
 
 

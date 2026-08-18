@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "egui_mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accesskit",
  "accesskit_consumer 0.37.0",
@@ -2133,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "kittest_inspector"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "eframe",

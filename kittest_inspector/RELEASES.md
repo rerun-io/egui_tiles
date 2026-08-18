@@ -1,6 +1,6 @@
 # Release Checklist
 
-* [ ] Update `CHANGELOG.md` using `./scripts/generate_changelog.py --version 0.NEW.VERSION`
+* [ ] Update `crates/egui_mcp/CHANGELOG.md` using `./scripts/generate_changelog.py --version 0.NEW.VERSION`
 * [ ] Bump version numbers in `Cargo.toml` and run `cargo check`.
 * [ ] `git commit -m 'Release 0.x.0 - summary'`
 * [ ] `cargo publish --quiet -p egui_mcp`
