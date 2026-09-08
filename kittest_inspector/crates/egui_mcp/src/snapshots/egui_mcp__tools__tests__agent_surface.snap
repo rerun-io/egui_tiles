@@ -1,6 +1,5 @@
 ---
 source: crates/egui_mcp/src/tools.rs
-assertion_line: 1088
 expression: surface
 ---
 # Server instructions
@@ -57,7 +56,6 @@ Conventions:
         ]
       }
     },
-    "title": "AttachArgs",
     "type": "object"
   }
 }
@@ -98,7 +96,6 @@ Conventions:
     "required": [
       "actions"
     ],
-    "title": "BatchArgs",
     "type": "object"
   }
 }
@@ -166,7 +163,6 @@ Conventions:
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "button": {
         "$ref": "#/$defs/PointerButtonArg",
@@ -231,7 +227,6 @@ Conventions:
         ]
       }
     },
-    "title": "ClickArgs",
     "type": "object"
   }
 }
@@ -243,7 +238,6 @@ Conventions:
   "description": "Disconnect from the attached app.\nApp-driving tools remain available but return an error until `attach` is called again.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "EmptyArgs",
     "type": "object"
   }
 }
@@ -374,7 +368,6 @@ Conventions:
       "start",
       "end"
     ],
-    "title": "DragArgs",
     "type": "object"
   }
 }
@@ -394,7 +387,6 @@ Conventions:
     "required": [
       "id"
     ],
-    "title": "GetNodeArgs",
     "type": "object"
   },
   "outputSchema": {
@@ -484,7 +476,6 @@ Conventions:
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "`get_node` result: the resolved node, or `null` if the id didn't match.",
     "properties": {
       "node": {
         "anyOf": [
@@ -497,7 +488,6 @@ Conventions:
         ]
       }
     },
-    "title": "GetNodeResult",
     "type": "object"
   }
 }
@@ -528,7 +518,6 @@ Conventions:
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "content_contains": {
         "description": "Case-insensitive substring match against *either* `label` or `value`. Prefer this when you\njust want \"the widget showing this text\" and don't care which field holds it — it's the\nmost robust choice across widget kinds.",
@@ -578,7 +567,6 @@ Conventions:
         ]
       }
     },
-    "title": "HoverArgs",
     "type": "object"
   }
 }
@@ -629,7 +617,6 @@ Conventions:
     "required": [
       "key"
     ],
-    "title": "PressKeyArgs",
     "type": "object"
   }
 }
@@ -641,7 +628,6 @@ Conventions:
   "description": "Walk the widget tree and return nodes matching the filter.\n`role`, if given, is a role name (e.g. `Button`, `Label`), matched case-insensitively; an unknown role errors with the roles present in the tree.\nUse the returned `id` with `click`, `type_text`, or `get_node`.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "content_contains": {
         "description": "Case-insensitive substring match against *either* `label` or `value`. Prefer this when you\njust want \"the widget showing this text\" and don't care which field holds it — it's the\nmost robust choice across widget kinds.",
@@ -682,7 +668,6 @@ Conventions:
         "type": "boolean"
       }
     },
-    "title": "QueryFilter",
     "type": "object"
   },
   "outputSchema": {
@@ -772,7 +757,6 @@ Conventions:
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "`query_tree` result: the matching nodes.",
     "properties": {
       "nodes": {
         "items": {
@@ -784,7 +768,6 @@ Conventions:
     "required": [
       "nodes"
     ],
-    "title": "QueryTreeResult",
     "type": "object"
   }
 }
@@ -812,7 +795,6 @@ Conventions:
       "width",
       "height"
     ],
-    "title": "ResizeArgs",
     "type": "object"
   }
 }
@@ -840,7 +822,6 @@ Conventions:
         ]
       }
     },
-    "title": "ScreenshotArgs",
     "type": "object"
   }
 }
@@ -897,7 +878,6 @@ Conventions:
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "content_contains": {
         "description": "Case-insensitive substring match against *either* `label` or `value`. Prefer this when you\njust want \"the widget showing this text\" and don't care which field holds it — it's the\nmost robust choice across widget kinds.",
@@ -957,7 +937,6 @@ Conventions:
     "required": [
       "delta"
     ],
-    "title": "ScrollArgs",
     "type": "object"
   }
 }
@@ -969,7 +948,6 @@ Conventions:
   "description": "Report whether an app is connected and its peer info.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "EmptyArgs",
     "type": "object"
   }
 }
@@ -981,7 +959,6 @@ Conventions:
   "description": "Type text into the currently focused widget.\nOptionally focus a node first (by `id`, `role`, or a text match — `content_contains`/`label_contains`/`value_contains`) — this uses an `AccessKit` focus request, not a click, so it won't move the cursor or clear an existing text selection.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "content_contains": {
         "description": "Case-insensitive substring match against *either* `label` or `value`. Prefer this when you\njust want \"the widget showing this text\" and don't care which field holds it — it's the\nmost robust choice across widget kinds.",
@@ -1026,7 +1003,6 @@ Conventions:
     "required": [
       "text"
     ],
-    "title": "TypeTextArgs",
     "type": "object"
   }
 }
@@ -1038,7 +1014,6 @@ Conventions:
   "description": "Poll the widget tree until its conditions hold, or until `timeout_secs` elapses.\nWaits until at least `min_matches` visible nodes match the filter (when one is given) *and* at least `min_steps` frames have rendered since the call began.\nThe text filter is `role` and/or one of `content_contains` (matches `label` or `value` — prefer this; e.g. monospace/`Label` text lives in `value`), `label_contains`, `value_contains`.\nRequires a filter (`content_contains`/`role`/`label_contains`/`value_contains`) or a non-zero `min_steps`.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "The widget-matching constraints shared by `query_tree`'s filter and the action `Target`s.\n\nAn optional `role` plus up to one text predicate. All are case-insensitive and combined with\nlogical AND; an all-`None` `Query` matches every node.",
     "properties": {
       "content_contains": {
         "description": "Case-insensitive substring match against *either* `label` or `value`. Prefer this when you\njust want \"the widget showing this text\" and don't care which field holds it — it's the\nmost robust choice across widget kinds.",
@@ -1088,7 +1063,6 @@ Conventions:
         ]
       }
     },
-    "title": "WaitForArgs",
     "type": "object"
   }
 }

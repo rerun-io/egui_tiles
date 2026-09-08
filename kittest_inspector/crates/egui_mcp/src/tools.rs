@@ -39,9 +39,8 @@ use rmcp::{
         wrapper::{Json, Parameters},
     },
     model::{
-        CallToolRequestParams, CallToolResult, Content, Implementation, InitializeRequestParams,
-        InitializeResult, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerInfo,
-        Tool,
+        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
+        ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool,
     },
     schemars,
     service::{RequestContext, RoleServer},
@@ -103,7 +102,7 @@ impl UiServer {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let tcc = ToolCallContext::new(self, request, context);
-        router.call(tcc).await
+        Ok(complete(router.call(tcc).await?))
     }
 
     /// The bridge this server drives.
@@ -154,18 +153,27 @@ impl Default for Server {
 // ---------------------------------------------------------------------------------------
 
 fn text_error(msg: impl Into<String>) -> CallToolResult {
-    CallToolResult::error(vec![Content::text(msg.into())])
+    CallToolResult::error(vec![ContentBlock::text(msg.into())])
 }
 
-fn content_as_text(c: &Content) -> Option<&str> {
-    match &c.raw {
-        rmcp::model::RawContent::Text(t) => Some(t.text.as_str()),
+fn content_as_text(c: &ContentBlock) -> Option<&str> {
+    match c {
+        ContentBlock::Text(t) => Some(t.text.as_str()),
         _ => None,
     }
 }
 
-fn content_is_image(c: &Content) -> bool {
-    matches!(&c.raw, rmcp::model::RawContent::Image(_))
+fn content_is_image(c: &ContentBlock) -> bool {
+    matches!(c, ContentBlock::Image(_))
+}
+
+/// Collapses a router response to its completed result.
+/// None of the UI tools use multi-round-trip input or tasks, so any other variant is a bug.
+fn complete(response: CallToolResponse) -> CallToolResult {
+    match response {
+        CallToolResponse::Complete(result) => result,
+        other => text_error(format!("unexpected tool response: {other:?}")),
+    }
 }
 
 /// A recoverable tool failure (no app connected, node not found, bad argument, a bridge I/O
@@ -593,8 +601,8 @@ impl UiServer {
         let png_b64 = base64::engine::general_purpose::STANDARD.encode(&png.bytes);
         let meta = json!({ "width": png.size[0], "height": png.size[1], "saved_to": saved });
         Ok(CallToolResult::success(vec![
-            Content::text(meta.to_string()),
-            Content::image(png_b64, "image/png"),
+            ContentBlock::text(meta.to_string()),
+            ContentBlock::image(png_b64, "image/png"),
         ]))
     }
 
@@ -958,7 +966,7 @@ impl UiServer {
         if args.actions.iter().any(|a| a.name == "batch") {
             return Ok(text_error("nested `batch` is not allowed"));
         }
-        let mut content: Vec<Content> = Vec::new();
+        let mut content: Vec<ContentBlock> = Vec::new();
         let mut any_error = false;
         // Re-enter the UI router by name — same path as a top-level call, so each step parses
         // its args and runs exactly like a direct invocation.
@@ -973,7 +981,7 @@ impl UiServer {
                 .await
                 .unwrap_or_else(|e| text_error(e.message.to_string()));
             let mut step_texts: Vec<String> = Vec::new();
-            let mut step_images: Vec<Content> = Vec::new();
+            let mut step_images: Vec<ContentBlock> = Vec::new();
             for item in &result.content {
                 if let Some(text) = content_as_text(item) {
                     step_texts.push(text.to_owned());
@@ -990,7 +998,7 @@ impl UiServer {
                 Ok(s) => s,
                 Err(e) => return Ok(text_error(format!("serialize batch step: {e}"))),
             };
-            content.push(Content::text(entry_text));
+            content.push(ContentBlock::text(entry_text));
             content.extend(step_images);
             if result.is_error.unwrap_or(false) {
                 any_error = true;
@@ -1036,17 +1044,6 @@ impl ServerHandler for Server {
             .with_instructions(INSTRUCTIONS)
     }
 
-    async fn initialize(
-        &self,
-        request: InitializeRequestParams,
-        context: RequestContext<RoleServer>,
-    ) -> Result<InitializeResult, McpError> {
-        if context.peer.peer_info().is_none() {
-            context.peer.set_peer_info(request);
-        }
-        Ok(self.get_info())
-    }
-
     async fn list_tools(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -1054,8 +1051,7 @@ impl ServerHandler for Server {
     ) -> Result<ListToolsResult, McpError> {
         Ok(ListToolsResult {
             tools: self.tools(),
-            next_cursor: None,
-            meta: None,
+            ..Default::default()
         })
     }
 
@@ -1063,7 +1059,7 @@ impl ServerHandler for Server {
         &self,
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         // Lifecycle tools run on `self`; everything else is delegated to the attached UI server.
         if self.lifecycle_router.has_route(&request.name) {
             let tcc = ToolCallContext::new(self, request, context);
@@ -1071,9 +1067,11 @@ impl ServerHandler for Server {
         }
         let guard = self.ui.lock().await;
         let Some(ui) = guard.as_ref() else {
-            return Ok(text_error("no app connected — call `attach` first"));
+            return Ok(text_error("no app connected — call `attach` first").into());
         };
-        ui.dispatch(&self.ui_router, request, context).await
+        ui.dispatch(&self.ui_router, request, context)
+            .await
+            .map(Into::into)
     }
 
     fn get_tool(&self, name: &str) -> Option<Tool> {

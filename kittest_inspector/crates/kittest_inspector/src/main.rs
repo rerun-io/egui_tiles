@@ -91,8 +91,6 @@ fn run_io(ui_tx: &mpsc::Sender<WorkerEvent>, release_rx: &ReleaseRx) {
 /// inspector window can be open on the machine at a time. Blocks here (before we open any
 /// windows or touch stdio beyond this stderr line) if another inspector is already running.
 fn acquire_single_instance_lock() -> Option<std::fs::File> {
-    use fs4::fs_std::FileExt;
-
     // We specifically need a stable, cross-process path here — tempfile's per-process dir
     // can't serve as a system-wide mutex.
     #[expect(clippy::disallowed_methods)]
@@ -115,7 +113,7 @@ fn acquire_single_instance_lock() -> Option<std::fs::File> {
         }
     };
 
-    match FileExt::lock_exclusive(&file) {
+    match file.lock() {
         Ok(()) => Some(file),
         Err(err) => {
             log_diag(&format!("failed to acquire lock: {err}"));

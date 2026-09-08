@@ -2,7 +2,7 @@
 
 This repo contains two tools using the [egui_inspection](https://github.com/emilk/egui/blob/main/crates/egui_inspection/README.md) 
 protocol. Today, these are only supported by egui, but the idea is that these could be used by other rust ui 
-frameworks using kittest and accesskit in the future. 
+frameworks using [kittest](https://github.com/rerun-io/kittest) and accesskit in the future. 
 
 ## egui_mcp
 
@@ -11,5 +11,5 @@ to have the agent verify it's work, reproduce a bug or test an app.
 
 ## kittest_inspector
 
-[kittest_inspector](./crates/kittest_inspector) is a gui that can be used to inspect kittest tests and step through 
+[kittest_inspector](./crates/kittest_inspector) is a gui that can be used to inspect [kittest](https://github.com/rerun-io/kittest) tests and step through 
 them frame-by-frame. It's not ready for use yet (the required inspection protocol features haven't been merged yet).
