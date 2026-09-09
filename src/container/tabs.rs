@@ -174,6 +174,41 @@ impl Tabs {
         Some(child) == self.active
     }
 
+    /// Make the tab after (or before) the active one the active tab, wrapping around at the ends.
+    ///
+    /// Hidden tabs are skipped.
+    /// If no tab is active, the first (or last) visible tab is activated.
+    ///
+    /// Returns `true` if the active tab changed.
+    pub fn cycle_active<Pane>(&mut self, tiles: &Tiles<Pane>, forward: bool) -> bool {
+        let visible: Vec<TileId> = self
+            .children
+            .iter()
+            .copied()
+            .filter(|&child_id| tiles.is_visible_in_layout(child_id))
+            .collect();
+
+        let Some(last) = visible.len().checked_sub(1) else {
+            return false;
+        };
+
+        let current = self
+            .active
+            .and_then(|active| visible.iter().position(|&child_id| child_id == active));
+
+        let next = match (current, forward) {
+            (None, true) => 0,
+            (None, false) => last,
+            (Some(index), true) => (index + 1) % visible.len(),
+            (Some(index), false) => index.checked_sub(1).unwrap_or(last),
+        };
+
+        let new_active = Some(visible[next]);
+        let changed = new_active != self.active;
+        self.active = new_active;
+        changed
+    }
+
     pub(super) fn layout<Pane>(
         &mut self,
         tiles: &mut Tiles<Pane>,
