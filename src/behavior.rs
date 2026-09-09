@@ -17,7 +17,7 @@ pub enum EditAction {
     /// A tile was dropped and its position changed accordingly.
     TileDropped,
 
-    /// A tab was selected by a click, or by hovering a dragged tile over it,
+    /// A tab was selected by a click, by a keyboard shortcut, or by hovering a dragged tile over it,
     /// or there was no active tab and egui picked an arbitrary one.
     TabSelected,
 }
@@ -553,6 +553,15 @@ pub trait Behavior<Pane> {
     ///
     /// Default: `true` (all containers are resizable).
     fn is_container_resizable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    /// Should `Ctrl+Tab` and `Ctrl+Shift+Tab` cycle the active tab of the hovered tab container?
+    ///
+    /// The innermost [`crate::Tabs`] container under the pointer is the one that cycles.
+    ///
+    /// Default: `true`.
+    fn cycle_tabs_with_keyboard(&self) -> bool {
         true
     }
 
