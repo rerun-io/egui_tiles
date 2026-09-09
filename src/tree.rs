@@ -1,4 +1,4 @@
-use egui::{NumExt as _, Rect, Ui};
+use egui::{Key, Modifiers, NumExt as _, Rect, Ui};
 
 use crate::behavior::{EditAction, layout_tiles};
 use crate::{ContainerInsertion, ContainerKind, UiResponse};
@@ -343,7 +343,51 @@ impl<Pane> Tree<Pane> {
         }
 
         self.preview_dragged_tile(behavior, &drop_context, ui);
+        self.handle_tab_cycle_shortcuts(behavior, ui);
         ui.advance_cursor_after_rect(rect);
+    }
+
+    /// `Ctrl+Tab` / `Ctrl+Shift+Tab` cycles the active tab of the innermost hovered tab container.
+    ///
+    /// Must run after the tiles have been shown, so the new active tab takes effect next frame,
+    /// same as when a tab is clicked.
+    fn handle_tab_cycle_shortcuts(&mut self, behavior: &mut dyn Behavior<Pane>, ui: &Ui) {
+        if !behavior.cycle_tabs_with_keyboard() {
+            return;
+        }
+
+        let hovered_tabs = self
+            .tiles
+            .iter()
+            .filter(|(_, tile)| matches!(tile, Tile::Container(Container::Tabs(_))))
+            .filter_map(|(&tile_id, _)| Some((tile_id, self.tiles.rect(tile_id)?)))
+            .filter(|(_, rect)| ui.rect_contains_pointer(*rect))
+            .min_by(|(_, a), (_, b)| a.area().total_cmp(&b.area()))
+            .map(|(tile_id, _)| tile_id);
+
+        let Some(tabs_id) = hovered_tabs else {
+            return;
+        };
+
+        // Check the more specific shortcut first: `consume_key` ignores extra Shift.
+        let forward =
+            if ui.input_mut(|i| i.consume_key(Modifiers::CTRL | Modifiers::SHIFT, Key::Tab)) {
+                false
+            } else if ui.input_mut(|i| i.consume_key(Modifiers::CTRL, Key::Tab)) {
+                true
+            } else {
+                return;
+            };
+
+        let Some(mut tile) = self.tiles.remove(tabs_id) else {
+            return;
+        };
+        if let Tile::Container(Container::Tabs(tabs)) = &mut tile
+            && tabs.cycle_active(&self.tiles, forward)
+        {
+            behavior.on_edit(EditAction::TabSelected);
+        }
+        self.tiles.insert(tabs_id, tile);
     }
 
     /// Sets the exact height that can be used by the tree.
