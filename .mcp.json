@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "egui-mcp": {
-      "command": "./target/debug/egui-mcp",
+      "command": "./crates/kittest_inspector/target/debug/egui-mcp",
       "args": [],
       "env": {
         "EGUI_MCP_LOG": "egui_mcp=info,warn"
