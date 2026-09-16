@@ -30,7 +30,7 @@ fn create_tree() -> Tree<Pane> {
 
     let root = tiles.insert_tab_tile(tabs);
 
-    Tree::new("my_tree", root, tiles)
+    Tree::new(egui::Id::unique("my_tree"), root, tiles)
 }
 
 #[test]

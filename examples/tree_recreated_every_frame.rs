@@ -134,7 +134,10 @@ impl Blueprint {
         }
 
         let root = insert(&self.root, &mut tiles, &mut reverse);
-        (Tree::new("rerun_style_tree", root, tiles), reverse)
+        (
+            Tree::new(egui::Id::unique("rerun_style_tree"), root, tiles),
+            reverse,
+        )
     }
 
     /// Fold an edited tree back into the blueprint, minting fresh ids for any newly-created

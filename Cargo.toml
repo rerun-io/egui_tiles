@@ -58,8 +58,9 @@ serde_json = "1.0.149"
 [patch.crates-io]
 # Useful while developing:
 
-# eframe = { git = "https://github.com/emilk/egui.git", branch = "main" }
-# egui = { git = "https://github.com/emilk/egui.git", branch = "main" }
+eframe = { git = "https://github.com/emilk/egui.git", branch = "main" }
+egui = { git = "https://github.com/emilk/egui.git", branch = "main" }
+egui_kittest = { git = "https://github.com/emilk/egui.git", branch = "main" }
 
 # eframe = { path = "../egui/crates/eframe" }
 # egui = { path = "../egui/crates/egui" }

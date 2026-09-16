@@ -24,7 +24,7 @@ use super::{
 /// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
 /// let root: TileId = tiles.insert_tab_tile(tabs);
 ///
-/// let tree = Tree::new("my_tree", root, tiles);
+/// let tree = Tree::new(egui::Id::unique("my_tree"), root, tiles);
 /// ```
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -446,7 +446,7 @@ impl<Pane> Tree<Pane> {
         let enabled = ui.is_enabled();
         let mut ui = egui::Ui::new(
             ui.ctx().clone(),
-            ui.id().with(tile_id),
+            ui.scope_id().with(tile_id),
             egui::UiBuilder::new()
                 .layer_id(ui.layer_id())
                 .max_rect(rect),
@@ -504,7 +504,7 @@ impl<Pane> Tree<Pane> {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
 
         // Preview what is being dragged:
-        egui::Area::new(ui.id().with((dragged_tile_id, "preview")))
+        egui::Area::new(ui.scope_id().with((dragged_tile_id, "preview")))
             .pivot(egui::Align2::CENTER_CENTER)
             .current_pos(mouse_pos)
             .interactable(false)
@@ -779,7 +779,7 @@ impl<Pane> Tree<Pane> {
 /// We store the preview rect in egui temp storage so that it is not serialized,
 /// and so that a user could re-create the [`Tree`] each frame and still get smooth previews.
 fn smooth_preview_rect_id(dragged_tile_id: TileId) -> egui::Id {
-    egui::Id::new((dragged_tile_id, "smoothed_preview_rect"))
+    egui::Id::unique((dragged_tile_id, "smoothed_preview_rect"))
 }
 
 fn clear_smooth_preview_rect(ctx: &egui::Context, dragged_tile_id: TileId) {
@@ -834,7 +834,7 @@ mod tests {
         let b = tiles.insert_pane("b");
         let root = tiles.insert_horizontal_tile(vec![a, b]);
         let dropped = tiles.insert_pane("dropped");
-        let mut tree = Tree::new("test", root, tiles);
+        let mut tree = Tree::new(egui::Id::unique("test"), root, tiles);
 
         // A vertical insertion into a horizontal container has to wrap it:
         tree.move_tile(
@@ -920,7 +920,7 @@ mod tests {
     fn gc_clears_a_root_it_had_to_drop() {
         let mut tiles = Tiles::default();
         let only = tiles.insert_pane("doomed");
-        let mut tree = Tree::new("root_pane", only, tiles);
+        let mut tree = Tree::new(egui::Id::unique("root_pane"), only, tiles);
 
         tree.gc(&mut DropPane("doomed"));
 
@@ -944,7 +944,7 @@ mod tests {
         let first = tiles.insert_tab_tile(vec![pane]);
         let second = tiles.insert_tab_tile(vec![pane]); // the same tile, a second parent
         let root = tiles.insert_horizontal_tile(vec![first, second]);
-        let mut tree = Tree::new("shared", root, tiles);
+        let mut tree = Tree::new(egui::Id::unique("shared"), root, tiles);
 
         tree.gc(&mut KeepEverything);
 

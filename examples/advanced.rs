@@ -253,7 +253,7 @@ impl Default for MyApp {
 
         let root = tiles.insert_tab_tile(tabs);
 
-        let tree = egui_tiles::Tree::new("my_tree", root, tiles);
+        let tree = egui_tiles::Tree::new(egui::Id::unique("my_tree"), root, tiles);
 
         Self {
             tree,
@@ -338,7 +338,7 @@ fn tree_ui(
     let default_open = true;
     egui::collapsing_header::CollapsingState::load_with_default_open(
         ui,
-        ui.id().with((tile_id, "tree")),
+        ui.scope_id().with((tile_id, "tree")),
         default_open,
     )
     .show_header(ui, |ui| {

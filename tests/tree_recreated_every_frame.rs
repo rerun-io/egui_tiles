@@ -164,7 +164,10 @@ impl Blueprint {
         let mut tiles = Tiles::default();
         let mut reverse = HashMap::new();
         let root = insert(&self.root, &mut tiles, &mut reverse);
-        (Tree::new("test_tree", root, tiles), reverse)
+        (
+            Tree::new(egui::Id::unique("test_tree"), root, tiles),
+            reverse,
+        )
     }
 
     /// Fold an edited tree back into the blueprint, minting fresh ids for any newly-created
