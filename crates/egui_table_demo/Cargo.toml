@@ -1,12 +1,12 @@
 [package]
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 edition.workspace = true
-include = ["../LICENSE-APACHE", "../LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 license.workspace = true
 name = "demo"
 publish = false
 rust-version.workspace = true
-version.workspace = true
+version = "0.10.0"
 default-run = "demo"
 
 [lints]

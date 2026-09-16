@@ -1,6 +1,43 @@
 [workspace]
-members = ["crates/egui_tiles"]
+members = ["crates/egui_tiles", "crates/egui_table", "crates/egui_table_demo"]
 resolver = "3"
+
+# NOTE: `crates/kittest_inspector` and `crates/egui_mcp` are a workspace of their own, rooted
+# in `crates/kittest_inspector/Cargo.toml`. The `kittest_inspector` crate rides the
+# `lucas/kittest-inspect` branch of egui (old `inspector_api` protocol), while `egui_mcp` is on
+# crates.io egui 0.36 (new `egui_inspection` protocol). Cargo allows one source per semver range
+# per workspace and `[patch]` is workspace-global, so those two cannot share this lockfile.
+# Fold them back in once both sit on a released egui.
+exclude = ["crates/kittest_inspector", "crates/egui_mcp"]
+
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95.0" # The highest MSRV of the crates in this repo
+
+
+[workspace.dependencies]
+egui_table = { version = "0.10.0", path = "crates/egui_table", default-features = false }
+egui_tiles = { version = "0.17.1", path = "crates/egui_tiles", default-features = false }
+
+eframe = { version = "0.36.0", default-features = false }
+egui = { version = "0.36.0", default-features = false }
+egui_kittest = { version = "0.36.0" }
+env_logger = { version = "0.11.8", default-features = false, features = [
+  "auto-color",
+  "humantime",
+] }
+log = { version = "0.4.29", features = ["std"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+vec1 = { version = "1.12.1", default-features = false }
+wasm-bindgen-futures = "0.4.64"
+web-sys = "0.3.91"
+
+
+[profile.release]
+opt-level = 2 # fast and small wasm
+
 
 [patch.crates-io]
 # Useful while developing:
