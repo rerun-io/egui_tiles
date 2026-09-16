@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4 # repo checkout
+        with:
+          lfs: true # the demo icons are in git-LFS
       - name: Setup toolchain for wasm
         run: |
           rustup update stable
@@ -34,15 +36,15 @@ jobs:
         # If using a user/organization page, remove the `${{ github.event.repository.name }}` part.
         # using --public-url something will allow trunk to modify all the href paths like from favicon.ico to repo_name/favicon.ico .
         # this is necessary for github pages where the site is deployed to username.github.io/repo_name and all files must be requested
-        # relatively as egui_table/favicon.ico. if we skip public-url option, the href paths will instead request username.github.io/favicon.ico which
+        # relatively as egui_tiles/favicon.ico. if we skip public-url option, the href paths will instead request username.github.io/favicon.ico which
         # will obviously return error 404 not found.
-        run: (cd demo && ../trunk build --release --public-url $public_url)
+        run: (cd crates/egui_table_demo && ../../trunk build --release --public-url $public_url)
         env:
           public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: demo/dist
+          folder: crates/egui_table_demo/dist
           # this option will not maintain any history of your previous pages deployment
           # set to false if you want all page build to be committed to your gh-pages branch history
           single-commit: true

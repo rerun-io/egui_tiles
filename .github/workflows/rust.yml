@@ -11,6 +11,9 @@ name: Rust
 env:
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
+  # `crates/kittest_inspector` and `crates/egui_mcp` are excluded from the root workspace.
+  # See the NOTE in the root Cargo.toml.
+  KITTEST_MANIFEST: crates/kittest_inspector/Cargo.toml
 
 jobs:
   rust-check:
@@ -18,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -41,31 +46,109 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: check --all-features
-        run: cargo check --all-features --all-targets
+        run: cargo check --workspace --all-features --all-targets
 
       - name: check default features
-        run: cargo check --all-targets
+        run: cargo check --workspace --all-targets
 
       - name: check --no-default-features
-        run: cargo check --no-default-features --lib --all-targets
+        run: cargo check --workspace --no-default-features --all-targets
 
       - name: Test doc-tests
-        run: cargo test --doc --all-features
+        run: cargo test --workspace --doc --all-features
 
       - name: cargo doc --lib
-        run: cargo doc --lib --no-deps --all-features
+        run: cargo doc --workspace --lib --no-deps --all-features
 
       - name: cargo doc --document-private-items
-        run: cargo doc --document-private-items --no-deps --all-features
-
-      - name: Build tests
-        run: cargo test --all-features --no-run
-
-      - name: Run test
-        run: cargo test --all-features
+        run: cargo doc --workspace --document-private-items --no-deps --all-features
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # ---------------------------------------------------------------------------
+
+  kittest-inspector-check:
+    name: Rust (kittest_inspector workspace)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rust-docs, clippy, rustfmt
+          toolchain: 1.95.0
+          override: true
+
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+          version: 1.0
+          execute_install_scripts: true
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/kittest_inspector
+
+      - name: Rustfmt
+        run: cargo fmt --manifest-path $KITTEST_MANIFEST --all -- --check
+
+      - name: check --all-features
+        run: cargo check --manifest-path $KITTEST_MANIFEST --workspace --all-features --all-targets
+
+      - name: cargo doc
+        run: cargo doc --manifest-path $KITTEST_MANIFEST --workspace --no-deps --all-features
+
+      - name: Clippy
+        run: cargo clippy --manifest-path $KITTEST_MANIFEST --workspace --all-targets --all-features -- -D warnings
+
+  # ---------------------------------------------------------------------------
+
+  tests:
+    name: Tests (macOS)
+    # The snapshot tests render with wgpu, so they need a real GPU. macOS runners have one.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true # the reference snapshots are in git-LFS
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.95.0
+          override: true
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            crates/kittest_inspector
+
+      - name: Build tests
+        run: cargo test --workspace --all-features --no-run
+
+      - name: Run tests
+        run: cargo test --workspace --all-features
+
+      - name: Build tests (kittest_inspector workspace)
+        run: cargo test --manifest-path $KITTEST_MANIFEST --workspace --all-features --no-run
+
+      - name: Run tests (kittest_inspector workspace)
+        run: cargo test --manifest-path $KITTEST_MANIFEST --workspace --all-features
+
+      - name: Upload test snapshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-snapshots
+          path: "**/tests/snapshots/**"
 
   # ---------------------------------------------------------------------------
 
@@ -82,21 +165,22 @@ jobs:
           components: clippy,rustfmt
 
       - name: Check wasm32
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target wasm32-unknown-unknown --lib
+        run: cargo check --workspace --target wasm32-unknown-unknown --lib
 
       - name: Clippy wasm32
         env:
           CLIPPY_CONF_DIR: "scripts/clippy_wasm" # Use scripts/clippy_wasm/clippy.toml
-        run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
+        run: cargo clippy --workspace --target wasm32-unknown-unknown --lib -- -D warnings
 
   # ---------------------------------------------------------------------------
 
   cargo-deny:
     name: Check Rust dependencies (cargo-deny)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest: ["Cargo.toml", "crates/kittest_inspector/Cargo.toml"]
     steps:
     - uses: actions/checkout@v3
     - uses: EmbarkStudios/cargo-deny-action@v2
@@ -104,3 +188,4 @@ jobs:
         rust-version: "1.95.0"
         log-level: warn
         command: check
+        manifest-path: ${{ matrix.manifest }}

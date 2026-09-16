@@ -9,15 +9,25 @@ set -x
 export RUSTFLAGS="--deny warnings"
 export RUSTDOCFLAGS="--deny warnings"
 
-cargo fmt --all -- --check
-cargo clippy --quiet --all-targets --all-features -- --deny warnings
-cargo test --quiet --all-targets --all-features
-cargo test --quiet --doc --all-features # checks all doc-tests
+# `crates/kittest_inspector` and `crates/egui_mcp` are a workspace of their own.
+# See the NOTE in Cargo.toml.
+KITTEST_MANIFEST=crates/kittest_inspector/Cargo.toml
 
-cargo doc --quiet --no-deps --all-features
-cargo doc --quiet --document-private-items --no-deps --all-features
+cargo fmt --all -- --check
+cargo clippy --quiet --workspace --all-targets --all-features -- --deny warnings
+cargo test --quiet --workspace --all-targets --all-features
+cargo test --quiet --workspace --doc --all-features # checks all doc-tests
+
+cargo doc --quiet --workspace --no-deps --all-features
+cargo doc --quiet --workspace --document-private-items --no-deps --all-features
 
 cargo deny --all-features --log-level error check
+
+cargo fmt --manifest-path $KITTEST_MANIFEST --all -- --check
+cargo clippy --manifest-path $KITTEST_MANIFEST --quiet --workspace --all-targets --all-features -- --deny warnings
+cargo test --manifest-path $KITTEST_MANIFEST --quiet --workspace --all-targets --all-features
+cargo doc --manifest-path $KITTEST_MANIFEST --quiet --workspace --no-deps --all-features
+cargo deny --manifest-path $KITTEST_MANIFEST --all-features --log-level error check
 
 typos # cargo install typos-cli
 
