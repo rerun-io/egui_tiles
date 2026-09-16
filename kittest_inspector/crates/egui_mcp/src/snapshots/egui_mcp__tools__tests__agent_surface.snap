@@ -9,6 +9,7 @@ This mcp drives a live egui app: it reads the app's accessibility tree and synth
 Getting oriented:
 - Call `attach` first (check `status` if unsure); the app-driving tools return "no app connected" until then.
 - Start most tasks with `query_tree` to discover widgets and their ids, and/or `screenshot` to see the rendered frame.
+- `query_tree` returns an abridged tree. For one node's full detail — its `bounds` in logical points, its parent — follow up with `get_node` on that node's `id`.
 
 Targeting widgets:
 - Prefer locators — an `id` from `query_tree`, a `role`, or a text match — over a raw `pos`. Locators resolve to the widget's current position and survive layout changes; reach for `pos` only when nothing matches.
@@ -20,7 +21,7 @@ Acting and verifying:
 - Use `batch` to act and observe in one round trip (e.g. `click` then `screenshot`), avoiding an extra turn.
 
 Conventions:
-- Everything is in logical points, one shared coordinate frame: raw `pos`, `resize` dimensions, the `bounds` from `query_tree`/`get_node`, and a default (`pixels_per_point: 1.0`) `screenshot`. So a node's `bounds` center is exactly where to `click`, and a pixel in the screenshot is a logical point. There is no fixed screen size; use `resize` to set the viewport.
+- Everything is in logical points, one shared coordinate frame: raw `pos`, `resize` dimensions, the `bounds` from `get_node`, and a default (`pixels_per_point: 1.0`) `screenshot`. So a node's `bounds` center is exactly where to `click`, and a pixel in the screenshot is a logical point. There is no fixed screen size; use `resize` to set the viewport.
 
 # Tools
 
@@ -376,11 +377,12 @@ Conventions:
 
 {
   "name": "get_node",
-  "description": "Return a single node by id (from `query_tree`).",
+  "description": "Return a single node by id (from `query_tree`), in full detail: its `bounds` in logical points, its `parent_id`, and its state.\nThis is the follow-up to `query_tree`, which omits `bounds` to stay compact.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
       "id": {
+        "description": "Node id, as returned by `query_tree`.",
         "type": "string"
       }
     },
@@ -625,7 +627,7 @@ Conventions:
 
 {
   "name": "query_tree",
-  "description": "Walk the widget tree and return nodes matching the filter.\n`role`, if given, is a role name (e.g. `Button`, `Label`), matched case-insensitively; an unknown role errors with the roles present in the tree.\nUse the returned `id` with `click`, `type_text`, or `get_node`.",
+  "description": "Walk the widget tree and return the nodes matching the filter, nested by ancestry: each node carries the matches from its own subtree in `children`.\nNodes in between that don't match are skipped, so a `children` entry is a descendant, not necessarily a direct child.\n`role`, if given, is a role name (e.g. `Button`, `Label`), matched case-insensitively; an unknown role errors with the roles present in the tree.\nUse the returned `id` with `click`, `type_text`, or `get_node`.\nThe nodes are abridged — call `get_node` with an `id` for one node's full detail, including its `bounds` (logical points, its center is where `click` lands) and its parent.\nEmpty scaffolding is dropped: a node with no children, no `label`, no `value`, and no `role` (a `role` of `Unknown` is reported as none) never appears.",
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
@@ -672,22 +674,21 @@ Conventions:
   },
   "outputSchema": {
     "$defs": {
-      "NodeView": {
+      "TreeNode": {
+        "description": "A node in `query_tree`'s hierarchical result.\n\nOnly matching nodes appear; each one nests the matches found in its own subtree. A\nnon-matching node contributes its matches to its nearest matching ancestor, so a `children`\nentry is not necessarily a direct child in the app's tree.\n\nDeliberately leaner than [`NodeView`]: a whole tree of `bounds` is a lot of numbers for an\nagent to read past, and actions take an `id` anyway. `get_node` has the full detail.\n\nA node that says nothing — no children, no `label`, no `value` and no role — is dropped\nentirely.",
         "properties": {
-          "bounds": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/RectF"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "children": {
+            "description": "`default` keeps the derived schema honest: a leaf omits the field entirely.",
+            "items": {
+              "$ref": "#/$defs/TreeNode"
+            },
+            "type": "array"
           },
           "disabled": {
             "type": "boolean"
           },
           "focused": {
+            "description": "Each flag is omitted when false — that is the state of nearly every node.",
             "type": "boolean"
           },
           "hidden": {
@@ -703,14 +704,12 @@ Conventions:
               "null"
             ]
           },
-          "parent_id": {
+          "role": {
+            "description": "Omitted for a role of `Unknown`, which carries no information.",
             "type": [
               "string",
               "null"
             ]
-          },
-          "role": {
-            "type": "string"
           },
           "value": {
             "type": [
@@ -720,38 +719,7 @@ Conventions:
           }
         },
         "required": [
-          "id",
-          "role",
-          "focused",
-          "disabled",
-          "hidden"
-        ],
-        "type": "object"
-      },
-      "RectF": {
-        "properties": {
-          "h": {
-            "format": "double",
-            "type": "number"
-          },
-          "w": {
-            "format": "double",
-            "type": "number"
-          },
-          "x": {
-            "format": "double",
-            "type": "number"
-          },
-          "y": {
-            "format": "double",
-            "type": "number"
-          }
-        },
-        "required": [
-          "x",
-          "y",
-          "w",
-          "h"
+          "id"
         ],
         "type": "object"
       }
@@ -760,7 +728,7 @@ Conventions:
     "properties": {
       "nodes": {
         "items": {
-          "$ref": "#/$defs/NodeView"
+          "$ref": "#/$defs/TreeNode"
         },
         "type": "array"
       }
