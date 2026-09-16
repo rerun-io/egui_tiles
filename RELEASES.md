@@ -3,9 +3,11 @@
 Each crate has its own version and its own `CHANGELOG.md`; there is no shared
 version number. Release one crate at a time.
 
-`release-plz` (see `.github/workflows/release_plz.yml`) prepares the changelog
-and the version bump as a PR. The steps below are the manual fallback, and what
-to do after that PR lands.
+`release-plz` (see `.github/workflows/release_plz.yml` and `release-plz.toml`)
+prepares the changelog and the version bump as a PR. It covers the root
+workspace only — `egui_mcp` sits in the second workspace (see the NOTE in
+`Cargo.toml`) and is released by hand until it rejoins. The steps below are that
+manual path, and what to do after a release PR lands.
 
 ## Published crates
 

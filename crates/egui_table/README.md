@@ -1,11 +1,11 @@
 # ☰ `egui_table`
 
-[<img alt="github" src="https://img.shields.io/badge/github-rerun_io/egui_table-8da0cb?logo=github" height="20">](https://github.com/rerun-io/egui_table)
+[<img alt="github" src="https://img.shields.io/badge/github-rerun_io/egui_tiles-8da0cb?logo=github" height="20">](https://github.com/rerun-io/egui_tiles/tree/main/crates/egui_table)
 [![Latest version](https://img.shields.io/crates/v/egui_table.svg)](https://crates.io/crates/egui_table)
 [![Documentation](https://docs.rs/egui_table/badge.svg)](https://docs.rs/egui_table)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
-[![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/rerun-io/egui_table/blob/master/LICENSE-APACHE)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rerun-io/egui_table/blob/master/LICENSE-MIT)
+[![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/main/LICENSE-APACHE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/main/LICENSE-MIT)
 
 Table viewer for [egui](https://www.egui.rs/).
 
@@ -23,5 +23,5 @@ egui_table has a "batteries not included" design.
 
 ### Testing
 * Locally: `cargo run -p demo`
-* Web locally: `(cd demo && trunk serve)`
-* Web: <https://rerun-io.github.io/egui_table/>
+* Web locally: `(cd crates/egui_table_demo && trunk serve)`
+* Web: <https://rerun-io.github.io/egui_tiles/>

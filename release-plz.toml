@@ -1,0 +1,20 @@
+# https://release-plz.dev/docs/config
+#
+# One version and one changelog per crate, so every tag carries the crate name:
+# `egui_tiles-v0.17.1`, `egui_table-v0.10.0`, `egui_mcp-v0.2.0`.
+#
+# The tags imported from the merged repos use the older, unversioned form
+# (`egui_table-0.10.0`, `kittest_inspector-0.2.0`); see RELEASES.md.
+
+[workspace]
+git_tag_name = "{{ package }}-v{{ version }}"
+git_release_name = "{{ package }} {{ version }}"
+pr_name = "Release {{ releases.0.package }} {{ releases.0.version }}"
+changelog_update = true
+dependencies_update = false
+semver_check = true
+
+# `crates/egui_table_demo` only exists to be deployed to GitHub Pages.
+[[package]]
+name = "demo"
+release = false
