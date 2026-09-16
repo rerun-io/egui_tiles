@@ -19,7 +19,6 @@ rust-version = "1.95.0" # The highest MSRV of the crates in this repo
 
 [workspace.dependencies]
 egui_table = { version = "0.10.0", path = "crates/egui_table", default-features = false }
-egui_tiles = { version = "0.17.1", path = "crates/egui_tiles", default-features = false }
 
 eframe = { version = "0.36.0", default-features = false }
 egui = { version = "0.36.0", default-features = false }

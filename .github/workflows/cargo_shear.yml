@@ -27,4 +27,4 @@ jobs:
       # See the NOTE in the root Cargo.toml.
       - name: Run Cargo Shear (kittest_inspector workspace)
         run: |
-          cargo shear --path crates/kittest_inspector
+          cargo shear crates/kittest_inspector

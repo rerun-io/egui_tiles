@@ -22,12 +22,14 @@ cargo doc --quiet --workspace --no-deps --all-features
 cargo doc --quiet --workspace --document-private-items --no-deps --all-features
 
 cargo deny --all-features --log-level error check
+cargo shear # cargo install cargo-shear
 
 cargo fmt --manifest-path $KITTEST_MANIFEST --all -- --check
 cargo clippy --manifest-path $KITTEST_MANIFEST --quiet --workspace --all-targets --all-features -- --deny warnings
 cargo test --manifest-path $KITTEST_MANIFEST --quiet --workspace --all-targets --all-features
 cargo doc --manifest-path $KITTEST_MANIFEST --quiet --workspace --no-deps --all-features
 cargo deny --manifest-path $KITTEST_MANIFEST --all-features --log-level error check
+cargo shear crates/kittest_inspector
 
 typos # cargo install typos-cli
 
