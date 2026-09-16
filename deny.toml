@@ -35,12 +35,17 @@ ignore = [
   # wayland-scanner 0.31 pins quick-xml 0.37, so we can't upgrade to the fixed >=0.41 until that moves.
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
+
+  # bincode is an indirect dependency of `egui_mcp` through rmcp. The bincode team ceased
+  # development after a harassment incident; there is no functional security risk, the crate
+  # is only unmaintained.
+  "RUSTSEC-2025-0141",
 ]
 
 
 [bans]
 multiple-versions = "deny"
-wildcards = "deny"
+wildcards = "warn" # `kittest_inspector` uses git dependencies, which have no version number
 deny = [
   { name = "openssl", reason = "Use rustls" },
   { name = "openssl-sys", reason = "Use rustls" },
@@ -48,6 +53,11 @@ deny = [
 skip = []
 skip-tree = [
   { name = "eframe" }, # dev-dependency
+
+  # `kittest_inspector` builds against a git branch of egui, which is a different version from
+  # the released egui that the other crates use. That duplicates most of the transitive tree.
+  # See the NOTE in the root `Cargo.toml`.
+  { name = "kittest_inspector" },
 ]
 
 
