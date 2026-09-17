@@ -449,6 +449,7 @@ impl<Pane> Tree<Pane> {
             ui.id().with(tile_id),
             egui::UiBuilder::new()
                 .layer_id(ui.layer_id())
+                .accessibility_parent(ui.unique_id())
                 .max_rect(rect),
         );
 
