@@ -1,38 +1,42 @@
-# `egui_tiles`
+# egui ecosystem crates
 
-[<img alt="github" src="https://img.shields.io/badge/github-rerun_io/egui_tiles-8da0cb?logo=github" height="20">](https://github.com/rerun-io/egui_tiles)
-[![Latest version](https://img.shields.io/crates/v/egui_tiles.svg)](https://crates.io/crates/egui_tiles)
-[![Documentation](https://docs.rs/egui_tiles/badge.svg)](https://docs.rs/egui_tiles)
-[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
-[![Build Status](https://github.com/rerun-io/egui_tiles/workflows/Rust/badge.svg)](https://github.com/rerun-io/egui_tiles/actions?workflow=Rust)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/master/LICENSE-MIT)
-[![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/rerun-io/egui_tiles/blob/master/LICENSE-APACHE)
+A monorepo for crates built on [egui](https://www.egui.rs/), and for the tools
+that test them. Each crate has its own version and its own changelog.
 
-Layouting and docking for [egui](https://github.com/rerun-io/egui).
+| crate | what it is | published |
+| --- | --- | --- |
+| [`crates/egui_tiles`](crates/egui_tiles) | Tiling layout engine with drag-and-drop and resizing | [`egui_tiles`](https://crates.io/crates/egui_tiles) |
+| [`crates/egui_table`](crates/egui_table) | Table viewer for millions of rows | [`egui_table`](https://crates.io/crates/egui_table) |
+| [`crates/egui_table_demo`](crates/egui_table_demo) | Web demo for `egui_table` | no |
+| [`crates/egui_mcp`](crates/egui_mcp) | MCP server that drives live egui apps | [`egui_mcp`](https://crates.io/crates/egui_mcp) |
+| [`crates/kittest_inspector`](crates/kittest_inspector) | GUI to step through [kittest](https://github.com/rerun-io/kittest) tests frame by frame | no |
 
-Supports:
-* Horizontal and vertical layouts
-* Grid layouts
-* Tabs
-* Drag-and-drop docking
+`egui_mcp` and `kittest_inspector` both speak the
+[egui_inspection](https://github.com/emilk/egui/blob/main/crates/egui_inspection/README.md)
+protocol. Only egui implements it today, but the idea is that other Rust UI
+frameworks could use it through kittest and AccessKit.
 
-![egui_tiles](https://github.com/rerun-io/egui_tiles/assets/1148717/f86bee40-2506-4484-8a82-37ffdc805b81)
+## Building
 
-### Trying it
-`cargo r --example simple`
+One workspace holds all five crates:
 
-### Comparison with [egui_dock](https://github.com/Adanos020/egui_dock)
-[egui_dock](https://github.com/Adanos020/egui_dock) is an excellent crate serving similar needs. `egui_tiles` aims to become a more flexible and feature-rich alternative to `egui_dock`.
+```sh
+./check.sh                 # everything CI checks
+cargo test --workspace
+cargo run -p demo          # the egui_table demo
+```
 
-`egui_dock` only supports binary splits (left/right or top/bottom), while `egui_tiles` support full horizontal and vertical layouts, as well as grid layouts. `egui_tiles` also strives to be more customizable, enabling users to override the default style and behavior by implementing methods on a `Behavior` `trait`.
+`kittest_inspector` builds against the `lucas/kittest-inspect` branch of egui
+while everything else uses the released egui, so the first build pulls two egui
+trees. That is fine: cargo keeps both in the lockfile, and the two crates are
+native-only — the wasm build skips them.
 
-`egui_dock` supports some features that `egui_tiles` does not yet support, such as close-buttons on each tab, and built-in scroll areas.
+## Snapshots and git-LFS
 
----
+The reference images for the snapshot tests, and the demo icons, are stored in
+git-LFS. Install [git-lfs](https://git-lfs.com/) before cloning, or run
+`git lfs pull` afterwards.
 
-<div align="center">
-<img src="https://user-images.githubusercontent.com/1148717/236840584-f4795fb3-89e3-40ac-b570-ac2869e6e8fa.png" width="50%">
+## Releasing
 
-`egui_tiles` development is sponsored by [Rerun](https://www.rerun.io/), a startup doing<br>
-visualizations for computer vision and robotics.
-</div>
+See [RELEASES.md](RELEASES.md).

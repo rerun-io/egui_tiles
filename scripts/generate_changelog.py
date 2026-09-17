@@ -8,6 +8,15 @@ The result can be copy-pasted into CHANGELOG.md,
 though it often needs some manual editing too.
 """
 
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "requests",
+#     "GitPython",
+#     "tqdm",
+# ]
+# ///
+
 from __future__ import annotations
 
 import argparse

@@ -1,0 +1,36 @@
+# https://release-plz.dev/docs/config
+#
+# release-plz does NOT choose versions here. You bump the version and write the
+# changelog yourself (see RELEASES.md); release-plz publishes, tags and creates
+# the GitHub release once that lands on `main`. It publishes only crates whose
+# manifest version is not on crates.io yet, so re-running it is harmless.
+#
+# Why the version bump stays manual: nearly every breaking release of these
+# crates is breaking because egui is. `cargo-semver-checks` reads this crate's
+# own rustdoc, where `egui::Ui` in a public signature looks unchanged across an
+# egui major bump, so it reports no breakage and release-plz would propose a
+# patch release that silently requires a new egui. `semver_check` is off for
+# the same reason: it cannot see the breakage that matters here.
+
+[workspace]
+git_tag_name = "{{ package }}-v{{ version }}"
+git_release_name = "{{ package }} {{ version }}"
+
+# `scripts/generate_changelog.py` owns the changelog. It writes one entry per
+# merged PR with author and link, which is the format these crates have used
+# since their first release, and which conventional-commit parsing cannot
+# reproduce from this repo's commit messages.
+changelog_update = false
+
+dependencies_update = false
+semver_check = false
+
+# Not published: the demo only exists to be deployed to GitHub Pages, and the
+# inspector is installed from git. Both also set `publish = false`.
+[[package]]
+name = "demo"
+release = false
+
+[[package]]
+name = "kittest_inspector"
+release = false

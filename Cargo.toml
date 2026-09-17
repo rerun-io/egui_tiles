@@ -1,58 +1,72 @@
-[package]
-authors = [
-  "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>",
-  "rerun.io <opensource@rerun.io>",
+[workspace]
+members = [
+  "crates/egui_mcp",
+  "crates/egui_table",
+  "crates/egui_table_demo",
+  "crates/egui_tiles",
+  "crates/kittest_inspector",
 ]
-categories = ["gui"]
-description = "A tiling layout engine for egui with drag-and-drop and resizing"
+resolver = "3"
+
+
+[workspace.package]
 edition = "2024"
-homepage = "https://github.com/rerun-io/egui_tiles"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
-keywords = ["egui", "gui", "tile", "dock", "layout"]
 license = "MIT OR Apache-2.0"
-name = "egui_tiles"
-readme = "README.md"
-repository = "https://github.com/rerun-io/egui_tiles"
-rust-version = "1.95.0"
-version = "0.17.1"
-
-[package.metadata.docs.rs]
-all-features = true
+rust-version = "1.95.0" # The highest MSRV of the crates in this repo
 
 
-[features]
-default = ["serde"]
-serde = ["dep:serde", "egui/serde"]
+[workspace.dependencies]
+egui_table = { version = "0.10.0", path = "crates/egui_table", default-features = false }
 
-
-[dependencies]
-ahash = { version = "0.8.12", default-features = false, features = [
-  "no-rng", # we don't need DOS-protection for what we use ahash for
-  "std",
-] }
+# NOTE: egui itself is deliberately not in here. `kittest_inspector` rides the
+# `lucas/kittest-inspect` branch of egui (old `inspector_api` protocol) while every other
+# crate uses the released egui 0.36 (new `egui_inspection` protocol), so those two cannot
+# share one entry. The `egui`/`eframe`/`egui_kittest` entries below are the released ones;
+# `crates/kittest_inspector` names its git dependencies itself.
+eframe = { version = "0.36.0", default-features = false }
 egui = { version = "0.36.0", default-features = false }
-itertools = "0.15.0"
-log = { version = "0.4.28", features = ["std"] }
-serde = { version = "1.0", features = ["derive"], optional = true }
+egui_inspection = { version = "0.36.0", default-features = false }
+egui_kittest = { version = "0.36.0" }
 
-
-[dev-dependencies]
-# For the example:
-eframe = { version = "0.36.0", default-features = false, features = [
-  "default_fonts", # Embed the default egui fonts.
-  "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-  "persistence",   # Enable restoring app state when restarting the app.
-  "wayland",       # Required for Linux and CI.
-] }
+# `enumn` gives `Role::n`, used to validate a role string against the full AccessKit role set.
+accesskit = { version = "0.24.1", features = ["enumn"] } # 0.25 would duplicate the accesskit 0.24 that egui 0.36 uses
+accesskit_consumer = "0.38.0" # 0.39 needs accesskit 0.25, but egui 0.36 is still on accesskit 0.24
+arboard = { version = "3.6.1", default-features = false }
+base64 = "0.23.1"
 env_logger = { version = "0.11.8", default-features = false, features = [
   "auto-color",
   "humantime",
 ] }
+image = { version = "0.25.6", default-features = false, features = ["gif"] }
+insta = "1.48"
+log = { version = "0.4.29", features = ["std"] }
+rmcp = { version = "3.2", features = ["server", "macros", "transport-io", "schemars"] }
+schemars = "1.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.53", features = [
+  "rt-multi-thread",
+  "io-std",
+  "io-util",
+  "net",
+  "sync",
+  "macros",
+  "time",
+  "signal",
+] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+vec1 = { version = "1.12.1", default-features = false }
+wasm-bindgen-futures = "0.4.64"
+web-sys = "0.3.91"
 
-# For tests:
-egui_kittest = "0.36.0"
-ron = "0.12.2"
-serde_json = "1.0.149"
+
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+# Optimize all dependencies even in debug builds, so the inspector and the demos run
+# at a usable speed:
+[profile.dev.package."*"]
+opt-level = 2
 
 
 [patch.crates-io]
@@ -65,9 +79,6 @@ serde_json = "1.0.149"
 # egui = { path = "../egui/crates/egui" }
 # egui_kittest = { path = "../egui/crates/egui_kittest" }
 
-
-[lints]
-workspace = true
 
 # ----------------------------------------------------------------------------------------
 # Lints:
