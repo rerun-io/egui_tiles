@@ -37,7 +37,7 @@ fn harness() -> egui_kittest::Harness<'static, Tree<&'static str>> {
     let a = tiles.insert_pane("a");
     let b = tiles.insert_pane("b");
     let root = tiles.insert_horizontal_tile(vec![a, b]);
-    let tree = Tree::new("test", root, tiles);
+    let tree = Tree::new(egui::Id::unique("test"), root, tiles);
 
     let mut harness = egui_kittest::Harness::builder()
         .with_size(VIEWPORT)

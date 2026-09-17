@@ -25,7 +25,7 @@ fn harness() -> egui_kittest::Harness<'static, Tree<&'static str>> {
     let b = tiles.insert_pane("b");
     let c = tiles.insert_pane("c");
     let root = tiles.insert_tab_tile(vec![a, b, c]);
-    let tree = Tree::new("test", root, tiles);
+    let tree = Tree::new(egui::Id::unique("test"), root, tiles);
 
     let mut harness = egui_kittest::Harness::builder()
         .with_size(VIEWPORT)

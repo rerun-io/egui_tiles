@@ -102,7 +102,7 @@ impl ScrollState {
 
     fn arrow_button(ui: &mut egui::Ui, arrow_size: Vec2, id: egui::Id, glyph: &str) -> bool {
         let glyph_size = arrow_size.y * 0.5;
-        ui.scope_builder(egui::UiBuilder::new().id(id), |ui| {
+        ui.scope_builder(egui::UiBuilder::new().scope_id(id), |ui| {
             ui.add_sized(
                 arrow_size,
                 egui::Button::new(egui::RichText::new(glyph).size(glyph_size)),
@@ -345,7 +345,7 @@ impl Tabs {
                             // We also sense clicks to avoid eager-dragging on mouse-down.
                             let sense = egui::Sense::click_and_drag();
                             if ui
-                                .interact(ui.max_rect(), ui.id().with("background"), sense)
+                                .interact(ui.max_rect(), ui.scope_id().with("background"), sense)
                                 .on_hover_cursor(egui::CursorIcon::Grab)
                                 .drag_started()
                             {
@@ -501,7 +501,7 @@ mod tests {
         // passes whether or not the bug is there.
         let other = tiles.insert_pane("keep too");
         let root = tiles.insert_tab_tile(vec![empty, pane, other]);
-        let mut tree = Tree::new("simplify_active", root, tiles);
+        let mut tree = Tree::new(egui::Id::unique("simplify_active"), root, tiles);
 
         match tree.tiles.get(root) {
             Some(Tile::Container(Container::Tabs(tabs))) => assert_eq!(

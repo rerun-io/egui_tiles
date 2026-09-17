@@ -297,7 +297,7 @@ impl Grid {
 
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (left, right)) in self.col_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = ui.id().with((parent_id, "resize_col", i));
+            let resize_id = ui.scope_id().with((parent_id, "resize_col", i));
 
             let x = egui::lerp(left.max..=right.min, 0.5);
 
@@ -349,7 +349,7 @@ impl Grid {
 
         let parent_rect = tiles.rect_or_die(parent_id);
         for (i, (top, bottom)) in self.row_ranges.iter().copied().tuple_windows().enumerate() {
-            let resize_id = ui.id().with((parent_id, "resize_row", i));
+            let resize_id = ui.scope_id().with((parent_id, "resize_row", i));
 
             let y = egui::lerp(top.max..=bottom.min, 0.5);
 
@@ -579,7 +579,7 @@ mod tests {
             let mut tiles = Tiles::default();
             let panes: Vec<TileId> = vec![tiles.insert_pane(Pane {}), tiles.insert_pane(Pane {})];
             let root: TileId = tiles.insert_grid_tile(panes);
-            Tree::new("test_tree", root, tiles)
+            Tree::new(egui::Id::unique("test_tree"), root, tiles)
         };
 
         let style = egui::Style::default();

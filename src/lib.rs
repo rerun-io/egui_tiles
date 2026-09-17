@@ -186,7 +186,7 @@ impl SimplificationOptions {
     /// This makes it easy to run a single simplification type on a tree:
     /// ```
     /// # use egui_tiles::*;
-    /// # let mut tree: Tree<()> = Tree::empty("tree");
+    /// # let mut tree: Tree<()> = Tree::empty(egui::Id::unique("tree"));
     /// tree.simplify(&SimplificationOptions {
     ///     prune_empty_tabs: true,
     ///     ..SimplificationOptions::OFF

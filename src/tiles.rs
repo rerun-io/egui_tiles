@@ -18,7 +18,7 @@ use super::{
 /// let tabs: Vec<TileId> = vec![tiles.insert_pane(Pane { }), tiles.insert_pane(Pane { })];
 /// let root: TileId = tiles.insert_tab_tile(tabs);
 ///
-/// let tree = Tree::new("my_tree", root, tiles);
+/// let tree = Tree::new(egui::Id::unique("my_tree"), root, tiles);
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -915,7 +915,7 @@ mod tests {
         let a = tiles.insert_pane("a");
         let b = tiles.insert_pane("b");
         let root = tiles.insert_horizontal_tile(vec![a, b]);
-        let mut tree = Tree::new("test", root, tiles);
+        let mut tree = Tree::new(egui::Id::unique("test"), root, tiles);
 
         tree.simplify(&options);
 
@@ -948,7 +948,7 @@ mod tests {
     fn auto_adding_tabs_to_a_root_pane_makes_the_tabs_the_root() {
         let mut tiles = Tiles::default();
         let a = tiles.insert_pane("a");
-        let mut tree = Tree::new("test", a, tiles);
+        let mut tree = Tree::new(egui::Id::unique("test"), a, tiles);
 
         tree.simplify(&SimplificationOptions {
             all_panes_must_have_tabs: true,
@@ -977,7 +977,7 @@ mod tests {
         let inner = tiles.insert_tab_tile(vec![a, b]);
         let c = tiles.insert_pane("c");
         let outer = tiles.insert_tab_tile(vec![inner, c]);
-        let mut tree = Tree::new("test", outer, tiles);
+        let mut tree = Tree::new(egui::Id::unique("test"), outer, tiles);
 
         tree.simplify(&SimplificationOptions {
             flatten_tabs_in_tabs: true,
@@ -1009,7 +1009,14 @@ mod tests {
             let inner = tiles.insert_tab_tile(vec![a, b]);
             let c = tiles.insert_pane("c");
             let outer = tiles.insert_tab_tile(vec![inner, c]);
-            (Tree::new("test", outer, tiles), a, b, inner, c, outer)
+            (
+                Tree::new(egui::Id::unique("test"), outer, tiles),
+                a,
+                b,
+                inner,
+                c,
+                outer,
+            )
         };
         let options = SimplificationOptions {
             flatten_tabs_in_tabs: true,
