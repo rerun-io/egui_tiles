@@ -18,3 +18,7 @@ semver_check = true
 [[package]]
 name = "demo"
 release = false
+
+[[package]]
+name = "kittest_inspector"
+release = false

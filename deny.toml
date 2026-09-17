@@ -56,7 +56,7 @@ skip-tree = [
 
   # `kittest_inspector` builds against a git branch of egui, which is a different version from
   # the released egui that the other crates use. That duplicates most of the transitive tree.
-  # See the NOTE in the root `Cargo.toml`.
+  # See the NOTE in `[workspace.dependencies]` in the root `Cargo.toml`.
   { name = "kittest_inspector" },
 ]
 

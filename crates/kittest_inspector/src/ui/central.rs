@@ -44,6 +44,9 @@ pub fn central_panel(ui: &mut egui::Ui, state: &AppStateRef<'_>) {
 
         // logical_point → screen_position:
         //     screen = image_rect.min + ak_rect * pixels_per_point * scale
+        // AccessKit measures in f64, egui in f32. Screen coordinates are small enough that
+        // the narrowing loses nothing that can be seen.
+        #[expect(clippy::cast_possible_truncation)]
         let logical_to_screen = |r: AkRect| -> egui::Rect {
             let f = frame.pixels_per_point * scale;
             egui::Rect::from_min_max(

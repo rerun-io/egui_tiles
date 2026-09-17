@@ -24,7 +24,10 @@ fn make_synthetic_frame() -> Frame {
         for x in 0..width {
             let i = ((y * width + x) * 4) as usize;
             // Subtle diagonal gradient so the snapshot actually contains an image, not a flat fill.
-            rgba[i] = ((x + y) * 255 / (width + height)) as u8;
+            // The division bounds the value to 0..=255.
+            #[expect(clippy::cast_possible_truncation)]
+            let shade = ((x + y) * 255 / (width + height)) as u8;
+            rgba[i] = shade;
             rgba[i + 1] = 90;
             rgba[i + 2] = 160;
             rgba[i + 3] = 255;

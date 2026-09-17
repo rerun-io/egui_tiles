@@ -129,7 +129,7 @@ impl Bridge {
                 }
             }
         };
-        let _ = stream.set_nodelay(true);
+        let _ignored = stream.set_nodelay(true);
         let (mut reader, writer) = stream.into_split();
 
         // The peer writes the handshake (magic + version) first thing on every connection;

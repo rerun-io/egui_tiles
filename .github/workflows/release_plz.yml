@@ -2,9 +2,6 @@
 #
 # Opens a release PR with the version bump and the changelog entry, then
 # publishes and tags once that PR lands.
-#
-# This covers the root workspace only. `egui_mcp` lives in the second workspace
-# (see the NOTE in Cargo.toml) and is released by hand until it rejoins.
 name: Release-plz
 
 permissions:

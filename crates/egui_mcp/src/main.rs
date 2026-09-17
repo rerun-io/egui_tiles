@@ -20,7 +20,7 @@ fn init_tracing() {
     let filter = EnvFilter::try_from_env("EGUI_MCP_LOG")
         .unwrap_or_else(|_| EnvFilter::new("egui_mcp=info,warn"));
     // stderr only — stdout is reserved for MCP JSON-RPC traffic.
-    let _ = tracing_subscriber::fmt()
+    let _ignored = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
         .try_init();

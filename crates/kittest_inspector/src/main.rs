@@ -73,14 +73,14 @@ fn run_io(ui_tx: &mpsc::Sender<WorkerEvent>, release_rx: &ReleaseRx) {
                 }
             }
             Ok(HarnessMessage::Goodbye) => {
-                let _ = ui_tx.send(WorkerEvent::Disconnected);
+                let _ignored = ui_tx.send(WorkerEvent::Disconnected);
                 return;
             }
             Err(err) => {
                 if err.kind() != io::ErrorKind::UnexpectedEof {
                     log_diag(&format!("read failed: {err}"));
                 }
-                let _ = ui_tx.send(WorkerEvent::Disconnected);
+                let _ignored = ui_tx.send(WorkerEvent::Disconnected);
                 return;
             }
         }

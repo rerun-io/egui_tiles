@@ -36,6 +36,6 @@ pub fn log_diag(msg: &str) {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis())
             .unwrap_or(0);
-        let _ = writeln!(f, "[{ts}] {msg}");
+        let _ignored = writeln!(f, "[{ts}] {msg}");
     }
 }

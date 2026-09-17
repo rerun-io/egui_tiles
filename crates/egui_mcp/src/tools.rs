@@ -254,6 +254,8 @@ fn resolve_in_tree(
     let bounds = view.bounds.ok_or("node has no bounds — can't target")?;
     // `node_view` already returns logical-point bounds, so the center needs no further scaling.
     let (cx, cy) = bounds.center();
+    // AccessKit measures in f64, egui in f32; a screen coordinate fits either way.
+    #[expect(clippy::cast_possible_truncation)]
     let center = egui::Pos2::new(cx as f32, cy as f32);
     Ok((Some(view.id), center))
 }
@@ -855,6 +857,8 @@ impl UiServer {
                 _ => Vec::new(),
             };
             let num_matches = tree::count(&matches);
+            #[expect(clippy::cast_possible_truncation)]
+            // a tree with >4 billion matches is not a thing
             let matched_ok = !has_filter || num_matches as u32 >= args.min_matches;
             if matched_ok && steps_waited >= args.min_steps {
                 return Ok(CallToolResult::structured(

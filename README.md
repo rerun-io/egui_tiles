@@ -16,21 +16,20 @@ that test them. Each crate has its own version and its own changelog.
 protocol. Only egui implements it today, but the idea is that other Rust UI
 frameworks could use it through kittest and AccessKit.
 
-## Two workspaces
+## Building
 
-The root workspace holds `egui_tiles`, `egui_table` and the demo.
-
-`crates/kittest_inspector` and `crates/egui_mcp` are a second workspace, rooted
-in `crates/kittest_inspector/Cargo.toml`. `kittest_inspector` builds against a
-git branch of egui while `egui_mcp` uses the released egui, and cargo allows one
-source per semver range per workspace. They rejoin the root workspace once both
-sit on a released egui.
+One workspace holds all five crates:
 
 ```sh
-./check.sh                                     # everything CI checks, both workspaces
-cargo test --workspace                         # root workspace
-cargo test --manifest-path crates/kittest_inspector/Cargo.toml --workspace
+./check.sh                 # everything CI checks
+cargo test --workspace
+cargo run -p demo          # the egui_table demo
 ```
+
+`kittest_inspector` builds against the `lucas/kittest-inspect` branch of egui
+while everything else uses the released egui, so the first build pulls two egui
+trees. That is fine: cargo keeps both in the lockfile, and the two crates are
+native-only — the wasm build skips them.
 
 ## Snapshots and git-LFS
 

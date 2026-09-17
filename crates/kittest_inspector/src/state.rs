@@ -271,7 +271,7 @@ impl AppState {
         crate::log_diag("Copy as GIF clicked");
         // Run the copy on a detached worker so a slow encode doesn't stall the UI.
         let history = self.history.clone();
-        let _ = std::thread::Builder::new()
+        let _ignored = std::thread::Builder::new()
             .name("kittest_inspector_copy_gif".into())
             .spawn(
                 move || match crate::ui::copy_history_as_gif(&history, 10.0) {

@@ -39,6 +39,8 @@ pub fn copy_history_as_gif(history: &[Frame], frame_rate: f32) -> Result<PathBuf
         .set_repeat(Repeat::Infinite)
         .map_err(|err| format!("set_repeat: {err}"))?;
 
+    // The `clamp` above keeps the value in range, so the cast cannot truncate.
+    #[expect(clippy::cast_possible_truncation)]
     let denom = frame_rate.max(0.1).round().clamp(1.0, u32::MAX as f32) as u32;
     let frame_delay = image::Delay::from_numer_denom_ms(1000, denom);
     let hold_delay = image::Delay::from_numer_denom_ms(1000, 1);

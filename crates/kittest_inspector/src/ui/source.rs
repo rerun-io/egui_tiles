@@ -49,12 +49,16 @@ pub fn source_section(ui: &mut egui::Ui, frame: &Frame, scroll_pending: bool) {
         ui.set_width(row_width);
         let content_top = ui.min_rect().top();
         let content_left = ui.min_rect().left();
+        // A viewport is at most a few thousand rows tall, and `max`/`min` bound both ends.
+        #[expect(clippy::cast_possible_truncation)]
         let start = (viewport.min.y / row_height).floor().max(0.0) as usize;
+        #[expect(clippy::cast_possible_truncation)]
         let end = ((viewport.max.y / row_height).ceil() as usize)
             .min(lines.len())
             .max(start);
 
         for (idx, line) in lines.iter().enumerate().take(end).skip(start) {
+            #[expect(clippy::cast_possible_truncation)] // no source file has 4 billion lines
             let line_no = idx as u32 + 1;
             let y = idx as f32 * row_height;
             let row_rect = egui::Rect::from_min_size(

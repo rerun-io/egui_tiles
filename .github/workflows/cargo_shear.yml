@@ -22,9 +22,3 @@ jobs:
       - name: Run Cargo Shear
         run: |
           cargo shear
-
-      # `crates/kittest_inspector` and `crates/egui_mcp` are a workspace of their own.
-      # See the NOTE in the root Cargo.toml.
-      - name: Run Cargo Shear (kittest_inspector workspace)
-        run: |
-          cargo shear crates/kittest_inspector

@@ -57,7 +57,7 @@ impl InspectorApp {
                 WorkerEvent::Frame(frame) => Command::WorkerFrame(frame),
                 WorkerEvent::Disconnected => Command::WorkerDisconnected,
             };
-            let _ = self.tx.send(cmd);
+            let _ignored = self.tx.send(cmd);
         }
     }
 
@@ -156,7 +156,7 @@ impl eframe::App for InspectorApp {
         }
         // AutoRelease is enqueued rather than run synchronously so *all* state mutations stay
         // funneled through `AppState::handle`.
-        let _ = self.tx.send(Command::AutoRelease);
+        let _ignored = self.tx.send(Command::AutoRelease);
 
         ctx.request_repaint_after(std::time::Duration::from_millis(50));
     }
