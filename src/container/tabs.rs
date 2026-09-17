@@ -100,16 +100,44 @@ impl ScrollState {
         (self.available.x / 3.0).at_least(20.0)
     }
 
-    fn arrow_button(ui: &mut egui::Ui, arrow_size: Vec2, id: egui::Id, glyph: &str) -> bool {
-        let glyph_size = arrow_size.y * 0.5;
-        ui.scope_builder(egui::UiBuilder::new().scope_id(id), |ui| {
-            ui.add_sized(
-                arrow_size,
-                egui::Button::new(egui::RichText::new(glyph).size(glyph_size)),
-            )
-        })
-        .inner
-        .clicked()
+    /// `rotation` is in radians, as in [`egui::Shape::rotated_triangle`]:
+    /// `TAU / 4.0` points left, `-TAU / 4.0` right.
+    ///
+    /// The arrow is painted rather than written, so it does not depend on a font
+    /// that carries the arrow glyphs.
+    fn arrow_button(
+        ui: &mut egui::Ui,
+        arrow_size: Vec2,
+        id: egui::Id,
+        rotation: f32,
+        label: &str,
+    ) -> bool {
+        // Same size and proportions as the egui submenu arrow.
+        let icon_width = ui.spacing().icon_width;
+        let triangle = egui::Atom::paint(Vec2::splat(icon_width), move |ui, args| {
+            let rect = egui::Rect::from_center_size(
+                args.rect.center(),
+                egui::vec2(args.rect.width() * 0.55, args.rect.height() * 0.35),
+            );
+            ui.painter().add(egui::Shape::rotated_triangle(
+                rect,
+                rotation,
+                args.fallback_text_color,
+            ));
+        });
+
+        let response = ui
+            .scope_builder(egui::UiBuilder::new().scope_id(id), |ui| {
+                ui.add_sized(arrow_size, egui::Button::new(triangle))
+            })
+            .inner;
+
+        // The button has no text, so give screen readers something to announce.
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
+        });
+
+        response.clicked()
     }
 
     fn hidden_arrow_marker(ui: &egui::Ui, arrow_size: Vec2, id: egui::Id) {
@@ -125,7 +153,13 @@ impl ScrollState {
             return;
         }
 
-        if Self::arrow_button(ui, arrow_size, id, "⏴") {
+        if Self::arrow_button(
+            ui,
+            arrow_size,
+            id,
+            core::f32::consts::TAU / 4.0,
+            "Scroll tabs left",
+        ) {
             self.offset_debt -= self.scroll_increment();
         }
     }
@@ -136,7 +170,13 @@ impl ScrollState {
             return;
         }
 
-        if Self::arrow_button(ui, arrow_size, id, "⏵") {
+        if Self::arrow_button(
+            ui,
+            arrow_size,
+            id,
+            -core::f32::consts::TAU / 4.0,
+            "Scroll tabs right",
+        ) {
             self.offset_debt += self.scroll_increment();
         }
     }
