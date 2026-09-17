@@ -1,20 +1,32 @@
 # https://release-plz.dev/docs/config
 #
-# One version and one changelog per crate, so every tag carries the crate name:
-# `egui_tiles-v0.17.1`, `egui_table-v0.10.0`, `egui_mcp-v0.2.0`.
+# release-plz does NOT choose versions here. You bump the version and write the
+# changelog yourself (see RELEASES.md); release-plz publishes, tags and creates
+# the GitHub release once that lands on `main`. It publishes only crates whose
+# manifest version is not on crates.io yet, so re-running it is harmless.
 #
-# The tags imported from the merged repos use the older, unversioned form
-# (`egui_table-0.10.0`, `kittest_inspector-0.2.0`); see RELEASES.md.
+# Why the version bump stays manual: nearly every breaking release of these
+# crates is breaking because egui is. `cargo-semver-checks` reads this crate's
+# own rustdoc, where `egui::Ui` in a public signature looks unchanged across an
+# egui major bump, so it reports no breakage and release-plz would propose a
+# patch release that silently requires a new egui. `semver_check` is off for
+# the same reason: it cannot see the breakage that matters here.
 
 [workspace]
 git_tag_name = "{{ package }}-v{{ version }}"
 git_release_name = "{{ package }} {{ version }}"
-pr_name = "Release {{ releases.0.package }} {{ releases.0.version }}"
-changelog_update = true
-dependencies_update = false
-semver_check = true
 
-# `crates/egui_table_demo` only exists to be deployed to GitHub Pages.
+# `scripts/generate_changelog.py` owns the changelog. It writes one entry per
+# merged PR with author and link, which is the format these crates have used
+# since their first release, and which conventional-commit parsing cannot
+# reproduce from this repo's commit messages.
+changelog_update = false
+
+dependencies_update = false
+semver_check = false
+
+# Not published: the demo only exists to be deployed to GitHub Pages, and the
+# inspector is installed from git. Both also set `publish = false`.
 [[package]]
 name = "demo"
 release = false
