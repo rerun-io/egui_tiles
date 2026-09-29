@@ -26,7 +26,7 @@ impl Behavior<&'static str> for TestBehavior {
 /// Tile widgets remain descendants of the `Ui` that contains the tree.
 #[test]
 fn tile_accessibility_nodes_stay_under_parent_ui() {
-    let tree = Tree::new_tabs("test", vec!["Pane content"]);
+    let tree = Tree::new_tabs(egui::Id::unique("test"), vec!["Pane content"]);
     let mut harness = Harness::builder().build_ui_state(
         |ui, tree: &mut Tree<&'static str>| {
             ui.scope(|ui| {

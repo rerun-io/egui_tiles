@@ -43,6 +43,7 @@ pub struct TabState {
 pub(crate) struct LayoutContext<'a> {
     pub gap_width: f32,
     pub tab_bar_height: f32,
+    pub is_tab_bar_visible: &'a dyn Fn(TileId, &crate::Tabs) -> bool,
     pub grid_auto_column_count: &'a dyn Fn(usize, Rect, f32) -> usize,
 
     /// Set by the layout pass if it had to pick an active tab for a [`crate::Tabs`] container.
@@ -72,11 +73,14 @@ pub(crate) fn layout_tiles<Pane, TilesPane>(
     let grid_auto_column_count = |num_visible_children, rect, gap| {
         behavior.grid_auto_column_count(num_visible_children, rect, gap)
     };
+    let is_tab_bar_visible =
+        |tile_id, tabs: &crate::Tabs| behavior.is_tab_bar_visible(tile_id, tabs);
     let tab_auto_selected = std::cell::Cell::new(false);
 
     let layout = LayoutContext {
         gap_width: behavior.gap_width(style),
         tab_bar_height: behavior.tab_bar_height(style),
+        is_tab_bar_visible: &is_tab_bar_visible,
         grid_auto_column_count: &grid_auto_column_count,
         tab_auto_selected: &tab_auto_selected,
     };
@@ -364,6 +368,13 @@ pub trait Behavior<Pane> {
     /// The height of the bar holding tab titles.
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         24.0
+    }
+
+    /// Whether the [`crate::Tabs`] container with the given id shows its tab bar.
+    ///
+    /// Without a tab bar, the active tab takes up the whole rect of the container.
+    fn is_tab_bar_visible(&self, _tile_id: TileId, _tabs: &crate::Tabs) -> bool {
+        true
     }
 
     /// Width of the gap between tiles in a horizontal or vertical layout,

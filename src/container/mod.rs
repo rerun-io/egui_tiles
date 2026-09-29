@@ -239,13 +239,14 @@ impl Container {
         tiles: &mut Tiles<Pane>,
         layout: &LayoutContext<'_>,
         rect: Rect,
+        tile_id: TileId,
     ) {
         if self.is_empty() {
             return;
         }
 
         match self {
-            Self::Tabs(tabs) => tabs.layout(tiles, layout, rect),
+            Self::Tabs(tabs) => tabs.layout(tiles, layout, rect, tile_id),
             Self::Linear(linear) => {
                 linear.layout(tiles, layout, rect);
             }
