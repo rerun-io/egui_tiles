@@ -254,6 +254,7 @@ impl Tabs {
         tiles: &mut Tiles<Pane>,
         layout: &LayoutContext<'_>,
         rect: Rect,
+        tile_id: TileId,
     ) {
         let prev_active = self.active;
         self.ensure_active(tiles);
@@ -262,7 +263,9 @@ impl Tabs {
         }
 
         let mut active_rect = rect;
-        active_rect.min.y += layout.tab_bar_height;
+        if (layout.is_tab_bar_visible)(tile_id, self) {
+            active_rect.min.y += layout.tab_bar_height;
+        }
 
         if let Some(active) = self.active {
             // Only lay out the active tab (saves CPU):
@@ -295,7 +298,11 @@ impl Tabs {
         rect: Rect,
         tile_id: TileId,
     ) {
-        let next_active = self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id);
+        let next_active = if behavior.is_tab_bar_visible(tile_id, self) {
+            self.tab_bar_ui(tree, behavior, ui, rect, drop_context, tile_id)
+        } else {
+            self.active
+        };
 
         if let Some(active) = self.active {
             tree.tile_ui(behavior, drop_context, ui, active);
