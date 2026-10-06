@@ -31,7 +31,7 @@ fn tile_accessibility_nodes_stay_under_parent_ui() {
         |ui, tree: &mut Tree<&'static str>| {
             ui.scope(|ui| {
                 ui.response().widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::Panel, true, "Outer panel")
+                    egui::WidgetInfo::labeled(egui::Role::Pane, true, "Outer panel")
                 });
                 tree.ui(&mut TestBehavior, ui);
             });

@@ -1,6 +1,6 @@
 use egui::{
-    Color32, Id, Rect, Response, Rgba, Sense, Stroke, TextStyle, Ui, Vec2, Visuals, WidgetInfo,
-    WidgetText, WidgetType, vec2,
+    Color32, Id, Rect, Response, Rgba, Role, Sense, Stroke, TextStyle, Ui, Vec2, Visuals,
+    WidgetInfo, WidgetText, vec2,
 };
 
 use super::{ResizeState, SimplificationOptions, Tile, TileId, Tiles, UiResponse};
@@ -192,12 +192,7 @@ pub trait Behavior<Pane> {
         // Deliberately outside the `is_rect_visible` check below: a tab scrolled out of the tab
         // bar is still a tab.
         tab_response.widget_info(|| {
-            WidgetInfo::selected(
-                WidgetType::Button,
-                ui.is_enabled(),
-                state.active,
-                galley.text(),
-            )
+            WidgetInfo::selected(Role::Button, ui.is_enabled(), state.active, galley.text())
         });
 
         // Show a gap when dragged
@@ -241,9 +236,8 @@ pub trait Behavior<Pane> {
                     .interact(close_btn_rect, close_btn_id, Sense::click_and_drag())
                     .on_hover_cursor(egui::CursorIcon::Default);
 
-                close_btn_response.widget_info(|| {
-                    WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), "Close")
-                });
+                close_btn_response
+                    .widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), "Close"));
 
                 let visuals = ui.style().interact(&close_btn_response);
 
