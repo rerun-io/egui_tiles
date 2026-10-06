@@ -133,9 +133,8 @@ impl ScrollState {
             .inner;
 
         // The button has no text, so give screen readers something to announce.
-        response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
-        });
+        response
+            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
 
         response.clicked()
     }
@@ -446,7 +445,7 @@ impl Tabs {
                         behavior.tab_bar_trailing_ui(&tree.tiles, ui, tile_id, self);
                     });
 
-                    scroll_state.offset = output.state.offset.x;
+                    scroll_state.offset = output.state.clamped_offset().x;
                     scroll_state.content_size = output.content_size;
                     scroll_state.available = output.inner_rect.size();
                 },
